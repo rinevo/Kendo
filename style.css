@@ -1,0 +1,209 @@
+:root {
+    --bg: #0f172a;
+    --accent: #f59e0b;
+    --accent2: #38bdf8;
+    --good: #22c55e;
+    --bad: #ef4444;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: "Yu Gothic", "Hiragino Sans", sans-serif;
+    background: linear-gradient(135deg, #020617 0%, var(--bg) 100%);
+    color: var(--text);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    overflow-x: hidden;
+}
+
+.top-link {
+  margin-bottom: 16px;
+}
+
+.top-link a {
+  color: #f4b942;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.top-link a:hover {
+  text-decoration: underline;
+}
+
+.game {
+    width: min(1000px, 100%);
+    background: rgba(17, 24, 39, 0.95);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 24px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    padding: 20px 24px;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(245, 158, 11, 0.1));
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.header h1 {
+    margin: 0 0 4px;
+    font-size: 1.8rem;
+    letter-spacing: 0.08em;
+}
+
+.header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.battle-arena {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 24px;
+    flex: 1;
+    background: radial-gradient(circle at 30% 40%, rgba(56, 189, 248, 0.05), transparent 50%);
+}
+
+.fighter-card {
+    width: 100%;
+    max-width: 182px;
+    text-align: center;
+}
+
+.fighter-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.health-bar {
+    height: 12px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--good), #4ade80);
+    width: 100%;
+    transition: width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.health-text {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: none;
+}
+
+.sprite-container {
+    background: rgba(255,255,255,0.04);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    width: 182px;
+    height: 200px;
+    margin: 0 auto 12px;
+    display: grid;
+    place-items: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.3);
+}
+
+canvas {
+    display: block;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.battle-status {
+    padding: 20px 24px;
+    background: rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    min-height: 80px;
+    display: grid;
+    place-items: center;
+}
+
+.status-text {
+    text-align: center;
+    line-height: 1.6;
+    color: var(--text);
+}
+
+.status-text.victory { color: #bbf7d0; font-weight: 700; }
+.status-text.defeat { color: #fecaca; font-weight: 700; }
+.status-text.neutral { color: var(--muted); }
+
+.controls {
+    padding: 24px;
+    text-align: center;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+button {
+    background: linear-gradient(135deg, var(--accent), #fbbf24);
+    color: #111827;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.25);
+    white-space: nowrap;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.3);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button.secondary {
+    background: linear-gradient(135deg, var(--accent2), #60a5fa);
+    color: white;
+    box-shadow: 0 8px 20px rgba(56, 189, 248, 0.25);
+}
+
+button.secondary:hover:not(:disabled) {
+    box-shadow: 0 10px 24px rgba(56, 189, 248, 0.3);
+}
+
+@media (max-width: 768px) {
+    .battle-arena { gap: 12px; padding: 16px; }
+    .fighter-card { max-width: 182px; }
+    .sprite-container { width: 182px; height: 200px; }
+    .header h1 { font-size: 1.4rem; }
+    button { padding: 9px 14px; font-size: 0.85rem; }
+}
