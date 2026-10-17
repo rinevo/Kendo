@@ -13,25 +13,50 @@
                 <a href="https://rinevo.com" target="_self" rel="noopener noreferrer">rinevo.com</a>
             </div>
             <h1>⚔️ 剣道</h1>
-            <p>相手を倒すまで戦いましょう</p>
-            <p>勝＞負：面＞小手＞胴＞面</p>
+            <p>相手の気配を読み、三すくみ・防御・崩し・必殺の突きで一本を奪え！</p>
+            <div class="rule-pills">
+                <span class="rule-pill">⚔️ 面 ＞ 小手 ＞ 胴 ＞ 面</span>
+                <span class="rule-pill">🛡️ 防御：打突を防ぎ次ターン「応じ技(2ダメ)」</span>
+                <span class="rule-pill">💥 崩し：防御を破る（打突には負ける）</span>
+                <span class="rule-pill">⚡ 突き：気合3で防御貫通2ダメージ</span>
+            </div>
         </div>
 
         <div class="battle-arena">
-            <div class="fighter-card">
+            <div class="fighter-card" id="playerCard">
                 <div class="fighter-name">あなた</div>
                 <div class="health-bar"><div id="playerHealthBar" class="health-fill"></div></div>
                 <div class="health-text" id="playerHealthText">体力: 5 / 5</div>
-                <div class="sprite-container">
+                <div class="kiai-row">
+                    <span class="kiai-label" id="playerKiaiText">気合: 0 / 3</span>
+                    <div class="kiai-pips" id="playerKiaiPips">
+                        <span class="kiai-pip"></span>
+                        <span class="kiai-pip"></span>
+                        <span class="kiai-pip"></span>
+                    </div>
+                </div>
+                <div id="playerBadge" class="stance-badge">中段の構え</div>
+                <div class="sprite-container" id="playerSpriteBox">
                     <canvas id="playerCanvas" width="182" height="200"></canvas>
                 </div>
             </div>
 
-            <div class="fighter-card">
+            <div class="vs-divider">VS</div>
+
+            <div class="fighter-card" id="enemyCard">
                 <div class="fighter-name">相手</div>
                 <div class="health-bar"><div id="enemyHealthBar" class="health-fill"></div></div>
                 <div class="health-text" id="enemyHealthText">体力: 5 / 5</div>
-                <div class="sprite-container">
+                <div class="kiai-row">
+                    <span class="kiai-label" id="enemyKiaiText">気合: 0 / 3</span>
+                    <div class="kiai-pips" id="enemyKiaiPips">
+                        <span class="kiai-pip"></span>
+                        <span class="kiai-pip"></span>
+                        <span class="kiai-pip"></span>
+                    </div>
+                </div>
+                <div id="enemyBadge" class="stance-badge">中段の構え</div>
+                <div class="sprite-container" id="enemySpriteBox">
                     <canvas id="enemyCanvas" width="182" height="200"></canvas>
                 </div>
             </div>
@@ -39,15 +64,21 @@
 
         <div class="battle-status">
             <div id="statusText" class="status-text neutral">試合開始！技を選んでください。</div>
+            <div id="intentBox" class="intent-box">
+                <span class="intent-icon">👁️</span>
+                <span id="intentText">相手の気配を観察中…</span>
+            </div>
         </div>
 
         <div class="controls">
             <div class="actions">
-                <button onclick="playRound('面')">面</button>
-                <button onclick="playRound('小手')">小手</button>
-                <button onclick="playRound('胴')">胴</button>
-                <button class="secondary" onclick="playRound('防御')">防御</button>
-                <button class="secondary" onclick="resetGame()">もう一度</button>
+                <button id="btnMen" onclick="playRound('面')">⚔️ 面</button>
+                <button id="btnKote" onclick="playRound('小手')">⚔️ 小手</button>
+                <button id="btnDo" onclick="playRound('胴')">⚔️ 胴</button>
+                <button id="btnDefend" class="secondary" onclick="playRound('防御')">🛡️ 防御</button>
+                <button id="btnBreak" class="tactical" onclick="playRound('崩し')">💥 崩し</button>
+                <button id="btnTsuki" class="special" onclick="playRound('突き')" disabled>⚡ 突き (気合3)</button>
+                <button class="reset-btn" onclick="resetGame()">🔄 もう一度</button>
             </div>
         </div>
     </div>

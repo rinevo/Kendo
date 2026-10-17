@@ -60,31 +60,56 @@ body {
 }
 
 .header p {
-    margin: 0;
+    margin: 0 0 10px;
     color: var(--muted);
     font-size: 0.9rem;
+}
+
+.rule-pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.rule-pill {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    color: #cbd5e1;
 }
 
 .battle-arena {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
+    gap: 20px;
     padding: 24px;
     flex: 1;
-    background: radial-gradient(circle at 30% 40%, rgba(56, 189, 248, 0.05), transparent 50%);
+    background: radial-gradient(circle at 50% 40%, rgba(56, 189, 248, 0.07), transparent 60%);
+}
+
+.vs-divider {
+    font-weight: 900;
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 0.1em;
+    user-select: none;
 }
 
 .fighter-card {
     width: 100%;
-    max-width: 182px;
+    max-width: 200px;
     text-align: center;
 }
 
 .fighter-name {
     font-size: 1.1rem;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--text);
 }
 
@@ -93,7 +118,7 @@ body {
     background: rgba(255,255,255,0.12);
     border-radius: 999px;
     overflow: hidden;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     border: 1px solid rgba(255,255,255,0.2);
 }
 
@@ -101,14 +126,88 @@ body {
     height: 100%;
     background: linear-gradient(90deg, var(--good), #4ade80);
     width: 100%;
-    transition: width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.3s ease;
+}
+
+.health-fill.low {
+    background: linear-gradient(90deg, #dc2626, #f87171);
 }
 
 .health-text {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--muted);
-    margin-bottom: 12px;
-    display: none;
+    margin-bottom: 6px;
+}
+
+.kiai-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.kiai-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fcd34d;
+}
+
+.kiai-pips {
+    display: flex;
+    gap: 5px;
+}
+
+.kiai-pip {
+    width: 18px;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    transition: all 0.25s ease;
+}
+
+.kiai-pip.filled {
+    background: linear-gradient(90deg, #f59e0b, #fde047);
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+    border-color: #fef08a;
+}
+
+.kiai-pip.max-glow {
+    animation: kiaiPulse 1s infinite alternate;
+}
+
+.stance-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--muted);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: all 0.2s ease;
+}
+
+.stance-badge.counter {
+    background: rgba(249, 115, 22, 0.2);
+    color: #fdba74;
+    border-color: #f97316;
+    box-shadow: 0 0 12px rgba(249, 115, 22, 0.4);
+}
+
+.stance-badge.broken {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border-color: #ef4444;
+}
+
+.stance-badge.max-kiai {
+    background: rgba(234, 179, 8, 0.2);
+    color: #fef08a;
+    border-color: #eab308;
+    box-shadow: 0 0 12px rgba(234, 179, 8, 0.35);
 }
 
 .sprite-container {
@@ -117,12 +216,40 @@ body {
     border-radius: 16px;
     width: 182px;
     height: 200px;
-    margin: 0 auto 12px;
+    margin: 0 auto 4px;
     display: grid;
     place-items: center;
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 0 12px rgba(0,0,0,0.3);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+
+.sprite-container.counter-aura {
+    border-color: #f97316;
+    box-shadow: 0 0 18px rgba(249, 115, 22, 0.45), inset 0 0 15px rgba(249, 115, 22, 0.25);
+}
+
+.sprite-container.broken-aura {
+    border-color: #ef4444;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.35), inset 0 0 12px rgba(239, 68, 68, 0.2);
+}
+
+.sprite-container.hit-shake {
+    animation: shake 0.35s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px) rotate(-2deg); }
+    40% { transform: translateX(8px) rotate(2deg); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+}
+
+@keyframes kiaiPulse {
+    from { transform: scale(1); box-shadow: 0 0 6px rgba(251, 191, 36, 0.6); }
+    to { transform: scale(1.08); box-shadow: 0 0 14px rgba(250, 204, 21, 0.95); }
 }
 
 canvas {
@@ -134,27 +261,49 @@ canvas {
 }
 
 .battle-status {
-    padding: 20px 24px;
+    padding: 16px 24px;
     background: rgba(255,255,255,0.05);
     border-top: 1px solid rgba(255,255,255,0.1);
     border-bottom: 1px solid rgba(255,255,255,0.1);
-    min-height: 80px;
-    display: grid;
-    place-items: center;
+    min-height: 92px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .status-text {
     text-align: center;
-    line-height: 1.6;
+    line-height: 1.5;
     color: var(--text);
+    font-size: 1rem;
 }
 
 .status-text.victory { color: #bbf7d0; font-weight: 700; }
 .status-text.defeat { color: #fecaca; font-weight: 700; }
-.status-text.neutral { color: var(--muted); }
+.status-text.neutral { color: #e2e8f0; }
+
+.intent-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    font-size: 0.85rem;
+    color: #bae6fd;
+}
+
+.intent-box.danger {
+    border-color: rgba(250, 204, 21, 0.6);
+    color: #fef08a;
+    background: rgba(113, 63, 18, 0.35);
+}
 
 .controls {
-    padding: 24px;
+    padding: 20px 24px;
     text-align: center;
 }
 
@@ -162,8 +311,7 @@ canvas {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px;
 }
 
 button {
@@ -182,12 +330,13 @@ button {
 
 button:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.35);
 }
 
 button:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 button.secondary {
@@ -197,13 +346,48 @@ button.secondary {
 }
 
 button.secondary:hover:not(:disabled) {
-    box-shadow: 0 10px 24px rgba(56, 189, 248, 0.3);
+    box-shadow: 0 10px 24px rgba(56, 189, 248, 0.35);
+}
+
+button.tactical {
+    background: linear-gradient(135deg, #a855f7, #ec4899);
+    color: white;
+    box-shadow: 0 8px 20px rgba(168, 85, 247, 0.25);
+}
+
+button.tactical:hover:not(:disabled) {
+    box-shadow: 0 10px 24px rgba(168, 85, 247, 0.4);
+}
+
+button.special {
+    background: linear-gradient(135deg, #dc2626, #f97316, #facc15);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.6);
+}
+
+button.special:not(:disabled) {
+    animation: kiaiPulse 0.9s infinite alternate;
+}
+
+button.reset-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+}
+
+button.reset-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 768px) {
-    .battle-arena { gap: 12px; padding: 16px; }
-    .fighter-card { max-width: 182px; }
-    .sprite-container { width: 182px; height: 200px; }
+    .battle-arena { gap: 8px; padding: 14px; }
+    .vs-divider { display: none; }
+    .fighter-card { max-width: 170px; }
+    .sprite-container { width: 165px; height: 185px; }
     .header h1 { font-size: 1.4rem; }
-    button { padding: 9px 14px; font-size: 0.85rem; }
+    .rule-pill { font-size: 0.72rem; padding: 3px 9px; }
+    button { padding: 9px 13px; font-size: 0.85rem; }
 }
