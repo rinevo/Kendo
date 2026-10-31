@@ -1,11 +1,189 @@
 const MAX_HEALTH = 5;
 const MAX_KIAI = 3;
 
+// 勝ち抜き五人掛け：個性・剣風・胴カラーが異なる5人の剣士データ
+const ENEMY_ROSTER = [
+    {
+        id: 'kenta',
+        role: '先鋒',
+        shortName: '健太',
+        name: '門下生・健太',
+        rank: '初段',
+        styleTag: '素直な面打ち',
+        maxHealth: 4,
+        initialKiai: 0,
+        introQuote: '「お願いします！まずは真っ直ぐ面で勝負です！」',
+        armorTheme: {
+            doStops: ['#14161b', '#252932', '#475569', '#22262e', '#111318'],
+            muneFill: '#1e293b',
+            muneStitch: 'rgba(226, 232, 240, 0.72)',
+            tareLine: 'rgba(148, 163, 184, 0.5)',
+        },
+        patterns: [
+            {
+                hint: '🔥 健太は真っ直ぐ「面」を狙って構えている！（「胴」の抜き技や「防御」から応じ技の好機）',
+                isDanger: false,
+                weights: { 面: 65, 小手: 20, 胴: 10, 防御: 5, 崩し: 0, 突き: 0 },
+            },
+            {
+                hint: '⚔️ 健太は元気よく「面」か「小手」に飛び込もうとしている！（「防御」や「胴」が有効）',
+                isDanger: false,
+                weights: { 面: 50, 小手: 35, 胴: 10, 防御: 5, 崩し: 0, 突き: 0 },
+            },
+            {
+                hint: '🛡️ 健太は少し緊張して守りを意識しつつ「面」を狙っている…（「崩し」や「胴」の好機！）',
+                isDanger: false,
+                weights: { 防御: 40, 面: 40, 小手: 15, 胴: 5, 崩し: 0, 突き: 0 },
+            },
+        ],
+    },
+    {
+        id: 'sasaki',
+        role: '次鋒',
+        shortName: '佐々木',
+        name: '小手名人・佐々木',
+        rank: '三段',
+        styleTag: '出ばな小手と鉄壁防御',
+        maxHealth: 5,
+        initialKiai: 0,
+        introQuote: '「手元の隙は見逃さん。出ばな小手、受けてみよ！」',
+        armorTheme: {
+            doStops: ['#082f49', '#0369a1', '#38bdf8', '#075985', '#0c4a6e'],
+            muneFill: '#0f172a',
+            muneStitch: 'rgba(56, 189, 248, 0.88)',
+            tareLine: 'rgba(56, 189, 248, 0.65)',
+        },
+        patterns: [
+            {
+                hint: '⚡ 佐々木は鋭い視線であなたの手元（「小手」）を狙っている！（「面」で上から乗り切る好機！）',
+                isDanger: false,
+                weights: { 小手: 60, 防御: 20, 面: 10, 胴: 10, 崩し: 0, 突き: 0 },
+            },
+            {
+                hint: '🛡️ 佐々木は鉄壁の「防御」から応じ技を狙い、隙あらば「小手」を打つ構え！（「崩し」か「面」が有効）',
+                isDanger: false,
+                weights: { 防御: 55, 小手: 30, 胴: 10, 面: 5, 崩し: 0, 突き: 0 },
+            },
+            {
+                hint: '⚔️ 佐々木は竹刀をわずかに下げ、「小手」か「胴」の二択を迫っている…',
+                isDanger: false,
+                weights: { 小手: 48, 胴: 32, 防御: 12, 面: 8, 崩し: 0, 突き: 0 },
+            },
+        ],
+    },
+    {
+        id: 'onizuka',
+        role: '中堅',
+        shortName: '鬼塚',
+        name: '剛剣・鬼塚',
+        rank: '四段',
+        styleTag: '豪快な崩しと胴斬り',
+        maxHealth: 6,
+        initialKiai: 1,
+        introQuote: '「小細工は無用！体当たりの『崩し』ごと叩き割ってくれるわ！」',
+        armorTheme: {
+            doStops: ['#450a0a', '#991b1b', '#ef4444', '#7f1d1d', '#3b0707'],
+            muneFill: '#291010',
+            muneStitch: 'rgba(250, 204, 21, 0.9)',
+            tareLine: 'rgba(248, 113, 113, 0.65)',
+        },
+        patterns: [
+            {
+                hint: '💥 鬼塚は強引に間合いを詰め、「崩し」の体当たりか豪快な「胴」を狙っている！（基本打突で迎撃せよ）',
+                isDanger: true,
+                weights: { 崩し: 52, 胴: 30, 面: 12, 小手: 6, 防御: 0, 突き: 0 },
+            },
+            {
+                hint: '🔥 鬼塚は全身のバネを溜め、渾身の「胴」か「面」を振り抜く気配！（「小手」や「防御」の好機）',
+                isDanger: false,
+                weights: { 胴: 52, 面: 30, 崩し: 12, 小手: 6, 防御: 0, 突き: 0 },
+            },
+            {
+                hint: '💥 鬼塚はあなたの守りを粉砕しようと「崩し」と「面」を狙っている！（打突で出端を叩け！）',
+                isDanger: false,
+                weights: { 崩し: 45, 面: 35, 胴: 15, 小手: 5, 防御: 0, 突き: 0 },
+            },
+        ],
+    },
+    {
+        id: 'kasumi',
+        role: '副将',
+        shortName: '霞',
+        name: '幻影・霞',
+        rank: '五段',
+        styleTag: '虚実の気配と応じ技',
+        maxHealth: 5,
+        initialKiai: 0,
+        introQuote: '「見えている太刀筋だけが真実とは限りませんよ…」',
+        armorTheme: {
+            doStops: ['#2e1065', '#581c87', '#a855f7', '#4c1d95', '#1e1b4b'],
+            muneFill: '#1e1b4b',
+            muneStitch: 'rgba(216, 180, 254, 0.88)',
+            tareLine: 'rgba(192, 132, 252, 0.65)',
+        },
+        patterns: [
+            {
+                hint: '🛡️ 霞は静かに構え、「防御」からの応じ技か、意表を突く「胴」を狙っている…（「崩し」や「小手」の好機）',
+                isDanger: false,
+                weights: { 防御: 48, 胴: 28, 小手: 14, 面: 10, 崩し: 0, 突き: 0 },
+            },
+            {
+                hint: '👁️ 霞は「面」と見せかけて手元の「小手」や「崩し」も織り交ぜる変幻自在の構え！',
+                isDanger: false,
+                weights: { 小手: 38, 面: 28, 崩し: 22, 防御: 12, 胴: 0, 突き: 0 },
+            },
+            {
+                hint: '🔥 霞はすっと剣先を上げ、「胴」と「面」の二段変化を狙っている…！',
+                isDanger: false,
+                weights: { 胴: 42, 面: 33, 防御: 15, 小手: 10, 崩し: 0, 突き: 0 },
+            },
+        ],
+    },
+    {
+        id: 'ryuzen',
+        role: '大将',
+        shortName: '龍禅',
+        name: '師範代・龍禅',
+        rank: '範士八段',
+        styleTag: '王者の剣・諸手突き',
+        maxHealth: 7,
+        initialKiai: 1,
+        introQuote: '「よくぞここまで勝ち上がった。我が道場の奥義、全力で超えてみせよ！」',
+        armorTheme: {
+            doStops: ['#422006', '#a16207', '#facc15', '#854d0e', '#271202'],
+            muneFill: '#1c1917',
+            muneStitch: 'rgba(253, 224, 71, 0.95)',
+            tareLine: 'rgba(250, 204, 21, 0.78)',
+        },
+        patterns: [
+            {
+                hint: '⚡ 龍禅は圧倒的な気迫で「面」と「小手」から主導権を握ろうとしている！（「胴」か「防御」で応戦せよ）',
+                isDanger: true,
+                weights: { 面: 44, 小手: 32, 防御: 14, 胴: 10, 崩し: 0, 突き: 0 },
+            },
+            {
+                hint: '🛡️ 龍禅は泰然自若の構え。「防御」で受け流すか、守りを読む「崩し」を狙っている！',
+                isDanger: true,
+                weights: { 防御: 42, 崩し: 28, 小手: 18, 面: 12, 胴: 0, 突き: 0 },
+            },
+            {
+                hint: '🔥 龍禅の剣先が鋭く沈んだ！「胴」か電光石火の「面」が来るぞ！',
+                isDanger: true,
+                weights: { 胴: 45, 面: 35, 小手: 10, 防御: 10, 崩し: 0, 突き: 0 },
+            },
+        ],
+    },
+];
+
 const state = {
+    stageIndex: 0,
+    enemyMaxHealth: ENEMY_ROSTER[0].maxHealth,
+    clearedStages: new Set(),
+    lastOutcome: null,
     playerHealth: MAX_HEALTH,
-    enemyHealth: MAX_HEALTH,
+    enemyHealth: ENEMY_ROSTER[0].maxHealth,
     playerKiai: 0,
-    enemyKiai: 0,
+    enemyKiai: ENEMY_ROSTER[0].initialKiai,
     playerCounterReady: false,
     enemyCounterReady: false,
     playerGuardBroken: false,
@@ -17,6 +195,10 @@ const state = {
     enemyIntent: null,
     animResetTimer: null,
 };
+
+function getCurrentEnemy() {
+    return ENEMY_ROSTER[state.stageIndex] || ENEMY_ROSTER[0];
+}
 
 let audioCtx = null;
 
@@ -523,9 +705,13 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     ctx.restore();
 }
 
-function drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway) {
+function drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway, armorTheme = null) {
     const ink = '#080a0f';
     const bScale = 1 + (breath || 0) * 0.025;
+    const tareLineColor = (armorTheme && armorTheme.tareLine) || 'rgba(88, 132, 198, 0.45)';
+    const muneFillColor = (armorTheme && armorTheme.muneFill) || '#1b1e26';
+    const muneStitchColor = (armorTheme && armorTheme.muneStitch) || 'rgba(185, 28, 28, 0.7)';
+    const doStops = (armorTheme && armorTheme.doStops) || ['#14161b', '#252932', '#424957', '#22262e', '#111318'];
 
     ctx.save();
     ctx.translate(hipX, hipY);
@@ -563,7 +749,7 @@ function drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway
         ctx.fill();
         ctx.stroke();
 
-        ctx.strokeStyle = 'rgba(88, 132, 198, 0.45)';
+        ctx.strokeStyle = tareLineColor;
         ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.roundRect(fx + 3.5, 2.5, fw - 7, fh - 8, 2);
@@ -606,13 +792,13 @@ function drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway
 
     const twistShift = (torsoTwist || 0) * 9;
     const doGrad = ctx.createLinearGradient(-32 + twistShift, -50, 36 + twistShift, -4);
-    doGrad.addColorStop(0, '#14161b');
-    doGrad.addColorStop(0.4, '#252932');
-    doGrad.addColorStop(0.65, '#424957');
-    doGrad.addColorStop(0.82, '#22262e');
-    doGrad.addColorStop(1, '#111318');
+    doGrad.addColorStop(0, doStops[0]);
+    doGrad.addColorStop(0.4, doStops[1]);
+    doGrad.addColorStop(0.65, doStops[2]);
+    doGrad.addColorStop(0.82, doStops[3]);
+    doGrad.addColorStop(1, doStops[4]);
 
-    ctx.fillStyle = '#1b1e26';
+    ctx.fillStyle = muneFillColor;
     ctx.strokeStyle = ink;
     ctx.lineWidth = 3.2;
     ctx.beginPath();
@@ -624,7 +810,7 @@ function drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway
     ctx.fill();
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(185, 28, 28, 0.7)';
+    ctx.strokeStyle = muneStitchColor;
     ctx.lineWidth = 1.7;
     ctx.beginPath();
     ctx.moveTo(-6 + twistShift * 0.5, -50);
@@ -1105,7 +1291,7 @@ function drawArmAndKote(ctx, sx, sy, hx, hy, shinaiAngleDeg, isBack, part = 'all
     ctx.restore();
 }
 
-function renderFighterPose(ctx, pose) {
+function renderFighterPose(ctx, pose, armorTheme = null) {
     const hipX = pose.hipX ?? 132;
     const hipY = pose.hipY ?? 258;
     const backFootX = pose.backFootX ?? 98;
@@ -1135,7 +1321,7 @@ function renderFighterPose(ctx, pose) {
     drawBareFoot(ctx, frontFootX, frontFootY, frontHeel, 1.04, false);
     drawArmAndKote(ctx, anchors.backShoulder.x, anchors.backShoulder.y, hands.left.x, hands.left.y, shinaiAngle, true, 'upper');
     drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFootY, hakamaSway);
-    drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway);
+    drawTorsoAndDo(ctx, hipX, hipY, torsoLean, torsoTwist, breath, tareSway, armorTheme);
     drawHeadMen(ctx, anchors.neck.x, anchors.neck.y, torsoLean * 0.65 + headPitch, mendareSway, hitDebris);
     drawArmAndKote(ctx, anchors.backShoulder.x, anchors.backShoulder.y, hands.left.x, hands.left.y, shinaiAngle, true, 'forearm');
     drawShinai(ctx, gripX, gripY, shinaiAngle, shinaiFlex, swingBlur);
@@ -1144,13 +1330,13 @@ function renderFighterPose(ctx, pose) {
 }
 
 // 連続補間された骨格ポーズを足裏基準原点 (0, 0) でキャンバスに描画
-function drawArticulatedPoseOnCanvas(ctx, pose, alpha = 1) {
+function drawArticulatedPoseOnCanvas(ctx, pose, alpha = 1, armorTheme = null) {
     const scale = CANVAS_W / VIRTUAL_W;
     ctx.save();
     ctx.globalAlpha *= alpha;
     ctx.scale(scale, scale);
     ctx.translate(-ANCHOR_FOOT_X, -ANCHOR_FOOT_Y);
-    renderFighterPose(ctx, pose);
+    renderFighterPose(ctx, pose, armorTheme);
     ctx.restore();
 }
 
@@ -1210,6 +1396,12 @@ const btnDo = document.getElementById('btnDo');
 const btnDefend = document.getElementById('btnDefend');
 const btnBreak = document.getElementById('btnBreak');
 const btnTsuki = document.getElementById('btnTsuki');
+const btnNextStage = document.getElementById('btnNextStage');
+const enemyNameText = document.getElementById('enemyNameText');
+const enemyTitleBadge = document.getElementById('enemyTitleBadge');
+const playerTitleBadge = document.getElementById('playerTitleBadge');
+const stageBar = document.getElementById('stageBar');
+const stageProgressText = document.getElementById('stageProgressText');
 const actionButtons = [btnMen, btnKote, btnDo, btnDefend, btnBreak, btnTsuki];
 
 let refereeHideTimer = null;
@@ -2051,6 +2243,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     ctx.restore();
 
     // 3. 残像（アフターイメージ）の描画
+    const fighterArmorTheme = who === 'enemy' ? getCurrentEnemy().armorTheme : null;
     for (let i = anim.afterimages.length - 1; i >= 0; i--) {
         const img = anim.afterimages[i];
         img.alpha -= 0.045 * (inHitStop ? 0.2 : 1);
@@ -2064,7 +2257,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
         ctx.rotate(img.rot);
         ctx.scale(img.scaleX, img.scaleY);
         if (img.pose) {
-            drawArticulatedPoseOnCanvas(ctx, img.pose, img.alpha);
+            drawArticulatedPoseOnCanvas(ctx, img.pose, img.alpha, fighterArmorTheme);
         } else if (img.sprite) {
             drawSingleSpriteFrame(ctx, img.sprite, img.alpha);
         }
@@ -2077,7 +2270,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     if (flip) ctx.scale(-1, 1);
     ctx.rotate(anim.rot);
     ctx.scale(anim.scaleX, anim.scaleY);
-    drawArticulatedPoseOnCanvas(ctx, renderPose, 1);
+    drawArticulatedPoseOnCanvas(ctx, renderPose, 1, fighterArmorTheme);
     ctx.restore();
 
     // 5. 斬撃軌跡・防御シールドの描画
@@ -2272,11 +2465,45 @@ function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai) {
     }
 }
 
+function updateStageBarUI() {
+    if (stageBar) {
+        const steps = stageBar.querySelectorAll('.stage-step');
+        steps.forEach((step, idx) => {
+            const rosterItem = ENEMY_ROSTER[idx];
+            if (!rosterItem) return;
+            const isCleared = state.clearedStages.has(idx);
+            step.classList.toggle('active', idx === state.stageIndex);
+            step.classList.toggle('cleared', isCleared);
+            const roleEl = step.querySelector('.stage-role');
+            if (roleEl) {
+                roleEl.textContent = isCleared ? `✅ ${rosterItem.role}` : rosterItem.role;
+            }
+        });
+    }
+    if (stageProgressText) {
+        const clearedCount = state.clearedStages.size;
+        stageProgressText.textContent = clearedCount === ENEMY_ROSTER.length
+            ? `🏆 五人掛け完全制覇！（${clearedCount} / ${ENEMY_ROSTER.length}人撃破）`
+            : `制覇: ${clearedCount} / ${ENEMY_ROSTER.length}人（クリックで相手を指名可）`;
+    }
+}
+
 function updateUI() {
+    const enemyData = getCurrentEnemy();
     const pHp = Math.max(0, state.playerHealth);
     const eHp = Math.max(0, state.enemyHealth);
+    const eMax = state.enemyMaxHealth || enemyData.maxHealth;
     const playerPct = (pHp / MAX_HEALTH) * 100;
-    const enemyPct = (eHp / MAX_HEALTH) * 100;
+    const enemyPct = (eHp / eMax) * 100;
+
+    if (enemyNameText) enemyNameText.textContent = enemyData.name;
+    if (enemyTitleBadge) enemyTitleBadge.textContent = `${enemyData.role}・${enemyData.rank}（${enemyData.styleTag}）`;
+    if (playerTitleBadge) {
+        playerTitleBadge.textContent = state.clearedStages.size === ENEMY_ROSTER.length
+            ? '🏆 天下無双・五人掛け覇者'
+            : `挑戦者（${state.clearedStages.size}/${ENEMY_ROSTER.length}人撃破）`;
+    }
+    updateStageBarUI();
 
     playerHealthBar.style.width = `${playerPct}%`;
     enemyHealthBar.style.width = `${enemyPct}%`;
@@ -2286,7 +2513,7 @@ function updateUI() {
     enemyHealthBar.classList.toggle('low', eHp <= 2);
 
     playerHealthText.textContent = `体力: ${pHp} / ${MAX_HEALTH}`;
-    enemyHealthText.textContent = `体力: ${eHp} / ${MAX_HEALTH}`;
+    enemyHealthText.textContent = `体力: ${eHp} / ${eMax}`;
 
     playerKiaiText.textContent = `気合: ${state.playerKiai} / ${MAX_KIAI}`;
     enemyKiaiText.textContent = `気合: ${state.enemyKiai} / ${MAX_KIAI}`;
@@ -2306,6 +2533,20 @@ function updateUI() {
 
     btnTsuki.disabled = state.playerKiai < MAX_KIAI || state.gameOver;
     btnTsuki.textContent = state.playerKiai >= MAX_KIAI ? '⚡ 突き (発動可！)' : `⚡ 突き (${state.playerKiai}/${MAX_KIAI})`;
+
+    if (btnNextStage) {
+        if (state.gameOver && state.lastOutcome === 'victory') {
+            btnNextStage.style.display = 'inline-block';
+            if (state.stageIndex < ENEMY_ROSTER.length - 1) {
+                const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
+                btnNextStage.textContent = `⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む`;
+            } else {
+                btnNextStage.textContent = '🏆 先鋒から再び五人掛けに挑戦';
+            }
+        } else {
+            btnNextStage.style.display = 'none';
+        }
+    }
 }
 
 function updateStatus(message, type = 'neutral') {
@@ -2313,71 +2554,61 @@ function updateStatus(message, type = 'neutral') {
     statusText.className = `status-text ${type}`;
 }
 
-// 敵AIの次ターンの気配（思考傾向）を決定
+// 敵AIの次ターンの気配（剣士ごとの思考傾向）を決定
 function decideEnemyIntent() {
+    const enemyData = getCurrentEnemy();
     if (state.gameOver) {
         intentBox.className = 'intent-box';
-        intentText.textContent = '「🔄 もう一度」または任意の技ボタンで再戦できます。';
+        if (state.lastOutcome === 'victory' && state.stageIndex < ENEMY_ROSTER.length - 1) {
+            const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
+            intentText.textContent = `「⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む」または任意の技ボタンで次戦へ進めます。`;
+        } else {
+            intentText.textContent = '「🔄 もう一度」または上部の剣士バッジから対戦相手を選べます。';
+        }
         return;
     }
 
     let intent;
     if (state.enemyKiai >= MAX_KIAI) {
         intent = {
-            hint: '⚠️ 相手の気合が最高潮だ！必殺の「突き」か、守りを割る「崩し」が来るぞ！',
+            hint: `⚠️ ${enemyData.shortName}の気合が最高潮だ！必殺の「突き」か、守りを割る「崩し」が来るぞ！`,
             isDanger: true,
-            weights: { 突き: 55, 崩し: 15, 面: 15, 小手: 15, 胴: 0, 防御: 0 },
+            weights: { 突き: 58, 崩し: 16, 面: 14, 小手: 12, 胴: 0, 防御: 0 },
         };
     } else if (state.enemyCounterReady) {
         intent = {
-            hint: '🔥 相手は「応じ技」の構え！強烈な「面」か「胴」で一気に打ち込んでくる気配！',
+            hint: `🔥 ${enemyData.shortName}は「応じ技」の構え！強烈な打突（威力2倍）で一気に打ち込んでくる気配！`,
             isDanger: true,
-            weights: { 面: 45, 胴: 35, 小手: 15, 崩し: 5, 防御: 0, 突き: 0 },
+            weights: { 面: 42, 胴: 35, 小手: 18, 崩し: 5, 防御: 0, 突き: 0 },
         };
     } else if ((state.playerCounterReady || state.playerKiai >= MAX_KIAI) && !state.enemyGuardBroken) {
         if (Math.random() < 0.65) {
             intent = {
-                hint: '🛡️ 相手はあなたの攻めを警戒し、守りを固めつつ「小手」を狙っている…（「崩し」や「面」の好機！）',
+                hint: `🛡️ ${enemyData.shortName}はあなたの攻めを警戒し、守りを固めつつ「小手」を狙っている…（「崩し」や「面」の好機！）`,
                 isDanger: false,
                 weights: { 防御: 50, 小手: 30, 面: 10, 胴: 10, 崩し: 0, 突き: 0 },
             };
         } else {
             intent = {
-                hint: '👁️ 相手は先手を取ろうと、出端の「小手」や「崩し」を狙っている…',
+                hint: `👁️ ${enemyData.shortName}は先手を取ろうと、出端の「小手」や「崩し」を狙っている…`,
                 isDanger: false,
                 weights: { 小手: 45, 崩し: 30, 胴: 15, 面: 10, 防御: 0, 突き: 0 },
             };
         }
     } else {
-        const patterns = [
-            {
-                hint: '🔥 相手は前のめりに「面」や「小手」を狙っている！（「胴」の抜き技や「防御」から応じ技の好機）',
-                isDanger: false,
-                weights: { 面: 50, 小手: 25, 胴: 15, 防御: 10, 崩し: 0, 突き: 0 },
-            },
-            {
-                hint: '🛡️ 相手は慎重に間合いを測り、守りからの「小手」を狙っている…（「崩し」や「面」の好機！）',
-                isDanger: false,
-                weights: { 防御: 48, 小手: 27, 胴: 15, 面: 10, 崩し: 0, 突き: 0 },
-            },
-            {
-                hint: '💥 相手は間合いを詰め、あなたの守りを「崩し」か「胴」で割ろうとしている！（打突で迎撃せよ）',
-                isDanger: false,
-                weights: { 崩し: 45, 胴: 30, 面: 15, 小手: 10, 防御: 0, 突き: 0 },
-            },
-            {
-                hint: '⚔️ 相手は竹刀を低く構え、「胴」や「面」を狙っている…（「小手」や「防御」が有効）',
-                isDanger: false,
-                weights: { 胴: 45, 面: 30, 防御: 15, 小手: 10, 崩し: 0, 突き: 0 },
-            },
-        ];
-        intent = patterns[Math.floor(Math.random() * patterns.length)];
+        const patterns = enemyData.patterns;
+        const picked = patterns[Math.floor(Math.random() * patterns.length)];
+        intent = {
+            hint: picked.hint,
+            isDanger: picked.isDanger,
+            weights: { ...picked.weights },
+        };
     }
 
     // 相手が体勢崩れ中の場合は「防御」を選ばない
     if (state.enemyGuardBroken && intent.weights['防御'] > 0) {
         intent.weights = { ...intent.weights, 小手: intent.weights['小手'] + intent.weights['防御'], 防御: 0 };
-        intent.hint = '💫 相手は体勢が崩れて防御できない！一気に攻め込む好機だ！';
+        intent.hint = `💫 ${enemyData.shortName}は体勢が崩れて防御できない！一気に攻め込む好機だ！`;
     }
 
     state.enemyIntent = intent;
@@ -2416,7 +2647,11 @@ function playRound(playerAction) {
     }
 
     if (state.gameOver) {
-        resetGame();
+        if (state.lastOutcome === 'victory' && state.stageIndex < ENEMY_ROSTER.length - 1) {
+            advanceStage();
+        } else {
+            resetGame();
+        }
         return;
     }
 
@@ -2773,6 +3008,7 @@ function playRound(playerAction) {
     state.playerAnimState = playerAnim;
     state.enemyAnimState = enemyAnim;
 
+    const enemyData = getCurrentEnemy();
     let finalStatusMessage = message;
     let finalStatusType = statusType;
 
@@ -2781,6 +3017,7 @@ function playRound(playerAction) {
         state.playerAnimState = 'hit';
         state.enemyAnimState = 'hit';
         state.gameOver = true;
+        state.lastOutcome = 'draw';
         impactWeight = 'heavy';
         endGameSound = 'lose';
         finalStatusMessage = `引き分け（相打ち決着）！第${state.round}合で双方が倒れました。`;
@@ -2790,36 +3027,62 @@ function playRound(playerAction) {
         state.playerAnimState = 'hit';
         state.enemyAnimState = 'victory';
         state.gameOver = true;
+        state.lastOutcome = 'defeat';
         impactWeight = 'heavy';
         endGameSound = 'lose';
-        finalStatusMessage = `敗北… 第${state.round}合で倒されました。（${message}）`;
+        finalStatusMessage = `敗北… ${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。（${message}）`;
         finalStatusType = 'defeat';
         calloutData = {
             winner: 'enemy',
             mainText: '勝負あり！',
-            subText: `🏳️ 白（相手）の勝利（${enemyAction}）`,
+            subText: `🏳️ 白（${enemyData.shortName}）の勝利（${enemyAction}）`,
             isCritical: false,
         };
     } else if (state.enemyHealth <= 0) {
         state.playerAnimState = 'victory';
         state.enemyAnimState = 'hit';
         state.gameOver = true;
+        state.lastOutcome = 'victory';
+        state.clearedStages.add(state.stageIndex);
         impactWeight = 'heavy';
         endGameSound = 'win';
-        finalStatusMessage = `🏆 勝負あり！勝利！！第${state.round}合で相手を倒しました！（${message}）`;
-        finalStatusType = 'victory';
-        calloutData = {
-            winner: 'player',
-            mainText: '🏆 勝負あり！',
-            subText: `🚩 赤（あなた）の勝利！（${playerAction}）`,
-            isCritical: true,
-        };
+
+        const allCleared = state.clearedStages.size === ENEMY_ROSTER.length;
+        if (allCleared && state.stageIndex === ENEMY_ROSTER.length - 1) {
+            finalStatusMessage = `🎉 天下無双！！大将【${enemyData.name}】を破り、勝ち抜き五人掛けを完全制覇しました！！（${message}）`;
+            finalStatusType = 'victory';
+            calloutData = {
+                winner: 'player',
+                mainText: '🏆 五人掛け完全制覇！',
+                subText: `🚩 天下無双・${enemyData.shortName}を撃破！`,
+                isCritical: true,
+            };
+        } else if (state.stageIndex < ENEMY_ROSTER.length - 1) {
+            const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
+            finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】を撃破！次は${nextEnemy.role}【${nextEnemy.name}】が待ち受ける！（${message}）`;
+            finalStatusType = 'victory';
+            calloutData = {
+                winner: 'player',
+                mainText: `🏆 ${enemyData.role}撃破！`,
+                subText: `🚩 赤（あなた）の勝利！（次戦：${nextEnemy.role}・${nextEnemy.shortName}）`,
+                isCritical: true,
+            };
+        } else {
+            finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】に勝利しました！（${message}）`;
+            finalStatusType = 'victory';
+            calloutData = {
+                winner: 'player',
+                mainText: '🏆 勝負あり！',
+                subText: `🚩 赤（あなた）の勝利！（${playerAction}）`,
+                isCritical: true,
+            };
+        }
     }
 
     // 1. アニメーション開始時：前回の旗表示を消し、立ち合い中テキストを表示してボタンを一時ロック
     hideRefereeCallout();
     setActionButtonsLocked(true);
-    updateStatus(`第${state.round}合: あなた【${playerAction}】 vs 相手【${enemyAction}】 — 立ち合い…！`, 'neutral');
+    updateStatus(`第${state.round}合: あなた【${playerAction}】 vs ${enemyData.shortName}【${enemyAction}】 — 立ち合い…！`, 'neutral');
     if (intentText) intentText.textContent = '⚔️ 技が交錯しています…';
 
     // 2. 打突・被弾の連続キーフレームアニメーションを再生
@@ -2861,6 +3124,22 @@ function playRound(playerAction) {
     }, 1150);
 }
 
+function selectStage(stageIndex) {
+    const clamped = Math.max(0, Math.min(ENEMY_ROSTER.length - 1, Number(stageIndex) || 0));
+    state.stageIndex = clamped;
+    resetGame();
+}
+
+function advanceStage() {
+    if (state.stageIndex < ENEMY_ROSTER.length - 1) {
+        state.stageIndex += 1;
+    } else {
+        state.stageIndex = 0;
+        state.clearedStages.clear();
+    }
+    resetGame();
+}
+
 function resetGame() {
     clearPendingRoundTimers();
     if (state.animResetTimer) {
@@ -2873,16 +3152,19 @@ function resetGame() {
     timeState.hitStopUntil = 0;
     timeState.slowMoUntil = 0;
 
+    const enemyData = getCurrentEnemy();
+    state.enemyMaxHealth = enemyData.maxHealth;
     state.playerHealth = MAX_HEALTH;
-    state.enemyHealth = MAX_HEALTH;
+    state.enemyHealth = enemyData.maxHealth;
     state.playerKiai = 0;
-    state.enemyKiai = 0;
+    state.enemyKiai = enemyData.initialKiai || 0;
     state.playerCounterReady = false;
     state.enemyCounterReady = false;
     state.playerGuardBroken = false;
     state.enemyGuardBroken = false;
     state.round = 0;
     state.gameOver = false;
+    state.lastOutcome = null;
     state.playerAnimState = 'idle';
     state.enemyAnimState = 'idle';
 
@@ -2890,7 +3172,7 @@ function resetGame() {
     animators.enemy = createAnimator(1.8);
 
     updateUI();
-    updateStatus('試合開始！相手の気配を読み、技を選んでください。', 'neutral');
+    updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）が登場！ ${enemyData.introQuote}`, 'neutral');
     decideEnemyIntent();
 }
 

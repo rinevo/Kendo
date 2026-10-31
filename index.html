@@ -20,11 +20,41 @@
                 <span class="rule-pill">💥 崩し：防御を破る（打突には負ける）</span>
                 <span class="rule-pill">⚡ 突き：気合3で防御貫通2ダメージ</span>
             </div>
+
+            <div class="stage-bar-wrap">
+                <div class="stage-bar-header">
+                    <span class="stage-bar-title">🏆 勝ち抜き五人掛け</span>
+                    <span class="stage-bar-progress" id="stageProgressText">制覇: 0 / 5人（クリックで相手を指名可）</span>
+                </div>
+                <div class="stage-bar" id="stageBar" role="tablist" aria-label="対戦相手の選択">
+                    <button type="button" class="stage-step active" data-stage="0" onclick="selectStage(0)">
+                        <span class="stage-role">先鋒</span>
+                        <span class="stage-name">健太</span>
+                    </button>
+                    <button type="button" class="stage-step" data-stage="1" onclick="selectStage(1)">
+                        <span class="stage-role">次鋒</span>
+                        <span class="stage-name">佐々木</span>
+                    </button>
+                    <button type="button" class="stage-step" data-stage="2" onclick="selectStage(2)">
+                        <span class="stage-role">中堅</span>
+                        <span class="stage-name">鬼塚</span>
+                    </button>
+                    <button type="button" class="stage-step" data-stage="3" onclick="selectStage(3)">
+                        <span class="stage-role">副将</span>
+                        <span class="stage-name">霞</span>
+                    </button>
+                    <button type="button" class="stage-step boss" data-stage="4" onclick="selectStage(4)">
+                        <span class="stage-role">大将</span>
+                        <span class="stage-name">龍禅</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div class="battle-arena" id="battleArena">
             <div class="fighter-card" id="playerCard">
-                <div class="fighter-name">あなた <span class="corner-tag red-tag">赤</span></div>
+                <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
+                <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
                 <div class="health-bar">
                     <div id="playerHealthTrail" class="health-trail"></div>
                     <div id="playerHealthBar" class="health-fill"></div>
@@ -57,12 +87,13 @@
             </div>
 
             <div class="fighter-card" id="enemyCard">
-                <div class="fighter-name">相手 <span class="corner-tag white-tag">白</span></div>
+                <div class="fighter-name"><span id="enemyNameText">門下生・健太</span> <span class="corner-tag white-tag">白</span></div>
+                <div class="fighter-subtitle" id="enemyTitleBadge">先鋒・初段（素直な面打ち）</div>
                 <div class="health-bar">
                     <div id="enemyHealthTrail" class="health-trail"></div>
                     <div id="enemyHealthBar" class="health-fill"></div>
                 </div>
-                <div class="health-text" id="enemyHealthText">体力: 5 / 5</div>
+                <div class="health-text" id="enemyHealthText">体力: 4 / 4</div>
                 <div class="kiai-row">
                     <span class="kiai-label" id="enemyKiaiText">気合: 0 / 3</span>
                     <div class="kiai-pips" id="enemyKiaiPips">
@@ -95,6 +126,7 @@
                 <button id="btnDefend" class="secondary" onclick="playRound('防御')">🛡️ 防御</button>
                 <button id="btnBreak" class="tactical" onclick="playRound('崩し')">💥 崩し</button>
                 <button id="btnTsuki" class="special" onclick="playRound('突き')" disabled>⚡ 突き (気合3)</button>
+                <button id="btnNextStage" class="next-btn" onclick="advanceStage()" style="display: none;">⏭️ 次の相手へ進む</button>
                 <button class="reset-btn" onclick="resetGame()">🔄 もう一度</button>
             </div>
         </div>
