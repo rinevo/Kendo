@@ -1174,6 +1174,9 @@ function setupSmoothCanvas(canvas) {
 const playerCtx = setupSmoothCanvas(playerCanvas);
 const enemyCtx = setupSmoothCanvas(enemyCanvas);
 
+const battleArena = document.getElementById('battleArena');
+const playerHealthTrail = document.getElementById('playerHealthTrail');
+const enemyHealthTrail = document.getElementById('enemyHealthTrail');
 const playerHealthBar = document.getElementById('playerHealthBar');
 const enemyHealthBar = document.getElementById('enemyHealthBar');
 const playerHealthText = document.getElementById('playerHealthText');
@@ -1188,13 +1191,92 @@ const playerBadge = document.getElementById('playerBadge');
 const enemyBadge = document.getElementById('enemyBadge');
 const playerSpriteBox = document.getElementById('playerSpriteBox');
 const enemySpriteBox = document.getElementById('enemySpriteBox');
+const playerPopupLayer = document.getElementById('playerPopupLayer');
+const enemyPopupLayer = document.getElementById('enemyPopupLayer');
+
+const refereeCallout = document.getElementById('refereeCallout');
+const refFlagRed = document.getElementById('refFlagRed');
+const refFlagWhite = document.getElementById('refFlagWhite');
+const refereeMainText = document.getElementById('refereeMainText');
+const refereeSubText = document.getElementById('refereeSubText');
 
 const statusText = document.getElementById('statusText');
 const intentBox = document.getElementById('intentBox');
 const intentText = document.getElementById('intentText');
 
+const btnMen = document.getElementById('btnMen');
+const btnKote = document.getElementById('btnKote');
+const btnDo = document.getElementById('btnDo');
 const btnDefend = document.getElementById('btnDefend');
+const btnBreak = document.getElementById('btnBreak');
 const btnTsuki = document.getElementById('btnTsuki');
+const actionButtons = [btnMen, btnKote, btnDo, btnDefend, btnBreak, btnTsuki];
+
+let refereeHideTimer = null;
+let pendingImpactTimer = null;
+let pendingImpactCallback = null;
+let pendingRoundTimer = null;
+let pendingRoundCallback = null;
+
+function setActionButtonsLocked(locked) {
+    actionButtons.forEach((btn) => {
+        if (btn) btn.disabled = locked;
+    });
+}
+
+function clearPendingRoundTimers() {
+    if (pendingImpactTimer) {
+        clearTimeout(pendingImpactTimer);
+        pendingImpactTimer = null;
+    }
+    pendingImpactCallback = null;
+    if (pendingRoundTimer) {
+        clearTimeout(pendingRoundTimer);
+        pendingRoundTimer = null;
+    }
+    pendingRoundCallback = null;
+}
+
+function firePendingImpact() {
+    if (pendingImpactTimer) {
+        clearTimeout(pendingImpactTimer);
+        pendingImpactTimer = null;
+    }
+    if (pendingImpactCallback) {
+        const impactFn = pendingImpactCallback;
+        pendingImpactCallback = null;
+        impactFn();
+    }
+}
+
+function flushPendingRound() {
+    firePendingImpact();
+    if (pendingRoundTimer) {
+        clearTimeout(pendingRoundTimer);
+        pendingRoundTimer = null;
+    }
+    if (pendingRoundCallback) {
+        const roundFn = pendingRoundCallback;
+        pendingRoundCallback = null;
+        roundFn();
+    }
+}
+
+// ヒットストップ＆スローモーション管理
+const timeState = {
+    hitStopUntil: 0,
+    slowMoUntil: 0,
+    slowMoFactor: 0.28,
+};
+
+function triggerHitStop(stopMs, slowMs = 0, slowFactor = 0.28) {
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    timeState.hitStopUntil = Math.max(timeState.hitStopUntil, now + stopMs);
+    if (slowMs > 0) {
+        timeState.slowMoUntil = Math.max(timeState.slowMoUntil, now + stopMs + slowMs);
+        timeState.slowMoFactor = slowFactor;
+    }
+}
 
 // イージング関数
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
@@ -1209,7 +1291,10 @@ function createAnimator(phaseOffset = 0) {
         phaseOffset,
         keyframes: null,
         seqStartTime: 0,
+        virtualElapsed: 0,
+        lastUpdateNow: 0,
         lastKeyIndex: -1,
+        impactWeight: 'normal',
         currentSprite: 'idle',
         prevSprite: 'idle',
         spriteBlendStart: 0,
@@ -1224,6 +1309,7 @@ function createAnimator(phaseOffset = 0) {
         clothVel: 0,
         clothOffset: 0,
         particles: [],
+        shockwaves: [],
         afterimages: [],
         slashEffect: null,
         hitFlash: 0,
@@ -1259,23 +1345,42 @@ function spawnDust(anim, x, y, dir) {
     }
 }
 
-function spawnSparks(anim, x, y, color = '251, 191, 36') {
-    for (let i = 0; i < 12; i++) {
+function spawnSparks(anim, x, y, color = '251, 191, 36', count = 14, speedMult = 1) {
+    for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = 1.5 + Math.random() * 4.2;
+        const speed = (1.5 + Math.random() * 4.4) * speedMult;
         anim.particles.push({
             kind: 'spark',
             x,
             y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 0.8,
-            r: 2 + Math.random() * 2.5,
+            r: (2 + Math.random() * 2.6) * (speedMult > 1 ? 1.2 : 1),
             alpha: 1,
-            decay: 0.035 + Math.random() * 0.02,
+            decay: 0.032 + Math.random() * 0.02,
             color,
         });
     }
 }
+
+function spawnShockwave(anim, x, y, color = '250, 204, 21', isHeavy = false) {
+    anim.shockwaves.push({
+        x,
+        y,
+        r: isHeavy ? 10 : 7,
+        maxR: isHeavy ? 64 : 44,
+        alpha: isHeavy ? 1.0 : 0.85,
+        color,
+        isHeavy,
+        rays: Array.from({ length: isHeavy ? 10 : 6 }, (_, i) => ({
+            angle: (i / (isHeavy ? 10 : 6)) * Math.PI * 2 + (Math.random() - 0.5) * 0.25,
+            len: (isHeavy ? 26 : 16) + Math.random() * 14,
+        })),
+    });
+}
+
+const STRIKE_IMPACT_T = 320;
+const ANIM_TOTAL_T = 980;
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
 function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose) {
@@ -1287,127 +1392,141 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
     const bk = POSE_ROWS.breakAttack;
     const h = POSE_ROWS.hit;
 
-    const windupPose = action === '胴' ? d[1] : (action === '突き' ? ts[1] : (action === '小手' ? k[1] : m[1]));
-
-    // 被ダメージ時は予備動作の直後に相手の一撃を受けて後退（6コマ連続ノックバック＆リカバリー）
-    if (outcome === 'hit') {
+    // 被ダメージ後の仰け反り・復帰キーフレーム列（t = STRIKE_IMPACT_T から開始）
+    const buildHitTail = () => {
         if (neutralSprite === 'hit') {
             return [
-                { t: 0,   sprite: 'idle_0', pose: startPose,  x: 0,   y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-                { t: 120, sprite: 'men_0',  pose: windupPose, x: 3,   y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeOutCubic },
-                { t: 175, sprite: 'hit_0',  pose: h[0],       x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'sparks', flash: 0.65 },
-                { t: 290, sprite: 'hit_1',  pose: h[1],       x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
-                { t: 460, sprite: 'hit_2',  pose: h[2],       x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.04, ease: easeInOutSine, fx: 'dust' },
-                { t: 940, sprite: 'hit',    pose: endPose,    x: -10, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
+                { t: 365,          sprite: 'hit_0', pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
+                { t: 475,          sprite: 'hit_1', pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
+                { t: 635,          sprite: 'hit_2', pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.04, ease: easeInOutSine, fx: 'dust' },
+                { t: ANIM_TOTAL_T, sprite: 'hit',   pose: endPose, x: -10, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
             ];
         }
         return [
-            { t: 0,   sprite: 'idle_0', pose: startPose,  x: 0,   y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 120, sprite: 'men_0',  pose: windupPose, x: 3,   y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeOutCubic },
-            { t: 175, sprite: 'hit_0',  pose: h[0],       x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'sparks', flash: 0.65 },
-            { t: 280, sprite: 'hit_1',  pose: h[1],       x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
-            { t: 430, sprite: 'hit_2',  pose: h[2],       x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
-            { t: 600, sprite: 'hit_3',  pose: h[3],       x: -8,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeInOutQuad, fx: 'dust' },
-            { t: 770, sprite: 'hit_4',  pose: h[4],       x: -3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 940, sprite: neutralSprite, pose: endPose, x: 0, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 365,          sprite: 'hit_0',       pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
+            { t: 465,          sprite: 'hit_1',       pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
+            { t: 600,          sprite: 'hit_2',       pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
+            { t: 735,          sprite: 'hit_3',       pose: h[3],    x: -8,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeInOutQuad, fx: 'dust' },
+            { t: 860,          sprite: 'hit_4',       pose: h[4],    x: -3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T, sprite: neutralSprite, pose: endPose, x: 0,   y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    };
+
+    // 被ダメージ時は、攻撃側の打突の最後のコマ（t = STRIKE_IMPACT_T）に到達するまで構えを維持し、
+    // 攻撃側の打突の最後のコマと同時に被ダメージアニメーション（hit_0〜）を開始する
+    if (outcome === 'hit') {
+        return [
+            { t: 0,               sprite: 'idle_0', pose: startPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+            { t: STRIKE_IMPACT_T, sprite: 'idle_0', pose: startPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine, fx: 'sparks', flash: 0.65 },
+            ...buildHitTail(),
         ];
     }
+
+    let attackKeyframes = null;
 
     if (action === '面') {
-        return [
-            { t: 0,   sprite: 'idle_0', pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 65,  sprite: 'men_0',  pose: m[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 125, sprite: 'men_1',  pose: m[1],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
-            { t: 185, sprite: 'men_2',  pose: m[2],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic },
-            { t: 235, sprite: 'men_3',  pose: m[3],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
-            { t: 275, sprite: 'men_4',  pose: m[4],      x: 2,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01, ease: easeInOutSine },
-            { t: 310, sprite: 'men_5',  pose: m[5],      x: 5,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02, ease: easeOutQuart },
-            { t: 350, sprite: 'men_6',  pose: m[6],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02, ease: easeOutQuart, fx: 'lunge_men' },
-            { t: 540, sprite: 'men_6',  pose: m[6],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01, ease: easeInOutSine },
-            { t: 740, sprite: 'men_7',  pose: m[7],      x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 940, sprite: neutralSprite, pose: endPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0,   ease: easeInOutSine },
+        attackKeyframes = [
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 55,              sprite: 'men_0',       pose: m[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 110,             sprite: 'men_1',       pose: m[1],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
+            { t: 165,             sprite: 'men_2',       pose: m[2],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic },
+            { t: 215,             sprite: 'men_3',       pose: m[3],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
+            { t: 255,             sprite: 'men_4',       pose: m[4],      x: 2,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 290,             sprite: 'men_5',       pose: m[5],      x: 5,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart },
+            { t: STRIKE_IMPACT_T, sprite: 'men_6',       pose: m[6],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_men' },
+            { t: 600,             sprite: 'men_6',       pose: m[6],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 790,             sprite: 'men_7',       pose: m[7],      x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    } else if (action === '小手') {
+        attackKeyframes = [
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 75,              sprite: 'kote_0',      pose: k[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 145,             sprite: 'kote_1',      pose: k[1],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+            { t: 210,             sprite: 'kote_2',      pose: k[2],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeOutCubic },
+            { t: 265,             sprite: 'kote_3',      pose: k[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: STRIKE_IMPACT_T, sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_kote' },
+            { t: 580,             sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 700,             sprite: 'kote_5',      pose: k[5],      x: 4,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 810,             sprite: 'kote_6',      pose: k[6],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 900,             sprite: 'kote_7',      pose: k[7],      x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    } else if (action === '胴') {
+        attackKeyframes = [
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 65,              sprite: 'do_0',        pose: d[0],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+            { t: 130,             sprite: 'do_1',        pose: d[1],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
+            { t: 190,             sprite: 'do_2',        pose: d[2],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeOutCubic, fx: 'dust' },
+            { t: 240,             sprite: 'do_3',        pose: d[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 280,             sprite: 'do_4',        pose: d[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart },
+            { t: STRIKE_IMPACT_T, sprite: 'do_5',        pose: d[5],      x: 8,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_do' },
+            { t: 580,             sprite: 'do_5',        pose: d[5],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 730,             sprite: 'do_6',        pose: d[6],      x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 860,             sprite: 'do_7',        pose: d[7],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    } else if (action === '突き') {
+        attackKeyframes = [
+            { t: 0,               sprite: 'counter_0',   pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 75,              sprite: 'tsuki_0',     pose: ts[0],     x: -3, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
+            { t: 145,             sprite: 'tsuki_1',     pose: ts[1],     x: -5, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeInOutSine },
+            { t: 210,             sprite: 'tsuki_2',     pose: ts[2],     x: -6, y: 0, scaleX: 1.03, scaleY: 0.97, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
+            { t: 265,             sprite: 'tsuki_3',     pose: ts[3],     x: 3,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
+            { t: STRIKE_IMPACT_T, sprite: 'tsuki_4',     pose: ts[4],     x: 7,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_tsuki' },
+            { t: 580,             sprite: 'tsuki_4',     pose: ts[4],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 700,             sprite: 'tsuki_5',     pose: ts[5],     x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 800,             sprite: 'tsuki_6',     pose: ts[6],     x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: 890,             sprite: 'tsuki_7',     pose: ts[7],     x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    } else if (action === '崩し') {
+        attackKeyframes = [
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 115,             sprite: 'brk_0',       pose: bk[0],     x: -3, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
+            { t: 220,             sprite: 'brk_1',       pose: bk[1],     x: 4,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine, fx: 'dust' },
+            { t: STRIKE_IMPACT_T, sprite: 'brk_2',       pose: bk[2],     x: 8,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_break' },
+            { t: 580,             sprite: 'brk_2',       pose: bk[2],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 780,             sprite: 'brk_3',       pose: bk[3],     x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     }
 
-    if (action === '小手') {
-        return [
-            { t: 0,   sprite: 'idle_0', pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 65,  sprite: 'kote_0', pose: k[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 130, sprite: 'kote_1', pose: k[1],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: 190, sprite: 'kote_2', pose: k[2],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeOutCubic },
-            { t: 235, sprite: 'kote_3', pose: k[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01, ease: easeInOutSine },
-            { t: 280, sprite: 'kote_4', pose: k[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02, ease: easeOutQuart, fx: 'lunge_kote' },
-            { t: 430, sprite: 'kote_5', pose: k[5],      x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01, ease: easeInOutSine },
-            { t: 650, sprite: 'kote_6', pose: k[6],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 800, sprite: 'kote_7', pose: k[7],      x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 940, sprite: neutralSprite, pose: endPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0,   ease: easeInOutSine },
-        ];
-    }
-
-    if (action === '胴') {
-        return [
-            { t: 0,   sprite: 'idle_0', pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 70,  sprite: 'do_0',   pose: d[0],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: 140, sprite: 'do_1',   pose: d[1],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
-            { t: 205, sprite: 'do_2',   pose: d[2],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeOutCubic, fx: 'dust' },
-            { t: 255, sprite: 'do_3',   pose: d[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01, ease: easeInOutSine },
-            { t: 300, sprite: 'do_4',   pose: d[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02, ease: easeOutQuart },
-            { t: 345, sprite: 'do_5',   pose: d[5],      x: 8,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.03, ease: easeOutQuart, fx: 'lunge_do' },
-            { t: 540, sprite: 'do_6',   pose: d[6],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01, ease: easeInOutSine },
-            { t: 750, sprite: 'do_7',   pose: d[7],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 940, sprite: neutralSprite, pose: endPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0,   ease: easeInOutSine },
-        ];
-    }
-
-    if (action === '突き') {
-        return [
-            { t: 0,   sprite: 'counter_0', pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 65,  sprite: 'tsuki_0',   pose: ts[0],     x: -3, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
-            { t: 130, sprite: 'tsuki_1',   pose: ts[1],     x: -5, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeInOutSine },
-            { t: 190, sprite: 'tsuki_2',   pose: ts[2],     x: -6, y: 0, scaleX: 1.03, scaleY: 0.97, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
-            { t: 235, sprite: 'tsuki_3',   pose: ts[3],     x: 3,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
-            { t: 275, sprite: 'tsuki_4',   pose: ts[4],     x: 7,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_tsuki' },
-            { t: 500, sprite: 'tsuki_5',   pose: ts[5],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 720, sprite: 'tsuki_6',   pose: ts[6],     x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
-            { t: 840, sprite: 'tsuki_7',   pose: ts[7],     x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 940, sprite: neutralSprite, pose: endPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-        ];
-    }
-
-    if (action === '崩し') {
-        return [
-            { t: 0,   sprite: 'idle_0', pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,    ease: easeInOutSine },
-            { t: 105, sprite: 'brk_0',  pose: bk[0],     x: -3, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
-            { t: 190, sprite: 'brk_1',  pose: bk[1],     x: 4,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02, ease: easeInOutSine, fx: 'dust' },
-            { t: 255, sprite: 'brk_2',  pose: bk[2],     x: 8,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03, ease: easeOutQuart, fx: 'lunge_break' },
-            { t: 510, sprite: 'brk_2',  pose: bk[2],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02, ease: easeInOutSine },
-            { t: 730, sprite: 'brk_3',  pose: bk[3],     x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01, ease: easeInOutSine },
-            { t: 940, sprite: neutralSprite, pose: endPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0,   ease: easeInOutSine },
-        ];
+    if (attackKeyframes) {
+        if (outcome === 'mutual_hit') {
+            const windup = attackKeyframes.filter((kf) => kf.t <= STRIKE_IMPACT_T);
+            const lastStrikeKf = windup[windup.length - 1];
+            lastStrikeKf.flash = 0.65;
+            return [...windup, ...buildHitTail()];
+        }
+        return attackKeyframes;
     }
 
     // 防御
     return [
-        { t: 0,   sprite: 'idle_0', pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-        { t: 95,  sprite: 'def_0',  pose: df[0],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeOutCubic },
-        { t: 195, sprite: 'def_1',  pose: df[1],     x: -4, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.02, ease: easeOutCubic, fx: outcome === 'block_success' ? 'shield_success' : 'shield' },
-        { t: 340, sprite: 'def_2',  pose: df[2],     x: -6, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeOutCubic },
-        { t: 620, sprite: 'def_3',  pose: df[3],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-        { t: 940, sprite: neutralSprite, pose: endPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0,    ease: easeInOutSine },
+        { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        { t: 140,             sprite: 'def_0',       pose: df[0],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeOutCubic },
+        { t: STRIKE_IMPACT_T, sprite: 'def_1',       pose: df[1],     x: -4, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.02, ease: easeOutCubic, fx: outcome === 'block_success' ? 'shield_success' : 'shield' },
+        { t: 540,             sprite: 'def_2',       pose: df[2],     x: -6, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeOutCubic },
+        { t: 760,             sprite: 'def_3',       pose: df[3],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+        { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
     ];
 }
 
-function triggerFighterAnimation(who, action, outcome) {
+function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal') {
     const anim = animators[who];
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const finalStance = state.gameOver
         ? (who === 'player' ? state.playerAnimState : state.enemyAnimState)
         : getNeutralAnim(who);
     const startSnapshot = { ...anim.currentPose };
-    const endTargetPose = getContinuousStancePose(finalStance, (now + 940) * 0.0042 + anim.phaseOffset);
+    const endTargetPose = getContinuousStancePose(finalStance, (now + ANIM_TOTAL_T) * 0.0042 + anim.phaseOffset);
     anim.keyframes = buildActionKeyframes(action, outcome, finalStance, startSnapshot, endTargetPose);
     anim.seqStartTime = now;
+    anim.virtualElapsed = 0;
+    anim.lastUpdateNow = now;
     anim.lastKeyIndex = -1;
+    anim.impactWeight = impactWeight;
 }
 
 // 効果音生成
@@ -1420,6 +1539,61 @@ function ensureAudio() {
     }
 }
 
+// 竹刀の乾いた打突スナップ音（パァン！）を合成
+function playShinaiSnap(ctx, now, intensity = 1.0) {
+    const bufferSize = Math.floor(ctx.sampleRate * 0.065);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        const env = Math.pow(1 - i / bufferSize, 2.2);
+        data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1650, now);
+    filter.Q.setValueAtTime(2.4, now);
+
+    const snapGain = ctx.createGain();
+    snapGain.gain.setValueAtTime(0.09 * intensity, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+
+    noise.connect(filter);
+    filter.connect(snapGain);
+    snapGain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.065);
+}
+
+// 一本・強打時の重厚な和太鼓音（ドン！）を合成
+function playTaikoDon(ctx, now, intensity = 1.0) {
+    const osc = ctx.createOscillator();
+    const subOsc = ctx.createOscillator();
+    const taikoGain = ctx.createGain();
+
+    osc.type = 'sine';
+    subOsc.type = 'triangle';
+    osc.frequency.setValueAtTime(155, now);
+    osc.frequency.exponentialRampToValueAtTime(46, now + 0.36);
+    subOsc.frequency.setValueAtTime(92, now);
+    subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.36);
+
+    taikoGain.gain.setValueAtTime(0.0001, now);
+    taikoGain.gain.linearRampToValueAtTime(0.11 * intensity, now + 0.012);
+    taikoGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+
+    osc.connect(taikoGain);
+    subOsc.connect(taikoGain);
+    taikoGain.connect(ctx.destination);
+
+    osc.start(now);
+    subOsc.start(now);
+    osc.stop(now + 0.43);
+    subOsc.stop(now + 0.43);
+}
+
 function playSound(type) {
     ensureAudio();
     const ctx = audioCtx;
@@ -1430,6 +1604,8 @@ function playSound(type) {
     gain.gain.exponentialRampToValueAtTime(0.04, now + 0.01);
 
     if (type === 'attack') {
+        playShinaiSnap(ctx, now, 1.0);
+        playTaikoDon(ctx, now, 0.55);
         const osc = ctx.createOscillator();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(880, now);
@@ -1438,6 +1614,8 @@ function playSound(type) {
         osc.start(now);
         osc.stop(now + 0.18);
     } else if (type === 'special') {
+        playShinaiSnap(ctx, now, 1.45);
+        playTaikoDon(ctx, now, 1.25);
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         osc1.type = 'sawtooth';
@@ -1453,6 +1631,7 @@ function playSound(type) {
         osc1.stop(now + 0.3);
         osc2.stop(now + 0.3);
     } else if (type === 'break') {
+        playTaikoDon(ctx, now, 0.85);
         const osc = ctx.createOscillator();
         osc.type = 'square';
         osc.frequency.setValueAtTime(260, now);
@@ -1461,6 +1640,7 @@ function playSound(type) {
         osc.start(now);
         osc.stop(now + 0.25);
     } else if (type === 'block') {
+        playShinaiSnap(ctx, now, 0.75);
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         osc1.type = 'sine';
@@ -1475,6 +1655,8 @@ function playSound(type) {
         osc1.stop(now + 0.2);
         osc2.stop(now + 0.2);
     } else if (type === 'hurt') {
+        playShinaiSnap(ctx, now, 1.1);
+        playTaikoDon(ctx, now, 0.75);
         const osc = ctx.createOscillator();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(300, now);
@@ -1483,6 +1665,7 @@ function playSound(type) {
         osc.start(now);
         osc.stop(now + 0.3);
     } else if (type === 'clash') {
+        playShinaiSnap(ctx, now, 0.9);
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         osc1.type = 'square';
@@ -1496,6 +1679,7 @@ function playSound(type) {
         osc1.stop(now + 0.16);
         osc2.stop(now + 0.16);
     } else if (type === 'win') {
+        playTaikoDon(ctx, now, 1.4);
         const freqs = [523.25, 659.25, 783.99, 1046.5];
         freqs.forEach((freq, idx) => {
             const osc = ctx.createOscillator();
@@ -1506,6 +1690,7 @@ function playSound(type) {
             osc.stop(now + 0.25 + idx * 0.06);
         });
     } else if (type === 'lose') {
+        playTaikoDon(ctx, now, 0.9);
         const osc = ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(200, now);
@@ -1572,11 +1757,12 @@ function drawDojoFloor(ctx) {
 
 function drawSlashEffect(ctx, effect, now, flip) {
     if (!effect) return;
-    const elapsed = now - effect.start;
+    const elapsed = effect.elapsed !== undefined ? effect.elapsed : (now - effect.start);
     const progress = elapsed / effect.duration;
     if (progress >= 1) return;
 
     const alpha = Math.sin(progress * Math.PI);
+    const heavyMult = effect.isHeavy ? 1.35 : 1.0;
     ctx.save();
     if (flip) {
         ctx.translate(CANVAS_W, 0);
@@ -1588,15 +1774,17 @@ function drawSlashEffect(ctx, effect, now, flip) {
         const cy = effect.type === 'men' ? 92 : 116;
         const startAng = -1.2 + progress * 0.4;
         const endAng = startAng + 1.35;
-        ctx.strokeStyle = `rgba(253, 224, 71, ${alpha * 0.9})`;
-        ctx.lineWidth = (1 - progress * 0.5) * 7;
+        ctx.strokeStyle = effect.isHeavy
+            ? `rgba(251, 146, 60, ${alpha * 0.95})`
+            : `rgba(253, 224, 71, ${alpha * 0.9})`;
+        ctx.lineWidth = (1 - progress * 0.5) * 7 * heavyMult;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(96, cy, radius, startAng, endAng);
         ctx.stroke();
 
         ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.6 * heavyMult;
         ctx.beginPath();
         ctx.arc(96, cy, radius - 3, startAng + 0.1, endAng);
         ctx.stroke();
@@ -1604,8 +1792,10 @@ function drawSlashEffect(ctx, effect, now, flip) {
         const y = 118;
         const x1 = 45 + progress * 25;
         const x2 = 165;
-        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.9})`;
-        ctx.lineWidth = (1 - progress * 0.4) * 8;
+        ctx.strokeStyle = effect.isHeavy
+            ? `rgba(250, 204, 21, ${alpha * 0.95})`
+            : `rgba(56, 189, 248, ${alpha * 0.9})`;
+        ctx.lineWidth = (1 - progress * 0.4) * 8 * heavyMult;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(x1, y + 8);
@@ -1613,15 +1803,15 @@ function drawSlashEffect(ctx, effect, now, flip) {
         ctx.stroke();
     } else if (effect.type === 'tsuki') {
         const y = 100;
-        const grad = ctx.createLinearGradient(40, y, 178, y);
+        const grad = ctx.createLinearGradient(35, y, 180, y);
         grad.addColorStop(0, `rgba(249, 115, 22, 0)`);
-        grad.addColorStop(0.5, `rgba(250, 204, 21, ${alpha * 0.95})`);
+        grad.addColorStop(0.45, `rgba(250, 204, 21, ${alpha * 0.98})`);
         grad.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.moveTo(45, y - 8 * (1 - progress * 0.5));
-        ctx.lineTo(178, y);
-        ctx.lineTo(45, y + 8 * (1 - progress * 0.5));
+        ctx.moveTo(40, y - 10 * (1 - progress * 0.5));
+        ctx.lineTo(180, y);
+        ctx.lineTo(40, y + 10 * (1 - progress * 0.5));
         ctx.closePath();
         ctx.fill();
     } else if (effect.type === 'break') {
@@ -1657,11 +1847,20 @@ function updateAndDrawFighter(ctx, who, flip, now) {
         ? (who === 'player' ? state.playerAnimState : state.enemyAnimState)
         : getNeutralAnim(who);
 
+    // ヒットストップ＆スローモーション対応のデルタ時間計算
+    const rawDt = anim.lastUpdateNow ? Math.min(50, Math.max(0, now - anim.lastUpdateNow)) : 16.6;
+    anim.lastUpdateNow = now;
+    const inHitStop = now < timeState.hitStopUntil;
+    const inSlowMo = !inHitStop && now < timeState.slowMoUntil;
+    const timeScale = inHitStop ? 0 : (inSlowMo ? timeState.slowMoFactor : 1.0);
+    const effectiveDt = rawDt * timeScale;
+
     let targetPose;
 
     // 1. キーフレーム連続再生中か、待機モーション（60fps呼吸・すり足）かを計算
     if (anim.keyframes) {
-        const elapsed = Math.max(0, now - anim.seqStartTime);
+        anim.virtualElapsed += effectiveDt;
+        const elapsed = anim.virtualElapsed;
         const kfs = anim.keyframes;
         const lastKf = kfs[kfs.length - 1];
 
@@ -1693,31 +1892,52 @@ function updateAndDrawFighter(ctx, who, flip, now) {
             const rawT = Math.min(1, Math.max(0, (elapsed - k0.t) / span));
             const easedT = k1.ease ? k1.ease(rawT) : rawT;
 
-            // キーフレーム到達時のエフェクト・残像トリガー
-            if (idx !== anim.lastKeyIndex) {
-                anim.lastKeyIndex = idx;
-                setSpriteWithFade(anim, k1.sprite, now);
-
-                if (k1.flash) anim.hitFlash = k1.flash;
-                const fx = k1.fx;
-                const currentFootX = baseFootX + dir * k1.x;
-                if (fx === 'dust') {
-                    spawnDust(anim, currentFootX, GROUND_Y, dir);
-                } else if (fx === 'sparks') {
-                    spawnSparks(anim, currentFootX + dir * 24, 96, '248, 113, 113');
-                } else if (fx && fx.startsWith('lunge_')) {
-                    const slashType = fx.replace('lunge_', '');
-                    spawnDust(anim, currentFootX + dir * 18, GROUND_Y, dir);
-                    anim.slashEffect = { type: slashType, start: now, duration: 260 };
-                    if (slashType === 'tsuki' || isCounter) {
-                        spawnSparks(anim, currentFootX + dir * 48, 100, '250, 204, 21');
+            // キーフレーム到達時のエフェクト・残像・ヒットストップトリガー
+            if (idx > anim.lastKeyIndex) {
+                const isHeavy = anim.impactWeight === 'heavy';
+                for (let stepIdx = anim.lastKeyIndex + 1; stepIdx <= idx; stepIdx++) {
+                    const kf = kfs[stepIdx];
+                    if (kf.t === STRIKE_IMPACT_T) {
+                        firePendingImpact();
                     }
-                } else if (fx === 'shield' || fx === 'shield_success') {
-                    anim.slashEffect = { type: fx, start: now, duration: 320 };
-                    if (fx === 'shield_success') {
-                        spawnSparks(anim, currentFootX + dir * 34, 98, '56, 189, 248');
+                    if (kf.flash) {
+                        anim.hitFlash = isHeavy ? Math.min(1.0, kf.flash * 1.45) : kf.flash;
+                    }
+                    const fx = kf.fx;
+                    const currentFootX = baseFootX + dir * kf.x;
+                    if (fx === 'dust') {
+                        spawnDust(anim, currentFootX, GROUND_Y, dir);
+                    } else if (fx === 'sparks') {
+                        spawnSparks(anim, currentFootX + dir * 24, 92, isHeavy ? '250, 204, 21' : '248, 113, 113', isHeavy ? 24 : 14, isHeavy ? 1.35 : 1);
+                        spawnShockwave(anim, currentFootX + dir * 22, 92, isHeavy ? '250, 204, 21' : '248, 113, 113', isHeavy);
+                    } else if (fx === 'hitstop') {
+                        if (isHeavy) {
+                            triggerHitStop(95, 160, 0.28);
+                        } else {
+                            triggerHitStop(55, 65, 0.45);
+                        }
+                    } else if (fx && fx.startsWith('lunge_')) {
+                        const slashType = fx.replace('lunge_', '');
+                        const impactY = slashType === 'men' ? 76 : (slashType === 'tsuki' ? 96 : 114);
+                        spawnDust(anim, currentFootX + dir * 18, GROUND_Y, dir);
+                        anim.slashEffect = { type: slashType, start: now, elapsed: 0, duration: isHeavy ? 320 : 260, isHeavy };
+                        if (slashType === 'tsuki' || isCounter || isHeavy) {
+                            spawnSparks(anim, currentFootX + dir * 48, impactY, '250, 204, 21', 20, 1.3);
+                            spawnShockwave(anim, currentFootX + dir * 46, impactY, '250, 204, 21', true);
+                        } else {
+                            spawnShockwave(anim, currentFootX + dir * 44, impactY, '56, 189, 248', false);
+                        }
+                    } else if (fx === 'shield' || fx === 'shield_success') {
+                        anim.slashEffect = { type: fx, start: now, elapsed: 0, duration: 320, isHeavy: false };
+                        if (fx === 'shield_success') {
+                            spawnSparks(anim, currentFootX + dir * 34, 98, '56, 189, 248', 18, 1.15);
+                            spawnShockwave(anim, currentFootX + dir * 34, 98, '56, 189, 248', false);
+                            triggerHitStop(55, 0, 1.0);
+                        }
                     }
                 }
+                anim.lastKeyIndex = idx;
+                setSpriteWithFade(anim, k1.sprite, now);
             }
 
             // 60fps 連続関節ポーズ補間（すべての骨格・竹刀角度・足運びを滑らかに補間）
@@ -1730,14 +1950,14 @@ function updateAndDrawFighter(ctx, who, flip, now) {
 
             // 高速踏み込み・打突スイング中は連続ポーズ残像を追加
             const poseLungeDist = Math.abs((anim.currentPose.hipX - 132) * 0.47 + anim.posX);
-            if (poseLungeDist > 10 && Math.random() < 0.42) {
+            if (!inHitStop && poseLungeDist > 10 && Math.random() < (anim.impactWeight === 'heavy' ? 0.65 : 0.42)) {
                 anim.afterimages.push({
                     pose: { ...anim.currentPose, swingBlur: 0, hitDebris: 0 },
                     posX: anim.posX,
                     scaleX: anim.scaleX,
                     scaleY: anim.scaleY,
                     rot: anim.rot,
-                    alpha: 0.22,
+                    alpha: anim.impactWeight === 'heavy' ? 0.28 : 0.22,
                 });
             }
         }
@@ -1782,12 +2002,14 @@ function updateAndDrawFighter(ctx, who, flip, now) {
         mendareSway: (anim.currentPose.mendareSway || 0) - anim.clothOffset * 0.45,
     };
 
-    const pivotX = baseFootX + dir * anim.posX;
+    // ヒットストップ中の微細な打撃振動（インパクトの手応え強調）
+    const hitStopJitterX = (inHitStop && anim.hitFlash > 0.15) ? Math.sin(now * 1.8) * 2.4 : 0;
+    const pivotX = baseFootX + dir * anim.posX + hitStopJitterX;
     const pivotY = GROUND_Y;
     const vScale = CANVAS_W / VIRTUAL_W;
 
-    // 応じ技構え・気合MAX時のオーラ粒子生成（足元から立ち昇る）
-    if (!state.gameOver && (isCounter || kiai >= MAX_KIAI) && Math.random() < 0.25) {
+    // 応じ技構え・気合MAX時のオーラ粒子生成（待機中のみ足元から立ち昇る）
+    if (!state.gameOver && !anim.keyframes && (isCounter || kiai >= MAX_KIAI) && Math.random() < 0.25) {
         const hipScreenX = pivotX + dir * (renderPose.hipX - ANCHOR_FOOT_X) * vScale;
         anim.particles.push({
             kind: 'aura',
@@ -1831,7 +2053,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     // 3. 残像（アフターイメージ）の描画
     for (let i = anim.afterimages.length - 1; i >= 0; i--) {
         const img = anim.afterimages[i];
-        img.alpha -= 0.045;
+        img.alpha -= 0.045 * (inHitStop ? 0.2 : 1);
         if (img.alpha <= 0) {
             anim.afterimages.splice(i, 1);
             continue;
@@ -1860,19 +2082,52 @@ function updateAndDrawFighter(ctx, who, flip, now) {
 
     // 5. 斬撃軌跡・防御シールドの描画
     if (anim.slashEffect) {
+        anim.slashEffect.elapsed = (anim.slashEffect.elapsed || 0) + (inHitStop ? rawDt * 0.25 : effectiveDt);
         drawSlashEffect(ctx, anim.slashEffect, now, flip);
-        if (now - anim.slashEffect.start >= anim.slashEffect.duration) {
+        if (anim.slashEffect.elapsed >= anim.slashEffect.duration) {
             anim.slashEffect = null;
         }
+    }
+
+    // 5.5 衝撃波リング＆放射閃光（ショックウェーブ）の描画
+    for (let i = anim.shockwaves.length - 1; i >= 0; i--) {
+        const sw = anim.shockwaves[i];
+        const step = inHitStop ? 0.35 : (inSlowMo ? 0.55 : 1.0);
+        sw.r += (sw.maxR - sw.r) * 0.22 * step;
+        sw.alpha -= (sw.isHeavy ? 0.038 : 0.052) * step;
+        if (sw.alpha <= 0) {
+            anim.shockwaves.splice(i, 1);
+            continue;
+        }
+        ctx.save();
+        ctx.strokeStyle = `rgba(${sw.color}, ${Math.max(0, sw.alpha)})`;
+        ctx.lineWidth = (sw.isHeavy ? 4.2 : 2.8) * sw.alpha;
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 放射状の集中閃光ライン
+        ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, sw.alpha * 0.9)})`;
+        ctx.lineWidth = sw.isHeavy ? 2.2 : 1.5;
+        sw.rays.forEach((ray) => {
+            const r0 = sw.r * 0.65;
+            const r1 = sw.r * 0.65 + ray.len * sw.alpha;
+            ctx.beginPath();
+            ctx.moveTo(sw.x + Math.cos(ray.angle) * r0, sw.y + Math.sin(ray.angle) * r0);
+            ctx.lineTo(sw.x + Math.cos(ray.angle) * r1, sw.y + Math.sin(ray.angle) * r1);
+            ctx.stroke();
+        });
+        ctx.restore();
     }
 
     // 6. パーティクル（砂煙・火花・気合オーラ）の描画
     for (let i = anim.particles.length - 1; i >= 0; i--) {
         const p = anim.particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.alpha -= p.decay;
-        if (p.kind === 'dust') p.r += 0.15;
+        const pStep = inHitStop ? 0.15 : (inSlowMo ? 0.45 : 1.0);
+        p.x += p.vx * pStep;
+        p.y += p.vy * pStep;
+        p.alpha -= p.decay * pStep;
+        if (p.kind === 'dust') p.r += 0.15 * pStep;
         if (p.alpha <= 0) {
             anim.particles.splice(i, 1);
             continue;
@@ -1888,17 +2143,85 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     // 7. 被弾時のフラッシュ演出
     if (anim.hitFlash > 0.01) {
         ctx.save();
-        ctx.fillStyle = `rgba(239, 68, 68, ${anim.hitFlash * 0.35})`;
+        const flashColor = anim.impactWeight === 'heavy' ? '250, 204, 21' : '239, 68, 68';
+        ctx.fillStyle = `rgba(${flashColor}, ${anim.hitFlash * 0.38})`;
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         ctx.restore();
-        anim.hitFlash *= 0.85;
+        if (!inHitStop) {
+            anim.hitFlash *= 0.84;
+        }
     }
 }
 
-function triggerShake(element) {
-    element.classList.remove('hit-shake');
+function triggerShake(element, isHeavy = false) {
+    element.classList.remove('hit-shake', 'heavy-hit-shake', 'impact-zoom');
     void element.offsetWidth;
-    element.classList.add('hit-shake');
+    element.classList.add(isHeavy ? 'heavy-hit-shake' : 'hit-shake');
+}
+
+function triggerImpactZoom(element) {
+    element.classList.remove('impact-zoom');
+    void element.offsetWidth;
+    element.classList.add('impact-zoom');
+}
+
+function triggerArenaFlash() {
+    if (!battleArena) return;
+    battleArena.classList.remove('arena-critical-flash');
+    void battleArena.offsetWidth;
+    battleArena.classList.add('arena-critical-flash');
+}
+
+// ダメージやバフのフローティングポップアップを表示
+function spawnFloatingPopup(who, text, styleClass = 'popup-dmg', offsetY = 0) {
+    const layer = who === 'player' ? playerPopupLayer : enemyPopupLayer;
+    if (!layer) return;
+    const el = document.createElement('div');
+    el.className = `floating-popup ${styleClass}`;
+    el.textContent = text;
+    if (offsetY !== 0) {
+        el.style.marginTop = `${offsetY}px`;
+    }
+    layer.appendChild(el);
+    setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+    }, 1100);
+}
+
+// 審判の紅白旗・技コールカットインを表示
+function showRefereeCallout({ winner = null, mainText = '', subText = '', isCritical = false, isGuard = false }) {
+    if (!refereeCallout) return;
+    if (refereeHideTimer) {
+        clearTimeout(refereeHideTimer);
+        refereeHideTimer = null;
+    }
+
+    refereeCallout.className = 'referee-callout show';
+    if (winner === 'player') refereeCallout.classList.add('red-win');
+    if (winner === 'enemy') refereeCallout.classList.add('white-win');
+    if (isCritical) refereeCallout.classList.add('critical-ippon');
+    if (isGuard) refereeCallout.classList.add('guard-call');
+
+    refFlagRed.classList.toggle('flag-up', winner === 'player' || winner === 'both');
+    refFlagWhite.classList.toggle('flag-up', winner === 'enemy' || winner === 'both');
+
+    refereeMainText.textContent = mainText;
+    refereeSubText.textContent = subText;
+
+    const duration = state.gameOver ? 2600 : 1250;
+    refereeHideTimer = setTimeout(() => {
+        refereeCallout.classList.remove('show');
+    }, duration);
+}
+
+function hideRefereeCallout() {
+    if (refereeHideTimer) {
+        clearTimeout(refereeHideTimer);
+        refereeHideTimer = null;
+    }
+    if (refereeCallout) {
+        refereeCallout.className = 'referee-callout';
+    }
 }
 
 function gainKiai(who, amount) {
@@ -1957,6 +2280,8 @@ function updateUI() {
 
     playerHealthBar.style.width = `${playerPct}%`;
     enemyHealthBar.style.width = `${enemyPct}%`;
+    if (playerHealthTrail) playerHealthTrail.style.width = `${playerPct}%`;
+    if (enemyHealthTrail) enemyHealthTrail.style.width = `${enemyPct}%`;
     playerHealthBar.classList.toggle('low', pHp <= 2);
     enemyHealthBar.classList.toggle('low', eHp <= 2);
 
@@ -1972,6 +2297,10 @@ function updateUI() {
     updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken, state.enemyKiai);
 
     // ボタンの有効・無効制御
+    if (btnMen) btnMen.disabled = false;
+    if (btnKote) btnKote.disabled = false;
+    if (btnDo) btnDo.disabled = false;
+    if (btnBreak) btnBreak.disabled = false;
     btnDefend.disabled = state.playerGuardBroken && !state.gameOver;
     btnDefend.textContent = state.playerGuardBroken ? '🛡️ 防御 (崩れ中)' : '🛡️ 防御';
 
@@ -2081,6 +2410,11 @@ function getActionAnim(action) {
 }
 
 function playRound(playerAction) {
+    // 進行中のアニメーション結果が未反映の場合は即座に反映してから処理
+    if (pendingRoundCallback) {
+        flushPendingRound();
+    }
+
     if (state.gameOver) {
         resetGame();
         return;
@@ -2118,6 +2452,14 @@ function playRound(playerAction) {
     let enemyAnim = getActionAnim(enemyAction);
     let playerOutcome = 'normal';
     let enemyOutcome = 'normal';
+    let impactWeight = 'normal';
+    let calloutData = null;
+    let impactSound = null;
+    let endGameSound = null;
+    const zoomTargets = [];
+    const shakeTargets = [];
+    let doArenaFlash = false;
+    const popups = [];
 
     const attackMap = {
         面: ['小手'],
@@ -2134,31 +2476,47 @@ function playRound(playerAction) {
         enemyAnim = 'hit';
         playerOutcome = 'hit';
         enemyOutcome = 'hit';
+        impactWeight = 'heavy';
         message += '⚡ 互いに渾身の「突き」が交錯！双方に1ダメージ！';
         statusType = 'defeat';
-        playSound('special');
-        triggerShake(playerSpriteBox);
-        triggerShake(enemySpriteBox);
+        impactSound = 'special';
+        shakeTargets.push({ el: playerSpriteBox, isHeavy: true }, { el: enemySpriteBox, isHeavy: true });
+        doArenaFlash = true;
+        popups.push(
+            { who: 'player', text: '-1 相打ち！', styleClass: 'popup-dmg' },
+            { who: 'enemy', text: '-1 相打ち！', styleClass: 'popup-dmg' }
+        );
+        calloutData = { winner: 'both', mainText: '相打ち！', subText: '双方 諸手突き', isCritical: true };
     } else if (playerAction === '突き') {
         state.enemyHealth -= 2;
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
+        impactWeight = 'heavy';
         if (enemyAction === '防御') {
             message += '⚡ 会心の諸手突き！！相手の防御を貫通し、大ダメージ（2点）！';
         } else {
             message += `⚡ 電光石火の諸手突き！！相手の「${enemyAction}」を圧倒し、大ダメージ（2点）！`;
         }
         statusType = 'victory';
-        playSound('special');
-        triggerShake(enemySpriteBox);
+        impactSound = 'special';
+        zoomTargets.push(playerSpriteBox);
+        shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+        doArenaFlash = true;
+        popups.push({ who: 'enemy', text: '-2 会心！', styleClass: 'popup-crit' });
+        calloutData = { winner: 'player', mainText: '突きあり！', subText: '⚡ 会心の一閃 (2点)', isCritical: true };
     } else if (enemyAction === '突き') {
         state.playerHealth -= 2;
         playerAnim = 'hit';
         playerOutcome = 'hit';
+        impactWeight = 'heavy';
         message += '⚡ 相手の必殺「突き」が防具を貫いた！！痛恨の2ダメージ！';
         statusType = 'defeat';
-        playSound('hurt');
-        triggerShake(playerSpriteBox);
+        impactSound = 'hurt';
+        zoomTargets.push(enemySpriteBox);
+        shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+        doArenaFlash = true;
+        popups.push({ who: 'player', text: '-2 痛恨！', styleClass: 'popup-crit' });
+        calloutData = { winner: 'enemy', mainText: '突きあり！', subText: '⚡ 必殺の諸手突き (2点)', isCritical: true };
     }
     // 2. 防御 vs 防御
     else if (playerAction === '防御' && enemyAction === '防御') {
@@ -2174,8 +2532,15 @@ function playRound(playerAction) {
         enemyOutcome = 'hit';
         message += '💥 崩し成功！相手の防御を体当たりで突き崩し1ダメージ＆相手は次ターン防御不可！';
         statusType = 'victory';
-        playSound('break');
-        triggerShake(enemySpriteBox);
+        impactSound = 'break';
+        zoomTargets.push(playerSpriteBox);
+        shakeTargets.push({ el: enemySpriteBox, isHeavy: false });
+        popups.push(
+            { who: 'enemy', text: '-1', styleClass: 'popup-dmg' },
+            { who: 'enemy', text: '💫 防御崩壊！', styleClass: 'popup-break' },
+            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
+        );
+        calloutData = { winner: 'player', mainText: '崩し成功！', subText: '💥 相手は次ターン防御不可' };
     } else if (playerAction === '防御' && enemyAction === '崩し') {
         state.playerHealth -= 1;
         gainKiai('enemy', 1);
@@ -2184,8 +2549,15 @@ function playRound(playerAction) {
         playerOutcome = 'hit';
         message += '💥 相手の「崩し」で防御を割られた！1ダメージ＆次ターン防御不可！';
         statusType = 'defeat';
-        playSound('break');
-        triggerShake(playerSpriteBox);
+        impactSound = 'break';
+        zoomTargets.push(enemySpriteBox);
+        shakeTargets.push({ el: playerSpriteBox, isHeavy: false });
+        popups.push(
+            { who: 'player', text: '-1', styleClass: 'popup-dmg' },
+            { who: 'player', text: '💫 防御崩壊！', styleClass: 'popup-break' },
+            { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+        );
+        calloutData = { winner: 'enemy', mainText: '防御崩壊！', subText: '💥 次ターン防御不可' };
     }
     // 4. 防御 vs 基本打突（応じ技準備！）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
@@ -2194,14 +2566,26 @@ function playRound(playerAction) {
         playerOutcome = 'block_success';
         message += `🛡️ 相手の「${enemyAction}」を見事に受け止めた！気合+1＆次ターン「🔥応じ技（威力2倍）」チャンス！`;
         statusType = 'victory';
-        playSound('block');
+        impactSound = 'block';
+        zoomTargets.push(playerSpriteBox);
+        popups.push(
+            { who: 'player', text: '🛡️ 受け成功！', styleClass: 'popup-block' },
+            { who: 'player', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
+        );
+        calloutData = { winner: null, mainText: '見事な受け！', subText: '🔥 次ターン 応じ技(2倍)', isGuard: true };
     } else if (isBasic(playerAction) && enemyAction === '防御') {
         gainKiai('enemy', 1);
         state.enemyCounterReady = true;
         enemyOutcome = 'block_success';
         message += `🛡️ 相手に「${playerAction}」を受け止められた！相手が「🔥応じ技」の構えに入った！`;
         statusType = 'neutral';
-        playSound('block');
+        impactSound = 'block';
+        zoomTargets.push(enemySpriteBox);
+        popups.push(
+            { who: 'enemy', text: '🛡️ 受け成功！', styleClass: 'popup-block' },
+            { who: 'enemy', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
+        );
+        calloutData = { winner: null, mainText: '受け止められた！', subText: '⚠️ 相手が応じ技の構え', isGuard: true };
     }
     // 5. 崩し vs 崩し（鍔迫り合い）
     else if (playerAction === '崩し' && enemyAction === '崩し') {
@@ -2209,7 +2593,12 @@ function playRound(playerAction) {
         gainKiai('enemy', 1);
         message += '💥 激しい鍔迫り合い！互いに一歩も引かず気合が高まる！（双方 気合+1）';
         statusType = 'neutral';
-        playSound('clash');
+        impactSound = 'clash';
+        popups.push(
+            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' },
+            { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+        );
+        calloutData = { winner: 'both', mainText: '鍔迫り合い！', subText: '⚡ 双方 気合+1' };
     }
     // 6. 崩し vs 基本打突（打突側が迎撃）
     else if (isBasic(playerAction) && enemyAction === '崩し') {
@@ -2218,24 +2607,50 @@ function playRound(playerAction) {
         gainKiai('player', 1);
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
+        impactWeight = pCounter ? 'heavy' : 'normal';
         message += pCounter
             ? `🔥 応じ技炸裂！相手の「崩し」の出端に強烈な「${playerAction}」が決まり ${dmg}ダメージ！`
             : `⚔️ 相手の「崩し」の出端を「${playerAction}」で迎撃！ 1ダメージ＆気合+1！`;
         statusType = 'victory';
-        playSound(pCounter ? 'special' : 'attack');
-        triggerShake(enemySpriteBox);
+        impactSound = pCounter ? 'special' : 'attack';
+        zoomTargets.push(playerSpriteBox);
+        shakeTargets.push({ el: enemySpriteBox, isHeavy: pCounter });
+        if (pCounter) doArenaFlash = true;
+        popups.push(
+            { who: 'enemy', text: pCounter ? `-2 応じ${playerAction}！` : '-1', styleClass: pCounter ? 'popup-crit' : 'popup-dmg' },
+            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
+        );
+        calloutData = {
+            winner: 'player',
+            mainText: `${playerAction}あり！`,
+            subText: pCounter ? `🔥 応じ${playerAction}・二本分！` : `⚔️ 出ばな${playerAction}一本`,
+            isCritical: pCounter,
+        };
     } else if (playerAction === '崩し' && isBasic(enemyAction)) {
         const dmg = eCounter ? 2 : 1;
         state.playerHealth -= dmg;
         gainKiai('enemy', 1);
         playerAnim = 'hit';
         playerOutcome = 'hit';
+        impactWeight = eCounter ? 'heavy' : 'normal';
         message += eCounter
             ? `相手の応じ技「${enemyAction}」に出端を挫かれた！痛恨の ${dmg}ダメージ！`
             : `「崩し」に踏み込んだところへ相手の「${enemyAction}」を合わせられた！ 1ダメージ！`;
         statusType = 'defeat';
-        playSound('hurt');
-        triggerShake(playerSpriteBox);
+        impactSound = 'hurt';
+        zoomTargets.push(enemySpriteBox);
+        shakeTargets.push({ el: playerSpriteBox, isHeavy: eCounter });
+        if (eCounter) doArenaFlash = true;
+        popups.push(
+            { who: 'player', text: eCounter ? `-2 応じ${enemyAction}！` : '-1', styleClass: eCounter ? 'popup-crit' : 'popup-dmg' },
+            { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+        );
+        calloutData = {
+            winner: 'enemy',
+            mainText: `${enemyAction}あり！`,
+            subText: eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `⚔️ 出ばな${enemyAction}一本`,
+            isCritical: eCounter,
+        };
     }
     // 7. 基本打突 vs 基本打突（三すくみ＆応じ技判定）
     else if (playerAction === enemyAction) {
@@ -2244,31 +2659,61 @@ function playRound(playerAction) {
             gainKiai('player', 1);
             enemyAnim = 'hit';
             enemyOutcome = 'hit';
+            impactWeight = 'heavy';
             message += `🔥 応じ技の冴え！同じ「${playerAction}」の打ち合いを制し、2ダメージ奪った！`;
             statusType = 'victory';
-            playSound('special');
-            triggerShake(enemySpriteBox);
+            impactSound = 'special';
+            zoomTargets.push(playerSpriteBox);
+            shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+            doArenaFlash = true;
+            popups.push(
+                { who: 'enemy', text: `-2 応じ${playerAction}！`, styleClass: 'popup-crit' },
+                { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
+            );
+            calloutData = {
+                winner: 'player',
+                mainText: `${playerAction}あり！`,
+                subText: `🔥 応じ${playerAction}・相打ち制覇(2点)`,
+                isCritical: true,
+            };
         } else if (eCounter && !pCounter) {
             state.playerHealth -= 2;
             gainKiai('enemy', 1);
             playerAnim = 'hit';
             playerOutcome = 'hit';
+            impactWeight = 'heavy';
             message += `相手の応じ技「${enemyAction}」に打ち負けた！ 2ダメージ！`;
             statusType = 'defeat';
-            playSound('hurt');
-            triggerShake(playerSpriteBox);
+            impactSound = 'hurt';
+            zoomTargets.push(enemySpriteBox);
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+            doArenaFlash = true;
+            popups.push(
+                { who: 'player', text: `-2 応じ${enemyAction}！`, styleClass: 'popup-crit' },
+                { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+            );
+            calloutData = {
+                winner: 'enemy',
+                mainText: `${enemyAction}あり！`,
+                subText: `🔥 相手の応じ${enemyAction} (2点)`,
+                isCritical: true,
+            };
         } else {
             state.playerHealth -= 1;
             state.enemyHealth -= 1;
             gainKiai('player', 1);
             gainKiai('enemy', 1);
-            playerOutcome = 'hit';
-            enemyOutcome = 'hit';
+            playerOutcome = 'mutual_hit';
+            enemyOutcome = 'mutual_hit';
             message += `⚔️ 相打ち！互いに「${playerAction}」を打ち合い、双方に1ダメージ＆気合+1！`;
             statusType = 'defeat';
-            playSound('clash');
-            triggerShake(playerSpriteBox);
-            triggerShake(enemySpriteBox);
+            impactSound = 'clash';
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
+            popups.push(
+                { who: 'player', text: '-1 相打ち', styleClass: 'popup-dmg' },
+                { who: 'enemy', text: '-1 相打ち', styleClass: 'popup-dmg' }
+            );
+            calloutData = { winner: 'both', mainText: '相打ち！', subText: `互いに${playerAction} (双方-1)` };
         }
     } else {
         const isValid = attackMap[playerAction].includes(enemyAction);
@@ -2278,70 +2723,156 @@ function playRound(playerAction) {
             gainKiai('player', 1);
             enemyAnim = 'hit';
             enemyOutcome = 'hit';
+            impactWeight = pCounter ? 'heavy' : 'normal';
             message += pCounter
                 ? `🔥 応じ技「${playerAction}」が一閃！！ 2ダメージの有効打突！`
                 : `⚔️ 鮮やかな「${playerAction}」が決まりました！ 1ダメージ＆気合+1！`;
             statusType = 'victory';
-            playSound(pCounter ? 'special' : 'attack');
-            triggerShake(enemySpriteBox);
+            impactSound = pCounter ? 'special' : 'attack';
+            zoomTargets.push(playerSpriteBox);
+            shakeTargets.push({ el: enemySpriteBox, isHeavy: pCounter });
+            if (pCounter) doArenaFlash = true;
+            popups.push(
+                { who: 'enemy', text: pCounter ? `-2 応じ${playerAction}！` : '-1', styleClass: pCounter ? 'popup-crit' : 'popup-dmg' },
+                { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
+            );
+            calloutData = {
+                winner: 'player',
+                mainText: `${playerAction}あり！`,
+                subText: pCounter ? `🔥 会心の応じ${playerAction} (2点)` : `🚩 有効打突・一本！`,
+                isCritical: pCounter,
+            };
         } else {
             const dmg = eCounter ? 2 : 1;
             state.playerHealth -= dmg;
             gainKiai('enemy', 1);
             playerAnim = 'hit';
             playerOutcome = 'hit';
+            impactWeight = eCounter ? 'heavy' : 'normal';
             message += eCounter
                 ? `相手の強烈な応じ技「${enemyAction}」を浴びた！ 2ダメージ！`
                 : `相手の「${enemyAction}」があなたに決まりました！ 1ダメージ！`;
             statusType = 'defeat';
-            playSound('hurt');
-            triggerShake(playerSpriteBox);
+            impactSound = 'hurt';
+            zoomTargets.push(enemySpriteBox);
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: eCounter });
+            if (eCounter) doArenaFlash = true;
+            popups.push(
+                { who: 'player', text: eCounter ? `-2 応じ${enemyAction}！` : '-1', styleClass: eCounter ? 'popup-crit' : 'popup-dmg' },
+                { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+            );
+            calloutData = {
+                winner: 'enemy',
+                mainText: `${enemyAction}あり！`,
+                subText: eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `🏳️ 相手の一本`,
+                isCritical: eCounter,
+            };
         }
     }
 
     state.playerAnimState = playerAnim;
     state.enemyAnimState = enemyAnim;
 
+    let finalStatusMessage = message;
+    let finalStatusType = statusType;
+
     // 勝敗判定
     if (state.playerHealth <= 0 && state.enemyHealth <= 0) {
         state.playerAnimState = 'hit';
         state.enemyAnimState = 'hit';
         state.gameOver = true;
-        playSound('lose');
-        updateStatus(`引き分け（相打ち決着）！第${state.round}合で双方が倒れました。`, 'neutral');
+        impactWeight = 'heavy';
+        endGameSound = 'lose';
+        finalStatusMessage = `引き分け（相打ち決着）！第${state.round}合で双方が倒れました。`;
+        finalStatusType = 'neutral';
+        calloutData = { winner: 'both', mainText: '相打ち決着！', subText: '双方同時に倒れた', isCritical: true };
     } else if (state.playerHealth <= 0) {
         state.playerAnimState = 'hit';
         state.enemyAnimState = 'victory';
         state.gameOver = true;
-        playSound('lose');
-        updateStatus(`敗北… 第${state.round}合で倒されました。（${message}）`, 'defeat');
+        impactWeight = 'heavy';
+        endGameSound = 'lose';
+        finalStatusMessage = `敗北… 第${state.round}合で倒されました。（${message}）`;
+        finalStatusType = 'defeat';
+        calloutData = {
+            winner: 'enemy',
+            mainText: '勝負あり！',
+            subText: `🏳️ 白（相手）の勝利（${enemyAction}）`,
+            isCritical: false,
+        };
     } else if (state.enemyHealth <= 0) {
         state.playerAnimState = 'victory';
         state.enemyAnimState = 'hit';
         state.gameOver = true;
-        playSound('win');
-        updateStatus(`🏆 勝負あり！勝利！！第${state.round}合で相手を倒しました！（${message}）`, 'victory');
-    } else {
-        updateStatus(message, statusType);
-        state.animResetTimer = setTimeout(() => {
-            state.playerAnimState = getNeutralAnim('player');
-            state.enemyAnimState = getNeutralAnim('enemy');
-        }, 950);
+        impactWeight = 'heavy';
+        endGameSound = 'win';
+        finalStatusMessage = `🏆 勝負あり！勝利！！第${state.round}合で相手を倒しました！（${message}）`;
+        finalStatusType = 'victory';
+        calloutData = {
+            winner: 'player',
+            mainText: '🏆 勝負あり！',
+            subText: `🚩 赤（あなた）の勝利！（${playerAction}）`,
+            isCritical: true,
+        };
     }
 
-    // 決着時も含め、打突・被弾の連続キーフレームアニメーションを再生
-    triggerFighterAnimation('player', playerAction, playerOutcome);
-    triggerFighterAnimation('enemy', enemyAction, enemyOutcome);
+    // 1. アニメーション開始時：前回の旗表示を消し、立ち合い中テキストを表示してボタンを一時ロック
+    hideRefereeCallout();
+    setActionButtonsLocked(true);
+    updateStatus(`第${state.round}合: あなた【${playerAction}】 vs 相手【${enemyAction}】 — 立ち合い…！`, 'neutral');
+    if (intentText) intentText.textContent = '⚔️ 技が交錯しています…';
 
-    updateUI();
-    decideEnemyIntent();
+    // 2. 打突・被弾の連続キーフレームアニメーションを再生
+    triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight);
+    triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight);
+
+    // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 320ms）到達時に打突音・画面シェイク・ズームを発火
+    pendingImpactCallback = () => {
+        if (impactSound) playSound(impactSound);
+        zoomTargets.forEach((el) => triggerImpactZoom(el));
+        shakeTargets.forEach((t) => triggerShake(t.el, t.isHeavy));
+        if (doArenaFlash) triggerArenaFlash();
+    };
+    pendingImpactTimer = setTimeout(() => {
+        firePendingImpact();
+    }, STRIKE_IMPACT_T);
+
+    // 4. アニメーション完了後にHPゲージ・気合ゲージ・構えバッジ・ポップアップ・審判旗・結果を反映
+    pendingRoundCallback = () => {
+        if (!state.gameOver) {
+            state.playerAnimState = getNeutralAnim('player');
+            state.enemyAnimState = getNeutralAnim('enemy');
+        }
+        updateUI();
+        popups.forEach((p) => spawnFloatingPopup(p.who, p.text, p.styleClass));
+        if (calloutData) {
+            showRefereeCallout(calloutData);
+        } else {
+            hideRefereeCallout();
+        }
+        if (endGameSound) {
+            playSound(endGameSound);
+        }
+        updateStatus(finalStatusMessage, finalStatusType);
+        decideEnemyIntent();
+    };
+    pendingRoundTimer = setTimeout(() => {
+        flushPendingRound();
+    }, 1150);
 }
 
 function resetGame() {
+    clearPendingRoundTimers();
     if (state.animResetTimer) {
         clearTimeout(state.animResetTimer);
         state.animResetTimer = null;
     }
+    hideRefereeCallout();
+    if (playerPopupLayer) playerPopupLayer.innerHTML = '';
+    if (enemyPopupLayer) enemyPopupLayer.innerHTML = '';
+    timeState.hitStopUntil = 0;
+    timeState.slowMoUntil = 0;
+
     state.playerHealth = MAX_HEALTH;
     state.enemyHealth = MAX_HEALTH;
     state.playerKiai = 0;
@@ -2367,6 +2898,9 @@ function animationLoop(timestamp) {
     const now = timestamp || ((typeof performance !== 'undefined') ? performance.now() : Date.now());
     updateAndDrawFighter(playerCtx, 'player', false, now);
     updateAndDrawFighter(enemyCtx, 'enemy', true, now);
+    if (pendingRoundCallback && !animators.player.keyframes && !animators.enemy.keyframes) {
+        flushPendingRound();
+    }
     requestAnimationFrame(animationLoop);
 }
 

@@ -22,10 +22,13 @@
             </div>
         </div>
 
-        <div class="battle-arena">
+        <div class="battle-arena" id="battleArena">
             <div class="fighter-card" id="playerCard">
-                <div class="fighter-name">あなた</div>
-                <div class="health-bar"><div id="playerHealthBar" class="health-fill"></div></div>
+                <div class="fighter-name">あなた <span class="corner-tag red-tag">赤</span></div>
+                <div class="health-bar">
+                    <div id="playerHealthTrail" class="health-trail"></div>
+                    <div id="playerHealthBar" class="health-fill"></div>
+                </div>
                 <div class="health-text" id="playerHealthText">体力: 5 / 5</div>
                 <div class="kiai-row">
                     <span class="kiai-label" id="playerKiaiText">気合: 0 / 3</span>
@@ -38,14 +41,27 @@
                 <div id="playerBadge" class="stance-badge">中段の構え</div>
                 <div class="sprite-container" id="playerSpriteBox">
                     <canvas id="playerCanvas" width="182" height="200"></canvas>
+                    <div class="popup-layer" id="playerPopupLayer"></div>
                 </div>
             </div>
 
             <div class="vs-divider">VS</div>
 
+            <div id="refereeCallout" class="referee-callout" aria-live="polite">
+                <div class="referee-flags">
+                    <span class="ref-flag flag-red" id="refFlagRed">🚩</span>
+                    <span class="ref-flag flag-white" id="refFlagWhite">🏳️</span>
+                </div>
+                <div class="referee-main" id="refereeMainText">一本！</div>
+                <div class="referee-sub" id="refereeSubText">面あり</div>
+            </div>
+
             <div class="fighter-card" id="enemyCard">
-                <div class="fighter-name">相手</div>
-                <div class="health-bar"><div id="enemyHealthBar" class="health-fill"></div></div>
+                <div class="fighter-name">相手 <span class="corner-tag white-tag">白</span></div>
+                <div class="health-bar">
+                    <div id="enemyHealthTrail" class="health-trail"></div>
+                    <div id="enemyHealthBar" class="health-fill"></div>
+                </div>
                 <div class="health-text" id="enemyHealthText">体力: 5 / 5</div>
                 <div class="kiai-row">
                     <span class="kiai-label" id="enemyKiaiText">気合: 0 / 3</span>
@@ -58,6 +74,7 @@
                 <div id="enemyBadge" class="stance-badge">中段の構え</div>
                 <div class="sprite-container" id="enemySpriteBox">
                     <canvas id="enemyCanvas" width="182" height="200"></canvas>
+                    <div class="popup-layer" id="enemyPopupLayer"></div>
                 </div>
             </div>
         </div>
