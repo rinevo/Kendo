@@ -2186,8 +2186,8 @@ function playKiaiVoice(action, volume = 0.5) {
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(text);
         utter.lang = 'ja-JP';
-        utter.rate = 1.18; // 凛と通る気合のテンポ
-        utter.pitch = 1.25; // 華やかで張りのある女性の気合声
+        utter.rate = 1.22; // 鋭く通る気合のテンポ
+        utter.pitch = 1.85; // 甲高く突き抜ける女性の気合声
         utter.volume = Math.max(0, Math.min(1, volume));
 
         if (!cachedKiaiVoice) {
