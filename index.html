@@ -128,12 +128,13 @@
             </div>
 
             <div class="actions">
-                <button id="btnMen" onclick="playRound('面')">⚔️ 面</button>
-                <button id="btnKote" onclick="playRound('小手')">⚔️ 小手</button>
-                <button id="btnDo" onclick="playRound('胴')">⚔️ 胴</button>
-                <button id="btnDefend" class="secondary" onclick="playRound('防御')">🛡️ 防御</button>
-                <button id="btnBreak" class="tactical" onclick="playRound('崩し')">💥 崩し</button>
-                <button id="btnTsuki" class="special" onclick="playRound('突き')" disabled>⚡ 突き (気合3)</button>
+                <button id="btnStartMatch" class="start-btn" onclick="startMatchCeremony()">🙇 礼をして試合開始</button>
+                <button id="btnMen" onclick="playRound('面')" style="display: none;">⚔️ 面</button>
+                <button id="btnKote" onclick="playRound('小手')" style="display: none;">⚔️ 小手</button>
+                <button id="btnDo" onclick="playRound('胴')" style="display: none;">⚔️ 胴</button>
+                <button id="btnDefend" class="secondary" onclick="playRound('防御')" style="display: none;">🛡️ 防御</button>
+                <button id="btnBreak" class="tactical" onclick="playRound('崩し')" style="display: none;">💥 崩し</button>
+                <button id="btnTsuki" class="special" onclick="playRound('突き')" style="display: none;" disabled>⚡ 突き (気合3)</button>
                 <button id="btnNextStage" class="next-btn" onclick="advanceStage()" style="display: none;">⏭️ 次の相手へ進む</button>
                 <button id="btnReset" class="reset-btn" onclick="resetGame()" style="display: none;">🔄 もう一度</button>
             </div>

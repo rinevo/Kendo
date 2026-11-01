@@ -206,12 +206,14 @@ const state = {
     tsubazeriai: false,
     playerStanceStyle: 'chudan',
     enemyStanceStyle: 'chudan',
+    matchPhase: 'pre_match',
     round: 0,
     gameOver: false,
-    playerAnimState: 'idle',
-    enemyAnimState: 'idle',
+    playerAnimState: 'sageto',
+    enemyAnimState: 'sageto',
     enemyIntent: null,
     animResetTimer: null,
+    ceremonyTimers: [],
 };
 
 function getCurrentEnemy() {
@@ -244,19 +246,23 @@ function makeCellDef(row, col, footX = ANCHOR_FOOT_X, footY = ANCHOR_FOOT_Y) {
 
 // 8列×8行（全64コマ）のスプライト定義＋従来のキー名互換マップ
 const spriteDefinition = {
-    idle:         makeCellDef(0, 0),
-    counterReady: makeCellDef(1, 0),
-    guardBroken:  makeCellDef(1, 4),
-    defend:       makeCellDef(6, 1),
-    breakAttack:  makeCellDef(6, 6),
-    tsubazeriai:  makeCellDef(6, 6),
-    jodan:        makeCellDef(2, 2),
-    waki:         makeCellDef(6, 4),
-    attack1:      makeCellDef(2, 6), // 面打ちインパクト
-    attack2:      makeCellDef(3, 4), // 小手打ちインパクト
-    attack3:      makeCellDef(4, 5), // 胴打ち・突きインパクト
-    hit:          makeCellDef(7, 1), // 被ダメージ仰け反り
-    victory:      makeCellDef(7, 7), // 勝利・残心
+    idle:           makeCellDef(0, 0),
+    sageto:         makeCellDef(0, 0),
+    rei:            makeCellDef(0, 0),
+    sonkyo_kamae:   makeCellDef(0, 0),
+    sonkyo_osameto: makeCellDef(0, 0),
+    counterReady:   makeCellDef(1, 0),
+    guardBroken:    makeCellDef(1, 4),
+    defend:         makeCellDef(6, 1),
+    breakAttack:    makeCellDef(6, 6),
+    tsubazeriai:    makeCellDef(6, 6),
+    jodan:          makeCellDef(2, 2),
+    waki:           makeCellDef(6, 4),
+    attack1:        makeCellDef(2, 6), // 面打ちインパクト
+    attack2:        makeCellDef(3, 4), // 小手打ちインパクト
+    attack3:        makeCellDef(4, 5), // 胴打ち・突きインパクト
+    hit:            makeCellDef(7, 1), // 被ダメージ仰け反り
+    victory:        makeCellDef(7, 7), // 勝利・残心
 };
 
 for (let c = 0; c < 8; c++) {
@@ -350,8 +356,78 @@ const POSE_KEYS = [
     'hipX', 'hipY', 'backFootX', 'backFootY', 'backHeel',
     'frontFootX', 'frontFootY', 'frontHeel', 'torsoLean', 'torsoTwist',
     'breath', 'tareSway', 'hakamaSway', 'headPitch', 'mendareSway',
-    'gripX', 'gripY', 'shinaiAngle', 'shinaiFlex', 'swingBlur', 'hitDebris'
+    'gripX', 'gripY', 'shinaiAngle', 'shinaiFlex', 'swingBlur', 'hitDebris',
+    'oneHanded'
 ];
+
+// 礼法・所作ポーズ定義（提げ刀・立礼・蹲踞構え・蹲踞収め刀・中段立ち）
+const CEREMONY_POSES = {
+    // 提げ刀（左手で竹刀の鍔付近を左腰脇に自然に下げて持つ試合前・試合後の基本姿勢）
+    sageto: {
+        hipX: 126, hipY: 256,
+        backFootX: 118, backFootY: 374, backHeel: 0,
+        frontFootX: 136, frontFootY: 374, frontHeel: 0,
+        torsoLean: 0.01, torsoTwist: 0,
+        breath: 0.4, tareSway: 0, hakamaSway: 0,
+        headPitch: 0.01, mendareSway: 0,
+        gripX: 142, gripY: 244,
+        shinaiAngle: -148, shinaiFlex: 0,
+        swingBlur: 0, hitDebris: 0,
+        oneHanded: 1,
+    },
+    // 立礼（相互の礼：竹刀を左手に提げたまま上体を約15〜20度前傾させて礼をする）
+    rei: {
+        hipX: 120, hipY: 258,
+        backFootX: 118, backFootY: 374, backHeel: 0,
+        frontFootX: 136, frontFootY: 374, frontHeel: 0,
+        torsoLean: 0.34, torsoTwist: 0,
+        breath: 0.3, tareSway: 2, hakamaSway: 1,
+        headPitch: 0.14, mendareSway: 4,
+        gripX: 138, gripY: 248,
+        shinaiAngle: -154, shinaiFlex: 0,
+        swingBlur: 0, hitDebris: 0,
+        oneHanded: 1,
+    },
+    // 蹲踞・構え（帯刀から竹刀を抜いて中段に構えつつ深く腰を落とした蹲踞姿勢）
+    sonkyo_kamae: {
+        hipX: 130, hipY: 314,
+        backFootX: 108, backFootY: 374, backHeel: 18,
+        frontFootX: 150, frontFootY: 374, frontHeel: 14,
+        torsoLean: 0.04, torsoTwist: 0,
+        breath: 0.5, tareSway: 1, hakamaSway: 5,
+        headPitch: 0.02, mendareSway: 0,
+        gripX: 162, gripY: 274,
+        shinaiAngle: 28, shinaiFlex: 0,
+        swingBlur: 0, hitDebris: 0,
+        oneHanded: 0,
+    },
+    // 蹲踞・収め刀（蹲踞したまま竹刀を左腰に収めた姿勢）
+    sonkyo_osameto: {
+        hipX: 130, hipY: 314,
+        backFootX: 108, backFootY: 374, backHeel: 18,
+        frontFootX: 150, frontFootY: 374, frontHeel: 14,
+        torsoLean: 0.03, torsoTwist: 0,
+        breath: 0.4, tareSway: 1, hakamaSway: 5,
+        headPitch: 0.02, mendareSway: 0,
+        gripX: 144, gripY: 292,
+        shinaiAngle: -146, shinaiFlex: 0,
+        swingBlur: 0, hitDebris: 0,
+        oneHanded: 1,
+    },
+    // 中段の構え（礼の後・蹲踞の前後の立ち構え基準ポーズ）
+    chudan_stand: {
+        hipX: 132, hipY: 258,
+        backFootX: 96, backFootY: 374, backHeel: 6,
+        frontFootX: 168, frontFootY: 374, frontHeel: 0,
+        torsoLean: 0.06, torsoTwist: 0,
+        breath: 0.5, tareSway: 0, hakamaSway: 0,
+        headPitch: 0.02, mendareSway: 0,
+        gripX: 165, gripY: 230,
+        shinaiAngle: 26, shinaiFlex: 0,
+        swingBlur: 0, hitDebris: 0,
+        oneHanded: 0,
+    },
+};
 
 function createDefaultPose() {
     return {
@@ -364,6 +440,7 @@ function createDefaultPose() {
         gripX: 165, gripY: 230,
         shinaiAngle: 26, shinaiFlex: 0,
         swingBlur: 0, hitDebris: 0,
+        oneHanded: 0,
     };
 }
 
@@ -378,11 +455,51 @@ function interpolatePose(p0, p1, t) {
     return out;
 }
 
-// 待機状態（中段・応じ技・体勢崩れ・決着後）の連続呼吸＆すり足ポーズ計算
+// 待機状態（中段・応じ技・体勢崩れ・決着後・提げ刀・礼・蹲踞）の連続呼吸＆すり足ポーズ計算
 function getContinuousStancePose(stanceType, phase) {
     const s = Math.sin(phase);
     const c = Math.cos(phase);
     const s2 = Math.sin(phase * 2 + 0.4);
+
+    if (stanceType === 'sageto') {
+        const base = CEREMONY_POSES.sageto;
+        return {
+            ...base,
+            hipY: base.hipY + s * 1.2,
+            breath: 0.35 + 0.25 * s,
+            tareSway: c * 0.4,
+            hakamaSway: c * 0.8,
+            gripY: base.gripY + s * 1.0,
+            shinaiAngle: base.shinaiAngle + c * 0.8,
+            oneHanded: 1,
+        };
+    }
+
+    if (stanceType === 'rei') {
+        return { ...CEREMONY_POSES.rei };
+    }
+
+    if (stanceType === 'sonkyo_kamae') {
+        const base = CEREMONY_POSES.sonkyo_kamae;
+        return {
+            ...base,
+            hipY: base.hipY + s * 1.0,
+            breath: 0.45 + 0.25 * s,
+            gripY: base.gripY + s * 1.0,
+            shinaiAngle: base.shinaiAngle + c * 1.0,
+            oneHanded: 0,
+        };
+    }
+
+    if (stanceType === 'sonkyo_osameto') {
+        const base = CEREMONY_POSES.sonkyo_osameto;
+        return {
+            ...base,
+            hipY: base.hipY + s * 0.8,
+            breath: 0.4 + 0.2 * s,
+            oneHanded: 1,
+        };
+    }
 
     if (stanceType === 'tsubazeriai') {
         const pushVib = Math.sin(phase * 3.4);
@@ -687,16 +804,21 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     const fAnkleX = frontFootX - 4;
     const fAnkleY = Math.min(361, frontFootY - 12);
 
+    // 蹲踞（hipY が大きく下がった姿勢）でも袴の裾が床下へ突き抜けず膝が自然に張るよう比率計算
+    const bLegH = Math.max(32, bAnkleY - hipY);
+    const fLegH = Math.max(32, fAnkleY - hipY);
+    const squatSpread = Math.max(0, (hipY - 264) * 0.42);
+
     const midX = (bAnkleX + fAnkleX) * 0.5;
-    const crotchLowY = Math.min(bAnkleY, fAnkleY) - 18;
+    const crotchLowY = Math.min(bAnkleY, fAnkleY) - Math.min(18, bLegH * 0.22);
     ctx.fillStyle = '#09111f';
     ctx.strokeStyle = ink;
     ctx.lineWidth = 3.2;
     ctx.beginPath();
-    ctx.moveTo(hipX - 24, hipY + 14);
+    ctx.moveTo(hipX - 24, hipY + Math.min(14, bLegH * 0.25));
     ctx.lineTo(bAnkleX + 12, bAnkleY - 2);
     ctx.quadraticCurveTo(midX, crotchLowY, fAnkleX - 14, fAnkleY - 2);
-    ctx.lineTo(hipX + 24, hipY + 14);
+    ctx.lineTo(hipX + 24, hipY + Math.min(14, fLegH * 0.25));
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -712,10 +834,10 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     ctx.lineJoin = 'round';
 
     ctx.beginPath();
-    ctx.moveTo(hipX - 30, hipY + 10);
+    ctx.moveTo(hipX - 30, hipY + Math.min(10, bLegH * 0.2));
     ctx.bezierCurveTo(
-        hipX - 44 + sway * 0.4, hipY + 48,
-        bAnkleX - 34 + sway * 0.7, bAnkleY - 34,
+        hipX - 44 - squatSpread * 0.45 + sway * 0.4, hipY + bLegH * 0.46,
+        bAnkleX - 34 - squatSpread * 0.25 + sway * 0.7, bAnkleY - bLegH * 0.33,
         bAnkleX - 33, bAnkleY + 2
     );
     ctx.bezierCurveTo(
@@ -724,9 +846,9 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
         bAnkleX + 32, bAnkleY
     );
     ctx.bezierCurveTo(
-        bAnkleX + 28, bAnkleY - 36,
-        hipX + 10, hipY + 68,
-        hipX + 12, hipY + 14
+        bAnkleX + 28, bAnkleY - bLegH * 0.35,
+        hipX + 10, hipY + bLegH * 0.65,
+        hipX + 12, hipY + Math.min(14, bLegH * 0.25)
     );
     ctx.closePath();
     ctx.fill();
@@ -736,10 +858,10 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     ctx.lineWidth = 2.2;
     for (let i = -1; i <= 1; i++) {
         ctx.beginPath();
-        ctx.moveTo(hipX - 12 + i * 8, hipY + 22);
+        ctx.moveTo(hipX - 12 + i * 8, hipY + Math.min(22, bLegH * 0.32));
         ctx.quadraticCurveTo(
             (hipX + bAnkleX) * 0.5 - 6 + i * 13 + sway * 0.4,
-            (hipY + bAnkleY) * 0.5 + 10,
+            (hipY + bAnkleY) * 0.5 + Math.min(10, bLegH * 0.12),
             bAnkleX - 2 + i * 14,
             bAnkleY + 2
         );
@@ -756,12 +878,12 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     ctx.strokeStyle = ink;
     ctx.lineWidth = 3.6;
 
-    const kneePush = Math.max(0, (frontFootX - hipX - 28) * 0.22);
+    const kneePush = Math.max(0, (frontFootX - hipX - 28) * 0.22) + squatSpread;
     ctx.beginPath();
-    ctx.moveTo(hipX - 16, hipY + 12);
+    ctx.moveTo(hipX - 16, hipY + Math.min(12, fLegH * 0.22));
     ctx.bezierCurveTo(
-        hipX - 20 + sway * 0.3, hipY + 54,
-        fAnkleX - 34 + sway * 0.5, fAnkleY - 36,
+        hipX - 20 + sway * 0.3, hipY + fLegH * 0.52,
+        fAnkleX - 34 + sway * 0.5, fAnkleY - fLegH * 0.35,
         fAnkleX - 34, fAnkleY + 1
     );
     ctx.bezierCurveTo(
@@ -770,9 +892,9 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
         fAnkleX + 35, fAnkleY - 1
     );
     ctx.bezierCurveTo(
-        fAnkleX + 34 + kneePush, fAnkleY - 40,
+        fAnkleX + 34 + kneePush, fAnkleY - fLegH * 0.38,
         hipX + 34 + kneePush * 0.6, (hipY + fAnkleY) * 0.5,
-        hipX + 30, hipY + 10
+        hipX + 30, hipY + Math.min(10, fLegH * 0.2)
     );
     ctx.closePath();
     ctx.fill();
@@ -783,10 +905,10 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     for (let i = -1; i <= 2; i++) {
         const topX = hipX + 2 + i * 7;
         const botX = fAnkleX - 6 + i * 12;
-        const mX = (topX + botX) * 0.5 + 5 + sway * 0.3;
+        const mX = (topX + botX) * 0.5 + 5 + squatSpread * 0.35 + sway * 0.3;
         const mY = (hipY + fAnkleY) * 0.54;
         ctx.beginPath();
-        ctx.moveTo(topX, hipY + 24);
+        ctx.moveTo(topX, hipY + Math.min(24, fLegH * 0.34));
         ctx.quadraticCurveTo(mX, mY, botX, fAnkleY - 2);
         ctx.stroke();
     }
@@ -796,10 +918,10 @@ function drawHakama(ctx, hipX, hipY, backFootX, backFootY, frontFootX, frontFoot
     for (let i = -2; i <= 2; i++) {
         const topX = hipX + i * 7;
         const botX = fAnkleX - 4 + i * 12;
-        const mX = (topX + botX) * 0.5 + 3 + sway * 0.3;
+        const mX = (topX + botX) * 0.5 + 3 + squatSpread * 0.35 + sway * 0.3;
         const mY = (hipY + fAnkleY) * 0.54;
         ctx.beginPath();
-        ctx.moveTo(topX, hipY + 22);
+        ctx.moveTo(topX, hipY + Math.min(22, fLegH * 0.32));
         ctx.quadraticCurveTo(mX, mY, botX, fAnkleY + 2);
         ctx.stroke();
     }
@@ -1251,13 +1373,37 @@ function drawShinai(ctx, gripX, gripY, angleDeg, flex, swingBlur) {
     ctx.restore();
 }
 
-function getHandTargets(gripX, gripY, angleDeg) {
+function getHandTargets(gripX, gripY, angleDeg, oneHanded = 0, hipX = 132, hipY = 258) {
     const rad = -angleDeg * Math.PI / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
+    const leftTwoX = gripX + 2 * cos;
+    const leftTwoY = gripY + 2 * sin;
+    const rightTwoX = gripX + 27 * cos;
+    const rightTwoY = gripY + 27 * sin;
+    if (!oneHanded || oneHanded <= 0.001) {
+        return {
+            left: { x: leftTwoX, y: leftTwoY },
+            right: { x: rightTwoX, y: rightTwoY },
+            rightAngle: angleDeg,
+        };
+    }
+    const t = Math.max(0, Math.min(1, oneHanded));
+    // 提げ刀・収め刀（oneHanded = 1）時は左手で鍔元付近（+34px）を保持し、右手は右腰脇へ自然に下ろす
+    const leftOneX = gripX + 34 * cos;
+    const leftOneY = gripY + 34 * sin;
+    const rightOneX = hipX + 12;
+    const rightOneY = hipY + 4;
     return {
-        left: { x: gripX + 2 * cos, y: gripY + 2 * sin },
-        right: { x: gripX + 27 * cos, y: gripY + 27 * sin },
+        left: {
+            x: leftTwoX + (leftOneX - leftTwoX) * t,
+            y: leftTwoY + (leftOneY - leftTwoY) * t,
+        },
+        right: {
+            x: rightTwoX + (rightOneX - rightTwoX) * t,
+            y: rightTwoY + (rightOneY - rightTwoY) * t,
+        },
+        rightAngle: angleDeg + (-78 - angleDeg) * t,
     };
 }
 
@@ -1415,9 +1561,10 @@ function renderFighterPose(ctx, pose, armorTheme = null) {
     const shinaiFlex = pose.shinaiFlex ?? 0;
     const swingBlur = pose.swingBlur ?? 0;
     const hitDebris = pose.hitDebris ?? 0;
+    const oneHanded = pose.oneHanded ?? 0;
 
     const anchors = getTorsoAnchors(hipX, hipY, torsoLean, torsoTwist);
-    const hands = getHandTargets(gripX, gripY, shinaiAngle);
+    const hands = getHandTargets(gripX, gripY, shinaiAngle, oneHanded, hipX, hipY);
 
     drawBareFoot(ctx, backFootX, backFootY, backHeel, 1.0, true);
     drawBareFoot(ctx, frontFootX, frontFootY, frontHeel, 1.04, false);
@@ -1428,7 +1575,7 @@ function renderFighterPose(ctx, pose, armorTheme = null) {
     drawArmAndKote(ctx, anchors.backShoulder.x, anchors.backShoulder.y, hands.left.x, hands.left.y, shinaiAngle, true, 'forearm');
     drawShinai(ctx, gripX, gripY, shinaiAngle, shinaiFlex, swingBlur);
     drawArmAndKote(ctx, anchors.backShoulder.x, anchors.backShoulder.y, hands.left.x, hands.left.y, shinaiAngle, true, 'fist');
-    drawArmAndKote(ctx, anchors.frontShoulder.x, anchors.frontShoulder.y, hands.right.x, hands.right.y, shinaiAngle, false, 'all');
+    drawArmAndKote(ctx, anchors.frontShoulder.x, anchors.frontShoulder.y, hands.right.x, hands.right.y, hands.rightAngle, false, 'all');
 }
 
 // 連続補間された骨格ポーズを足裏基準原点 (0, 0) でキャンバスに描画
@@ -1498,6 +1645,7 @@ const btnDo = document.getElementById('btnDo');
 const btnDefend = document.getElementById('btnDefend');
 const btnBreak = document.getElementById('btnBreak');
 const btnTsuki = document.getElementById('btnTsuki');
+const btnStartMatch = document.getElementById('btnStartMatch');
 const btnNextStage = document.getElementById('btnNextStage');
 const btnReset = document.getElementById('btnReset');
 const enemyNameText = document.getElementById('enemyNameText');
@@ -1516,6 +1664,8 @@ let pendingImpactTimer = null;
 let pendingImpactCallback = null;
 let pendingRoundTimer = null;
 let pendingRoundCallback = null;
+let pendingClosingTimer = null;
+let pendingClosingCallback = null;
 
 function setActionButtonsLocked(locked) {
     actionButtons.forEach((btn) => {
@@ -1523,7 +1673,20 @@ function setActionButtonsLocked(locked) {
     });
 }
 
+function clearCeremonyTimers() {
+    if (state.ceremonyTimers && state.ceremonyTimers.length > 0) {
+        state.ceremonyTimers.forEach((id) => clearTimeout(id));
+        state.ceremonyTimers = [];
+    }
+    if (pendingClosingTimer) {
+        clearTimeout(pendingClosingTimer);
+        pendingClosingTimer = null;
+    }
+    pendingClosingCallback = null;
+}
+
 function clearPendingRoundTimers() {
+    clearCeremonyTimers();
     if (pendingImpactTimer) {
         clearTimeout(pendingImpactTimer);
         pendingImpactTimer = null;
@@ -1548,7 +1711,7 @@ function firePendingImpact() {
     }
 }
 
-function flushPendingRound() {
+function firePendingRoundResult() {
     firePendingImpact();
     if (pendingRoundTimer) {
         clearTimeout(pendingRoundTimer);
@@ -1558,6 +1721,19 @@ function flushPendingRound() {
         const roundFn = pendingRoundCallback;
         pendingRoundCallback = null;
         roundFn();
+    }
+}
+
+function flushPendingRound() {
+    firePendingRoundResult();
+    if (pendingClosingTimer) {
+        clearTimeout(pendingClosingTimer);
+        pendingClosingTimer = null;
+    }
+    if (pendingClosingCallback) {
+        const closeFn = pendingClosingCallback;
+        pendingClosingCallback = null;
+        closeFn();
     }
 }
 
@@ -1680,9 +1856,46 @@ function spawnShockwave(anim, x, y, color = '250, 204, 21', isHeavy = false) {
 
 const STRIKE_IMPACT_T = 380;
 const ANIM_TOTAL_T = 1040;
+const OPENING_TOTAL_T = 2560;
+const CLOSING_TOTAL_T = 3400;
+
+// 試合開始時の礼法キーフレーム列（提げ刀 → お互いに礼 → 帯刀・竹刀を構えて蹲踞 → 「始め！」で立ち上がる）
+function buildOpeningCeremonyKeyframes(startPose, endCombatPose, endSprite) {
+    const sageto = CEREMONY_POSES.sageto;
+    const rei = CEREMONY_POSES.rei;
+    const chudan = CEREMONY_POSES.chudan_stand;
+    const sonkyo = CEREMONY_POSES.sonkyo_kamae;
+    return [
+        { t: 0,               sprite: 'sageto',       pose: startPose,     x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 320,             sprite: 'rei',          pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 620,             sprite: 'rei',          pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 940,             sprite: 'sageto',       pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 1280,            sprite: 'idle_0',       pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad, fx: 'dust' },
+        { t: 1700,            sprite: 'sonkyo_kamae', pose: sonkyo,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
+        { t: 2120,            sprite: 'sonkyo_kamae', pose: sonkyo,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: OPENING_TOTAL_T, sprite: endSprite,      pose: endCombatPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeOutCubic,  fx: 'dust' },
+    ];
+}
+
+// 勝敗決定後の礼法キーフレーム列（中段の構え → 蹲踞 → 竹刀を左腰に収める → 立ち上がり → お互いに礼 → 提げ刀）
+function buildClosingCeremonyTail() {
+    const chudan = CEREMONY_POSES.chudan_stand;
+    const sonkyoKamae = CEREMONY_POSES.sonkyo_kamae;
+    const sonkyoOsameto = CEREMONY_POSES.sonkyo_osameto;
+    const sageto = CEREMONY_POSES.sageto;
+    const rei = CEREMONY_POSES.rei;
+    return [
+        { t: 1460,            sprite: 'idle_0',         pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
+        { t: 1900,            sprite: 'sonkyo_kamae',   pose: sonkyoKamae,   x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad, fx: 'dust' },
+        { t: 2320,            sprite: 'sonkyo_osameto', pose: sonkyoOsameto, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 2720,            sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
+        { t: 3080,            sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: CLOSING_TOTAL_T, sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+    ];
+}
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
-function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false) {
+function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false, includeClosingCeremony = false) {
     const m = POSE_ROWS.men;
     const k = POSE_ROWS.kote;
     const d = POSE_ROWS.do;
@@ -1862,21 +2075,23 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
             lastStrikeKf.fx = 'sparks';
         }
         lastStrikeKf.flash = 0.65;
-        return [...windup, ...buildHitTail()];
+        const hitSequence = [...windup, ...buildHitTail()];
+        return includeClosingCeremony ? [...hitSequence, ...buildClosingCeremonyTail()] : hitSequence;
     }
 
-    return actionKeyframes;
+    return includeClosingCeremony ? [...actionKeyframes, ...buildClosingCeremonyTail()] : actionKeyframes;
 }
 
 function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', wasTsubazeriai = false) {
     const anim = animators[who];
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-    const finalStance = state.gameOver
-        ? (who === 'player' ? state.playerAnimState : state.enemyAnimState)
+    const includeClosing = state.gameOver;
+    const strikeEndStance = includeClosing
+        ? (outcome === 'hit' || outcome === 'mutual_hit' ? 'hit' : 'victory')
         : getNeutralAnim(who);
     const startSnapshot = { ...anim.currentPose };
-    const endTargetPose = getContinuousStancePose(finalStance, (now + ANIM_TOTAL_T) * 0.0042 + anim.phaseOffset);
-    anim.keyframes = buildActionKeyframes(action, outcome, finalStance, startSnapshot, endTargetPose, wasTsubazeriai);
+    const endTargetPose = getContinuousStancePose(strikeEndStance, (now + ANIM_TOTAL_T) * 0.0042 + anim.phaseOffset);
+    anim.keyframes = buildActionKeyframes(action, outcome, strikeEndStance, startSnapshot, endTargetPose, wasTsubazeriai, includeClosing);
     anim.seqStartTime = now;
     anim.virtualElapsed = 0;
     anim.lastUpdateNow = now;
@@ -2292,6 +2507,9 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                     if (kf.t === STRIKE_IMPACT_T) {
                         firePendingImpact();
                     }
+                    if (kf.t === ANIM_TOTAL_T && pendingRoundCallback) {
+                        firePendingRoundResult();
+                    }
                     if (kf.flash) {
                         anim.hitFlash = isHeavy ? Math.min(1.0, kf.flash * 1.45) : kf.flash;
                     }
@@ -2385,7 +2603,8 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                 spawnSparks(anim, baseFootX + dir * 46, 98, '250, 204, 21', 2, 0.55);
             }
         } else {
-            const suriashiX = Math.sin(phase * 0.55) * 2.2;
+            const isCeremonyIdle = defaultSprite === 'sageto' || defaultSprite === 'rei' || defaultSprite === 'sonkyo_kamae' || defaultSprite === 'sonkyo_osameto';
+            const suriashiX = isCeremonyIdle ? 0 : Math.sin(phase * 0.55) * 2.2;
             anim.posX = lerp(anim.posX, suriashiX, 0.16);
             anim.scaleX = lerp(anim.scaleX, 1.0, 0.16);
             anim.scaleY = lerp(anim.scaleY, 1.0, 0.16);
@@ -2639,7 +2858,7 @@ function gainKiai(who, amount) {
     }
 }
 
-function getNeutralAnim(who) {
+function getCombatStanceAnim(who) {
     if (state.tsubazeriai) return 'tsubazeriai';
     if (who === 'player') {
         if (state.playerGuardBroken) return 'guardBroken';
@@ -2656,6 +2875,13 @@ function getNeutralAnim(who) {
     }
 }
 
+function getNeutralAnim(who) {
+    if (state.matchPhase === 'pre_match' || state.matchPhase === 'post_match' || state.matchPhase === 'closing_ceremony') {
+        return 'sageto';
+    }
+    return getCombatStanceAnim(who);
+}
+
 function renderPips(container, count) {
     const pips = container.querySelectorAll('.kiai-pip');
     pips.forEach((pip, idx) => {
@@ -2667,6 +2893,23 @@ function renderPips(container, count) {
 function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai, stanceStyle = 'chudan') {
     badgeEl.className = 'stance-badge';
     spriteBoxEl.classList.remove('counter-aura', 'broken-aura', 'tsubazeriai-aura', 'jodan-aura', 'waki-aura');
+
+    if (state.matchPhase === 'pre_match') {
+        badgeEl.textContent = '🎋 提げ刀 (開始前)';
+        return;
+    }
+    if (state.matchPhase === 'opening_ceremony') {
+        badgeEl.textContent = '🙇 礼・蹲踞 (開始礼法)';
+        return;
+    }
+    if (state.matchPhase === 'closing_ceremony') {
+        badgeEl.textContent = '🙇 蹲踞・収め刀・礼';
+        return;
+    }
+    if (state.matchPhase === 'post_match') {
+        badgeEl.textContent = '🙇 礼 (試合終了)';
+        return;
+    }
 
     if (isTsubazeriai && !state.gameOver) {
         badgeEl.textContent = '💥 鍔迫り合い (引き技2ダメ)';
@@ -2862,22 +3105,28 @@ function updateUI() {
         ? (inTsuba ? '⚡ 離れ突き (3ダメ!)' : '⚡ 突き (発動可！)')
         : `⚡ 突き (${state.playerKiai}/${MAX_KIAI})`;
 
-    // 勝敗決定時は「構え切替」「攻撃・防御・崩し・突き」を非表示にし、「もう一度」（勝利時は「次の相手へ進む」）を表示する
-    // 試合開始・試合中は「構え切替」「攻撃・防御・崩し・突き」を表示し、「もう一度」「次の相手へ進む」を非表示にする
+    // 試合フェーズ（開始前・開始礼法中・試合中・終了礼法中・試合後）に応じたボタン表示制御
+    const isPreMatch = state.matchPhase === 'pre_match';
+    const isFighting = state.matchPhase === 'fighting' && !state.gameOver;
+    const isPostMatch = state.matchPhase === 'post_match' || (state.gameOver && state.matchPhase !== 'closing_ceremony');
+
+    if (btnStartMatch) {
+        btnStartMatch.style.display = isPreMatch ? 'inline-block' : 'none';
+    }
     if (stanceSelectorWrap) {
-        stanceSelectorWrap.style.display = state.gameOver ? 'none' : '';
+        stanceSelectorWrap.style.display = isFighting ? '' : 'none';
     }
     actionButtons.forEach((btn) => {
         if (btn) {
-            btn.style.display = state.gameOver ? 'none' : '';
+            btn.style.display = isFighting ? '' : 'none';
         }
     });
     if (btnReset) {
-        btnReset.style.display = state.gameOver ? 'inline-block' : 'none';
+        btnReset.style.display = isPostMatch ? 'inline-block' : 'none';
     }
 
     if (btnNextStage) {
-        if (state.gameOver && state.lastOutcome === 'victory') {
+        if (isPostMatch && state.lastOutcome === 'victory') {
             btnNextStage.style.display = 'inline-block';
             if (state.stageIndex < ENEMY_ROSTER.length - 1) {
                 const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
@@ -2899,13 +3148,28 @@ function updateStatus(message, type = 'neutral') {
 // 敵AIの次ターンの気配（剣士ごとの思考傾向）を決定
 function decideEnemyIntent() {
     const enemyData = getCurrentEnemy();
+    if (state.matchPhase === 'pre_match') {
+        intentBox.className = 'intent-box';
+        intentText.textContent = '🎋 剣道は礼に始まり礼に終わります。「🙇 礼をして試合開始」ボタンを押して立ち合いを始めましょう。';
+        return;
+    }
+    if (state.matchPhase === 'opening_ceremony') {
+        intentBox.className = 'intent-box';
+        intentText.textContent = '🙇 お互いに礼をし、竹刀を構えて蹲踞しています…審判の「始め！」の掛け声で立ち上がります。';
+        return;
+    }
+    if (state.matchPhase === 'closing_ceremony') {
+        intentBox.className = 'intent-box';
+        intentText.textContent = '🙇 勝敗が決まり、お互いに中段の構えから蹲踞・収め刀・立礼を行っています…';
+        return;
+    }
     if (state.gameOver) {
         intentBox.className = 'intent-box';
         if (state.lastOutcome === 'victory' && state.stageIndex < ENEMY_ROSTER.length - 1) {
             const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
-            intentText.textContent = `「⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む」または「🔄 もう一度」を選べます。`;
+            intentText.textContent = `🙇 礼に始まり礼に終わる — 「⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む」または「🔄 もう一度」を選べます。`;
         } else {
-            intentText.textContent = '「🔄 もう一度」または上部の剣士バッジから対戦相手を選べます。';
+            intentText.textContent = '🙇 礼に始まり礼に終わる — 「🔄 もう一度」または上部の剣士バッジから対戦相手を選べます。';
         }
         return;
     }
@@ -3054,9 +3318,111 @@ function getActionAnim(action) {
     return 'idle';
 }
 
+// 試合開始の礼法シーケンス（提げ刀 → お互いに礼 → 竹刀を構えて蹲踞 → 「始め！」で立ち上がり戦闘開始）
+function startMatchCeremony() {
+    if (state.matchPhase !== 'pre_match') return;
+    clearPendingRoundTimers();
+    hideRefereeCallout();
+
+    const enemyData = getCurrentEnemy();
+    state.matchPhase = 'opening_ceremony';
+
+    // 敵の初手パターン・構えをあらかじめ決定しておく
+    const patterns = enemyData.patterns;
+    const picked = patterns[Math.floor(Math.random() * patterns.length)];
+    state.enemyStanceStyle = picked.stance || 'chudan';
+    if (state.enemyStanceStyle === 'jodan' && picked.weights['防御'] > 0) {
+        state.enemyIntent = {
+            stance: state.enemyStanceStyle,
+            hint: picked.hint,
+            isDanger: picked.isDanger,
+            weights: { ...picked.weights, 面: picked.weights['面'] + picked.weights['防御'], 防御: 0 },
+        };
+    } else {
+        state.enemyIntent = {
+            stance: state.enemyStanceStyle,
+            hint: picked.hint,
+            isDanger: picked.isDanger,
+            weights: { ...picked.weights },
+        };
+    }
+
+    updateUI();
+    decideEnemyIntent();
+    updateStatus(`🙇 【${enemyData.role}戦】お互いに礼をし、竹刀を構えて蹲踞します…`, 'neutral');
+
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    const playerEndSprite = getCombatStanceAnim('player');
+    const enemyEndSprite = getCombatStanceAnim('enemy');
+    const playerEndPose = getContinuousStancePose(playerEndSprite, (now + OPENING_TOTAL_T) * 0.0042 + animators.player.phaseOffset);
+    const enemyEndPose = getContinuousStancePose(enemyEndSprite, (now + OPENING_TOTAL_T) * 0.0042 + animators.enemy.phaseOffset);
+
+    animators.player.keyframes = buildOpeningCeremonyKeyframes({ ...animators.player.currentPose }, playerEndPose, playerEndSprite);
+    animators.player.seqStartTime = now;
+    animators.player.virtualElapsed = 0;
+    animators.player.lastUpdateNow = now;
+    animators.player.lastKeyIndex = -1;
+    animators.player.impactWeight = 'normal';
+
+    animators.enemy.keyframes = buildOpeningCeremonyKeyframes({ ...animators.enemy.currentPose }, enemyEndPose, enemyEndSprite);
+    animators.enemy.seqStartTime = now;
+    animators.enemy.virtualElapsed = 0;
+    animators.enemy.lastUpdateNow = now;
+    animators.enemy.lastKeyIndex = -1;
+    animators.enemy.impactWeight = 'normal';
+
+    state.ceremonyTimers.push(
+        setTimeout(() => {
+            spawnFloatingPopup('player', '🙇 礼！', 'popup-block');
+            spawnFloatingPopup('enemy', '🙇 礼！', 'popup-block');
+        }, 120),
+        setTimeout(() => {
+            spawnFloatingPopup('player', '⚔️ 蹲踞', 'popup-block');
+            spawnFloatingPopup('enemy', '⚔️ 蹲踞', 'popup-block');
+            updateStatus('⚔️ 竹刀を構えて蹲踞…審判の「始め！」の掛け声を待ちます。', 'neutral');
+        }, 1280),
+        setTimeout(() => {
+            playSound('clash');
+            showRefereeCallout({
+                winner: 'both',
+                mainText: '🚩 始め！',
+                subText: `⚔️ ${enemyData.role}・${enemyData.shortName}戦 立ち合い開始！`,
+                isCritical: false,
+            });
+            updateStatus('🚩 審判「始め！」 — お互いに立ち上がって立ち合い開始！', 'neutral');
+        }, 1950)
+    );
+
+    pendingRoundCallback = () => {
+        clearCeremonyTimers();
+        state.matchPhase = 'fighting';
+        state.playerAnimState = getNeutralAnim('player');
+        state.enemyAnimState = getNeutralAnim('enemy');
+        setActionButtonsLocked(false);
+        if (state.enemyIntent) {
+            intentBox.className = state.enemyIntent.isDanger ? 'intent-box danger' : 'intent-box';
+            intentText.textContent = state.enemyIntent.hint;
+        } else {
+            decideEnemyIntent();
+        }
+        updateUI();
+        updateStatus(`🚩 始め！【${enemyData.role}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
+    };
+    pendingRoundTimer = setTimeout(() => {
+        flushPendingRound();
+    }, OPENING_TOTAL_T + 80);
+}
+
 function playRound(playerAction) {
+    if (state.matchPhase === 'pre_match') {
+        startMatchCeremony();
+        return;
+    }
+    if (state.matchPhase === 'opening_ceremony' || state.matchPhase === 'closing_ceremony') {
+        return;
+    }
     // 進行中のアニメーション結果が未反映の場合は即座に反映してから処理
-    if (pendingRoundCallback) {
+    if (pendingRoundCallback || pendingClosingCallback) {
         flushPendingRound();
     }
 
@@ -3706,6 +4072,10 @@ function playRound(playerAction) {
 
     if (state.gameOver) {
         state.tsubazeriai = false;
+        state.matchPhase = 'closing_ceremony';
+        state.playerAnimState = 'sageto';
+        state.enemyAnimState = 'sageto';
+        updateUI();
     }
 
     // 1. アニメーション開始時：前回の旗表示を消し、立ち合い中テキストを表示してボタンを一時ロック
@@ -3718,7 +4088,7 @@ function playRound(playerAction) {
     triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight, inTsuba);
     triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight, inTsuba);
 
-    // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 320ms）到達時に打突音・画面シェイク・ズームを発火
+    // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 380ms）到達時に打突音・画面シェイク・ズームを発火
     pendingImpactCallback = () => {
         if (impactSound) playSound(impactSound);
         zoomTargets.forEach((el) => triggerImpactZoom(el));
@@ -3729,12 +4099,14 @@ function playRound(playerAction) {
         firePendingImpact();
     }, STRIKE_IMPACT_T);
 
-    // 4. アニメーション完了後にHPゲージ・気合ゲージ・構えバッジ・ポップアップ・審判旗・結果を反映
+    // 4. 打突アニメーション完了時点（ANIM_TOTAL_T = 1040ms）でHPゲージ・気合ゲージ・ポップアップ・審判旗・勝敗コールを反映
     pendingRoundCallback = () => {
-        decideEnemyIntent();
         if (!state.gameOver) {
+            decideEnemyIntent();
             state.playerAnimState = getNeutralAnim('player');
             state.enemyAnimState = getNeutralAnim('enemy');
+        } else {
+            decideEnemyIntent();
         }
         updateUI();
         popups.forEach((p) => spawnFloatingPopup(p.who, p.text, p.styleClass));
@@ -3748,9 +4120,48 @@ function playRound(playerAction) {
         }
         updateStatus(finalStatusMessage, finalStatusType);
     };
-    pendingRoundTimer = setTimeout(() => {
-        flushPendingRound();
-    }, 1250);
+
+    if (state.gameOver) {
+        // 勝敗決定時は 1040ms で一本・勝負ありコールを表示したあと、中段→蹲踞→収め刀→立ち上がり→相互の礼（3400ms）を行って終了する
+        pendingRoundTimer = setTimeout(() => {
+            firePendingRoundResult();
+        }, ANIM_TOTAL_T + 40);
+
+        state.ceremonyTimers.push(
+            setTimeout(() => {
+                spawnFloatingPopup('player', '⚖️ 中段の構え', 'popup-block');
+                spawnFloatingPopup('enemy', '⚖️ 中段の構え', 'popup-block');
+            }, 1380),
+            setTimeout(() => {
+                spawnFloatingPopup('player', '⚔️ 蹲踞', 'popup-block');
+                spawnFloatingPopup('enemy', '⚔️ 蹲踞', 'popup-block');
+            }, 1840),
+            setTimeout(() => {
+                spawnFloatingPopup('player', '🎋 収め刀', 'popup-block');
+                spawnFloatingPopup('enemy', '🎋 収め刀', 'popup-block');
+            }, 2260),
+            setTimeout(() => {
+                spawnFloatingPopup('player', '🙇 礼！', 'popup-block');
+                spawnFloatingPopup('enemy', '🙇 礼！', 'popup-block');
+            }, 2960)
+        );
+
+        pendingClosingCallback = () => {
+            clearCeremonyTimers();
+            state.matchPhase = 'post_match';
+            state.playerAnimState = 'sageto';
+            state.enemyAnimState = 'sageto';
+            decideEnemyIntent();
+            updateUI();
+        };
+        pendingClosingTimer = setTimeout(() => {
+            flushPendingRound();
+        }, CLOSING_TOTAL_T + 120);
+    } else {
+        pendingRoundTimer = setTimeout(() => {
+            flushPendingRound();
+        }, 1250);
+    }
 }
 
 function selectStage(stageIndex) {
@@ -3793,6 +4204,7 @@ function resetGame() {
     state.enemyGuardBroken = false;
     state.tsubazeriai = false;
     state.enemyStanceStyle = 'chudan';
+    state.matchPhase = 'pre_match';
     state.round = 0;
     state.gameOver = false;
     state.lastOutcome = null;
@@ -3802,19 +4214,23 @@ function resetGame() {
     state.enemyAnimState = getNeutralAnim('enemy');
 
     animators.player = createAnimator(0);
+    animators.player.currentSprite = 'sageto';
+    animators.player.prevSprite = 'sageto';
     animators.player.currentPose = { ...getContinuousStancePose(state.playerAnimState, 0) };
     animators.enemy = createAnimator(1.8);
+    animators.enemy.currentSprite = 'sageto';
+    animators.enemy.prevSprite = 'sageto';
     animators.enemy.currentPose = { ...getContinuousStancePose(state.enemyAnimState, 1.8) };
 
     updateUI();
-    updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）が登場！ ${enemyData.introQuote}`, 'neutral');
+    updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）が登場！ ${enemyData.introQuote} — 「🙇 礼をして試合開始」で立ち合いを始めましょう。`, 'neutral');
 }
 
 function animationLoop(timestamp) {
     const now = timestamp || ((typeof performance !== 'undefined') ? performance.now() : Date.now());
     updateAndDrawFighter(playerCtx, 'player', false, now);
     updateAndDrawFighter(enemyCtx, 'enemy', true, now);
-    if (pendingRoundCallback && !animators.player.keyframes && !animators.enemy.keyframes) {
+    if ((pendingRoundCallback || pendingClosingCallback) && !animators.player.keyframes && !animators.enemy.keyframes) {
         flushPendingRound();
     }
     requestAnimationFrame(animationLoop);
