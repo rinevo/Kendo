@@ -2178,8 +2178,195 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     }
 }
 
-// 審判の号令（始め！）：低く引き締まった男性の声
-function playRefereeVoice(text = 'ハジメッ！', volume = 0.45) {
+// 効果音生成・オーディオ初期化
+function ensureAudio() {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return false;
+    if (!audioCtx) {
+        audioCtx = new AudioCtor();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    return true;
+}
+
+// ============================================================================
+// 👨‍⚖️ 審判の号令（「ハジメェーーーッ！」）プロシージャル音声合成エンジン
+// 剣士（中高音シャウト）とは明確に異なる、威厳ある男性主審の低く太い胸声と呼気
+// ============================================================================
+
+let refereeVoiceCurve = null;
+function getRefereeVoiceCurve() {
+    if (!refereeVoiceCurve) {
+        const samples = 1024;
+        const curve = new Float32Array(samples);
+        const k = 8; // 太い偶数倍音の胸鳴りサチュレーション
+        const deg = Math.PI / 180;
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            // 非対称ソフトクリッピング（男性の太い胸声を再現）
+            const xBiased = x + 0.08 * (1 - x * x);
+            curve[i] = ((3 + k) * xBiased * 18 * deg) / (Math.PI + k * Math.abs(xBiased));
+        }
+        refereeVoiceCurve = curve;
+    }
+    return refereeVoiceCurve;
+}
+
+// 審判の号令：「ハジメッ！」を短くはっきりとプロシージャル合成
+// 剣士（中高音シャウト）とは明確に異なる、威厳ある男性主審の引き締まった号令
+function playRefereeHajimeShout(ctx, now, intensity = 1.0) {
+    const dur = 0.38; // 短く切れ味のある号令（約0.38秒）
+    const refPitch = 158; // 通りの良い男性主審の引き締まったピッチ
+
+    // 1. 声帯オシレータ（主Sawtooth + 補助Triangleでクリアな声帯振動）
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    // ピッチ推移: ハ(150Hz) -> ジ(160Hz) -> メッ！(182Hzへキュッと跳ね上がりスタッカート)
+    oscMain.frequency.setValueAtTime(refPitch * 0.95, now);
+    oscMain.frequency.linearRampToValueAtTime(refPitch * 1.02, now + 0.10); // ハ
+    oscMain.frequency.setValueAtTime(refPitch * 1.05, now + 0.11); // ジ
+    oscMain.frequency.linearRampToValueAtTime(refPitch * 1.10, now + 0.20);
+    oscMain.frequency.setValueAtTime(refPitch * 1.15, now + 0.21); // メッ！
+    oscMain.frequency.exponentialRampToValueAtTime(refPitch * 1.25, now + 0.34);
+
+    oscSub.frequency.setValueAtTime(refPitch * 0.47, now);
+    oscSub.frequency.linearRampToValueAtTime(refPitch * 0.51, now + 0.10);
+    oscSub.frequency.setValueAtTime(refPitch * 0.53, now + 0.11);
+    oscSub.frequency.linearRampToValueAtTime(refPitch * 0.55, now + 0.20);
+    oscSub.frequency.setValueAtTime(refPitch * 0.58, now + 0.21);
+    oscSub.frequency.exponentialRampToValueAtTime(refPitch * 0.62, now + 0.34);
+
+    // 2. 子音ノイズ発生器（ハの息音、ジの破擦クリック、メの抜け）
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = getBreathNoiseBuffer(ctx);
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.Q.setValueAtTime(2.2, now);
+
+    const noiseGain = ctx.createGain();
+    // 「ハ」の呼気アタック（1800Hz）
+    noiseFilter.frequency.setValueAtTime(1800, now);
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(0.18 * intensity, now + 0.015);
+    noiseGain.gain.exponentialRampToValueAtTime(0.02 * intensity, now + 0.09);
+
+    // 「ジ」の鋭い破擦クリック（3800Hz、子音の立ち上がりを明確化）
+    noiseFilter.frequency.setValueAtTime(3800, now + 0.11);
+    noiseGain.gain.setValueAtTime(0.24 * intensity, now + 0.11);
+    noiseGain.gain.exponentialRampToValueAtTime(0.02 * intensity, now + 0.15);
+
+    // 「メッ！」の抜けノイズ（2400Hz）
+    noiseFilter.frequency.setValueAtTime(2400, now + 0.21);
+    noiseGain.gain.setValueAtTime(0.14 * intensity, now + 0.23);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+
+    // 3. 声道フォルマント（各音節ごとのステップ遷移で輪郭をシャープに）
+    // 「ハ (/a/)」: F1=820Hz, F2=1300Hz, F3=2500Hz
+    // 「ジ (/i/)」: F1=290Hz, F2=2280Hz, F3=2900Hz
+    // 「メ (/e/)」: F1=530Hz, F2=1950Hz, F3=2650Hz
+    const formants = createFormantFilters(ctx, 820, 1300, 2500);
+    formants.filter1.Q.value = 5.2;
+    formants.filter2.Q.value = 6.2;
+    formants.filter3.Q.value = 5.5;
+
+    // F1推移: ハ(820) -> ジ(290) -> メ(530)
+    formants.filter1.frequency.setValueAtTime(820, now);
+    formants.filter1.frequency.setValueAtTime(820, now + 0.09);
+    formants.filter1.frequency.linearRampToValueAtTime(290, now + 0.12);
+    formants.filter1.frequency.setValueAtTime(290, now + 0.19);
+    formants.filter1.frequency.linearRampToValueAtTime(530, now + 0.22);
+    formants.filter1.frequency.setValueAtTime(530, now + 0.35);
+
+    // F2推移: ハ(1300) -> ジ(2280) -> メ(1950)
+    formants.filter2.frequency.setValueAtTime(1300, now);
+    formants.filter2.frequency.setValueAtTime(1300, now + 0.09);
+    formants.filter2.frequency.linearRampToValueAtTime(2280, now + 0.12);
+    formants.filter2.frequency.setValueAtTime(2280, now + 0.19);
+    formants.filter2.frequency.linearRampToValueAtTime(1950, now + 0.22);
+    formants.filter2.frequency.setValueAtTime(1950, now + 0.35);
+
+    // F3推移
+    formants.filter3.frequency.setValueAtTime(2500, now);
+    formants.filter3.frequency.setValueAtTime(2500, now + 0.09);
+    formants.filter3.frequency.linearRampToValueAtTime(2900, now + 0.12);
+    formants.filter3.frequency.setValueAtTime(2900, now + 0.19);
+    formants.filter3.frequency.linearRampToValueAtTime(2650, now + 0.22);
+    formants.filter3.frequency.setValueAtTime(2650, now + 0.35);
+
+    // 音源ミックス
+    const voiceMix = ctx.createGain();
+    voiceMix.gain.value = 0.62;
+    oscMain.connect(voiceMix);
+    oscSub.connect(voiceMix);
+    voiceMix.connect(formants.busIn);
+    noiseGain.connect(formants.busIn);
+
+    // 4. サチュレーション（温かく引き締まった倍音）
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getRefereeVoiceCurve();
+    formants.busOut.connect(shaper);
+
+    // 5. マスター音量エンベロープ（音節ごとの明確なメリハリ「ハ・ジ・メッ！」）
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    // 「ハ」 (0.00s 〜 0.10s)
+    masterGain.gain.linearRampToValueAtTime(0.42 * intensity, now + 0.025);
+    masterGain.gain.exponentialRampToValueAtTime(0.18 * intensity, now + 0.095); // 音節の切れ目
+    // 「ジ」 (0.10s 〜 0.20s)
+    masterGain.gain.linearRampToValueAtTime(0.38 * intensity, now + 0.13);
+    masterGain.gain.exponentialRampToValueAtTime(0.16 * intensity, now + 0.195); // 音節の切れ目
+    // 「メッ！」 (0.20s 〜 0.35s)
+    masterGain.gain.linearRampToValueAtTime(0.50 * intensity, now + 0.23); // メ！と鋭く張る
+    masterGain.gain.setValueAtTime(0.44 * intensity, now + 0.32);
+    // 「ッ！」のスタッカート急停止
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    shaper.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    // タイトなアンビエンス（言葉が濁らないよう控えめのショートディレイ）
+    const refDelay = ctx.createDelay(0.1);
+    refDelay.delayTime.setValueAtTime(0.032, now);
+    const refFilter = ctx.createBiquadFilter();
+    refFilter.type = 'lowpass';
+    refFilter.frequency.setValueAtTime(3000, now);
+    const refRevGain = ctx.createGain();
+    refRevGain.gain.setValueAtTime(0.10, now);
+
+    masterGain.connect(refDelay);
+    refDelay.connect(refFilter);
+    refFilter.connect(refRevGain);
+    refRevGain.connect(ctx.destination);
+
+    oscMain.start(now);
+    oscSub.start(now);
+    noiseSource.start(now);
+    oscMain.stop(now + dur);
+    oscSub.stop(now + dur);
+    noiseSource.stop(now + dur);
+}
+
+// 審判の号令（始め！）：Web Audio API によるプロシージャル合成（低く引き締まった男性主審の声）
+function playRefereeVoice(text = 'ハジメッ！', volume = 0.5) {
+    if (ensureAudio()) {
+        try {
+            const ctx = audioCtx;
+            const now = ctx.currentTime;
+            playRefereeHajimeShout(ctx, now, 1.0);
+            return;
+        } catch (e) {
+            // Web Audio エラー時はフォールバックへ
+        }
+    }
+
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     try {
         window.speechSynthesis.cancel();
@@ -2187,7 +2374,7 @@ function playRefereeVoice(text = 'ハジメッ！', volume = 0.45) {
         utter.lang = 'ja-JP';
         utter.rate = 1.35; // 短く切れ味のある素早い号令
         utter.pitch = 0.82; // 男性審判の低く引き締まった太い声
-        utter.volume = Math.max(0, Math.min(1, volume)); // 音量を控えめに設定
+        utter.volume = Math.max(0, Math.min(1, volume));
 
         if (!cachedRefereeVoice) {
             refreshVoiceAssignments();
@@ -2201,50 +2388,537 @@ function playRefereeVoice(text = 'ハジメッ！', volume = 0.45) {
     }
 }
 
-// 打突ヒット時の技名気合（めーん、こてー、どうー、つきー）：凛とした女性の声
-const KIAI_CALLS = {
-    '面': 'めーん！',
-    '小手': 'こてー！',
-    '胴': 'どうー！',
-    '突き': 'つきー！',
-};
+// ============================================================================
+// 🥋 Web Audio API によるプロシージャル気合声（呼気・シャウト）合成エンジン
+// 「メェーーーン！」「コテェーーッ！」「ドォーーッ！」「ツキィーーッ！」
+// ============================================================================
 
-function playKiaiVoice(action, volume = 0.5) {
-    const text = KIAI_CALLS[action];
-    if (!text) return;
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+let breathNoiseBuffer = null;
+let kiaiShoutCurve = null;
 
-    try {
-        window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = 'ja-JP';
-        utter.rate = 1.22; // 鋭く通る気合のテンポ
-        utter.pitch = 1.85; // 甲高く突き抜ける女性の気合声
-        utter.volume = Math.max(0, Math.min(1, volume));
-
-        if (!cachedKiaiVoice) {
-            refreshVoiceAssignments();
+function getBreathNoiseBuffer(ctx) {
+    if (!breathNoiseBuffer || breathNoiseBuffer.sampleRate !== ctx.sampleRate) {
+        const length = Math.floor(ctx.sampleRate * 0.9);
+        breathNoiseBuffer = ctx.createBuffer(1, length, ctx.sampleRate);
+        const data = breathNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < length; i++) {
+            data[i] = Math.random() * 2 - 1;
         }
-        if (cachedKiaiVoice) {
-            utter.voice = cachedKiaiVoice;
-        }
-        window.speechSynthesis.speak(utter);
-    } catch (e) {
-        // 音声合成が利用できない環境でも安全にフォールスルー
     }
+    return breathNoiseBuffer;
 }
 
-// 効果音生成
-function ensureAudio() {
-    const AudioCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtor) return false;
-    if (!audioCtx) {
-        audioCtx = new AudioCtor();
+function getKiaiShoutCurve() {
+    if (!kiaiShoutCurve) {
+        const samples = 1024;
+        const curve = new Float32Array(samples);
+        const k = 14; // 気迫ある叫び声の適度なソフトサチュレーション
+        const deg = Math.PI / 180;
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+        }
+        kiaiShoutCurve = curve;
     }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+    return kiaiShoutCurve;
+}
+
+// 声道フォルマントフィルタバンク作成ヘルパー (F1: 口の開き, F2: 舌位置, F3: 抜け・共鳴)
+function createFormantFilters(ctx, f1, f2, f3) {
+    const filter1 = ctx.createBiquadFilter();
+    filter1.type = 'bandpass';
+    filter1.frequency.value = f1;
+    filter1.Q.value = 4.8;
+
+    const filter2 = ctx.createBiquadFilter();
+    filter2.type = 'bandpass';
+    filter2.frequency.value = f2;
+    filter2.Q.value = 5.8;
+
+    const filter3 = ctx.createBiquadFilter();
+    filter3.type = 'bandpass';
+    filter3.frequency.value = f3;
+    filter3.Q.value = 5.2;
+
+    const g1 = ctx.createGain();
+    const g2 = ctx.createGain();
+    const g3 = ctx.createGain();
+    g1.gain.value = 1.0;
+    g2.gain.value = 0.72;
+    g3.gain.value = 0.40;
+
+    filter1.connect(g1);
+    filter2.connect(g2);
+    filter3.connect(g3);
+
+    const busIn = ctx.createGain();
+    busIn.connect(filter1);
+    busIn.connect(filter2);
+    busIn.connect(filter3);
+
+    const busOut = ctx.createGain();
+    g1.connect(busOut);
+    g2.connect(busOut);
+    g3.connect(busOut);
+
+    return { busIn, busOut, filter1, filter2, filter3, g1, g2, g3 };
+}
+
+// 武道場特有のショート残響（ディレイ＆リバーブ）を付加
+function attachDojoReverb(ctx, now, source, duration) {
+    const delay = ctx.createDelay(0.1);
+    delay.delayTime.setValueAtTime(0.035, now);
+
+    const feedback = ctx.createGain();
+    feedback.gain.setValueAtTime(0.18, now);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2800, now);
+
+    const revGain = ctx.createGain();
+    revGain.gain.setValueAtTime(0.14, now);
+
+    source.connect(delay);
+    delay.connect(filter);
+    filter.connect(feedback);
+    feedback.connect(delay);
+    filter.connect(revGain);
+    revGain.connect(ctx.destination);
+}
+
+// 1. 面のシャウト：「メェーーーーン！」
+function playMenShout(ctx, now, basePitch, intensity = 1.0) {
+    const dur = 0.50;
+
+    // 声帯音源
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    // ピッチ推移: 鼻音(低め) -> 一気に跳ね上がり -> 力強く伸びる -> 語尾の鼻音で収束
+    oscMain.frequency.setValueAtTime(basePitch * 0.94, now);
+    oscMain.frequency.linearRampToValueAtTime(basePitch * 1.18, now + 0.05);
+    oscMain.frequency.exponentialRampToValueAtTime(basePitch * 1.06, now + 0.28);
+    oscMain.frequency.linearRampToValueAtTime(basePitch * 0.90, now + dur);
+
+    oscSub.frequency.setValueAtTime(basePitch * 0.47, now);
+    oscSub.frequency.linearRampToValueAtTime(basePitch * 0.59, now + 0.05);
+    oscSub.frequency.exponentialRampToValueAtTime(basePitch * 0.53, now + 0.28);
+    oscSub.frequency.linearRampToValueAtTime(basePitch * 0.45, now + dur);
+
+    // 呼気ノイズ（息を強く吐き出す気迫）
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = getBreathNoiseBuffer(ctx);
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(2100, now);
+    noiseFilter.Q.setValueAtTime(1.8, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(0.13 * intensity, now + 0.05);
+    noiseGain.gain.exponentialRampToValueAtTime(0.07 * intensity, now + 0.32);
+    noiseGain.gain.linearRampToValueAtTime(0.0001, now + dur);
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+
+    // 声道フォルマント遷移（/m/ -> /e/ -> /n/）
+    // /m/: 280, 1100, 2200
+    // /e/: 540, 1920, 2650
+    // /n/: 320, 1350, 2300
+    const formants = createFormantFilters(ctx, 280, 1100, 2200);
+    formants.filter1.frequency.setValueAtTime(280, now);
+    formants.filter1.frequency.exponentialRampToValueAtTime(540, now + 0.05);
+    formants.filter1.frequency.setValueAtTime(540, now + 0.34);
+    formants.filter1.frequency.linearRampToValueAtTime(320, now + dur);
+
+    formants.filter2.frequency.setValueAtTime(1100, now);
+    formants.filter2.frequency.exponentialRampToValueAtTime(1920, now + 0.055);
+    formants.filter2.frequency.setValueAtTime(1920, now + 0.34);
+    formants.filter2.frequency.linearRampToValueAtTime(1350, now + dur);
+
+    formants.filter3.frequency.setValueAtTime(2200, now);
+    formants.filter3.frequency.exponentialRampToValueAtTime(2650, now + 0.06);
+    formants.filter3.frequency.setValueAtTime(2650, now + 0.34);
+    formants.filter3.frequency.linearRampToValueAtTime(2300, now + dur);
+
+    const voiceSourceMix = ctx.createGain();
+    voiceSourceMix.gain.value = 0.58;
+    oscMain.connect(voiceSourceMix);
+    oscSub.connect(voiceSourceMix);
+    voiceSourceMix.connect(formants.busIn);
+    noiseGain.connect(formants.busIn);
+
+    // サチュレーション（シャウトの歪み）
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getKiaiShoutCurve();
+    formants.busOut.connect(shaper);
+
+    // マスター音量エンベロープ
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(0.18 * intensity, now + 0.04);
+    masterGain.gain.linearRampToValueAtTime(0.38 * intensity, now + 0.08); // 「メェッ」のアタック
+    masterGain.gain.exponentialRampToValueAtTime(0.26 * intensity, now + 0.34); // 「ーーー」の張り
+    masterGain.gain.linearRampToValueAtTime(0.0001, now + dur); // 「ン！」の収束
+
+    shaper.connect(masterGain);
+    masterGain.connect(ctx.destination);
+    attachDojoReverb(ctx, now, masterGain, dur);
+
+    oscMain.start(now);
+    oscSub.start(now);
+    noiseSource.start(now);
+    oscMain.stop(now + dur + 0.05);
+    oscSub.stop(now + dur + 0.05);
+    noiseSource.stop(now + dur + 0.05);
+}
+
+// 2. 小手のシャウト：「コテェーーッ！」
+function playKoteShout(ctx, now, basePitch, intensity = 1.0) {
+    const dur = 0.32;
+
+    // 破裂音 /k/（鋭い子音ノイズバースト）
+    const kNoise = ctx.createBufferSource();
+    kNoise.buffer = getBreathNoiseBuffer(ctx);
+    const kFilter = ctx.createBiquadFilter();
+    kFilter.type = 'bandpass';
+    kFilter.frequency.setValueAtTime(2600, now);
+    kFilter.Q.setValueAtTime(3.2, now);
+    const kGain = ctx.createGain();
+    kGain.gain.setValueAtTime(0.32 * intensity, now);
+    kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
+    kNoise.connect(kFilter);
+    kFilter.connect(kGain);
+    kGain.connect(ctx.destination);
+    kNoise.start(now);
+    kNoise.stop(now + 0.03);
+
+    // 声帯オシレータ
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    // ピッチ推移: /ko/(中低) -> /te/(鋭く高音へ急跳躍！) -> スタッカートで切れる
+    oscMain.frequency.setValueAtTime(basePitch * 0.90, now);
+    oscMain.frequency.setValueAtTime(basePitch * 0.95, now + 0.05);
+    oscMain.frequency.exponentialRampToValueAtTime(basePitch * 1.35, now + 0.11);
+    oscMain.frequency.linearRampToValueAtTime(basePitch * 1.42, now + 0.25);
+
+    oscSub.frequency.setValueAtTime(basePitch * 0.45, now);
+    oscSub.frequency.exponentialRampToValueAtTime(basePitch * 0.67, now + 0.11);
+
+    // 呼気ノイズ（テェーの時の鋭い息）
+    const breathSource = ctx.createBufferSource();
+    breathSource.buffer = getBreathNoiseBuffer(ctx);
+    const breathFilter = ctx.createBiquadFilter();
+    breathFilter.type = 'bandpass';
+    breathFilter.frequency.setValueAtTime(2400, now);
+    breathFilter.Q.setValueAtTime(2.2, now);
+    const breathGain = ctx.createGain();
+    breathGain.gain.setValueAtTime(0.0001, now);
+    breathGain.gain.setValueAtTime(0.0001, now + 0.05);
+    breathGain.gain.linearRampToValueAtTime(0.14 * intensity, now + 0.10);
+    breathGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.27);
+    breathSource.connect(breathFilter);
+    breathFilter.connect(breathGain);
+
+    // フォルマント遷移 (/o/ -> /e/)
+    const formants = createFormantFilters(ctx, 460, 880, 2400);
+    formants.filter1.frequency.setValueAtTime(460, now);
+    formants.filter1.frequency.exponentialRampToValueAtTime(530, now + 0.10);
+
+    formants.filter2.frequency.setValueAtTime(880, now);
+    formants.filter2.frequency.exponentialRampToValueAtTime(1960, now + 0.10);
+
+    formants.filter3.frequency.setValueAtTime(2400, now);
+    formants.filter3.frequency.exponentialRampToValueAtTime(2750, now + 0.10);
+
+    const voiceSourceMix = ctx.createGain();
+    voiceSourceMix.gain.value = 0.58;
+    oscMain.connect(voiceSourceMix);
+    oscSub.connect(voiceSourceMix);
+    voiceSourceMix.connect(formants.busIn);
+    breathGain.connect(formants.busIn);
+
+    // サチュレーション & マスターゲイン
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getKiaiShoutCurve();
+    formants.busOut.connect(shaper);
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(0.20 * intensity, now + 0.03); // コ
+    masterGain.gain.linearRampToValueAtTime(0.40 * intensity, now + 0.11); // テェーーッ
+    masterGain.gain.setValueAtTime(0.35 * intensity, now + 0.24);
+    // スタッカート（ッ！でスパッと切る）
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.275);
+
+    shaper.connect(masterGain);
+    masterGain.connect(ctx.destination);
+    attachDojoReverb(ctx, now, masterGain, 0.27);
+
+    oscMain.start(now);
+    oscSub.start(now);
+    breathSource.start(now);
+    oscMain.stop(now + dur);
+    oscSub.stop(now + dur);
+    breathSource.stop(now + dur);
+}
+
+// 3. 胴のシャウト：「ドォーーーッ！」
+function playDoShout(ctx, now, basePitch, intensity = 1.0) {
+    const dur = 0.46;
+    const doPitch = basePitch * 0.82; // 胴は低く腹から唸る
+
+    // 有声破裂音 /d/（低域アタック音）
+    const dOsc = ctx.createOscillator();
+    dOsc.type = 'triangle';
+    dOsc.frequency.setValueAtTime(140, now);
+    dOsc.frequency.exponentialRampToValueAtTime(65, now + 0.04);
+    const dGain = ctx.createGain();
+    dGain.gain.setValueAtTime(0.32 * intensity, now);
+    dGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+    dOsc.connect(dGain);
+    dGain.connect(ctx.destination);
+    dOsc.start(now);
+    dOsc.stop(now + 0.05);
+
+    // 声帯オシレータ
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    oscMain.frequency.setValueAtTime(doPitch * 0.86, now);
+    oscMain.frequency.linearRampToValueAtTime(doPitch * 1.08, now + 0.06);
+    oscMain.frequency.exponentialRampToValueAtTime(doPitch * 0.96, now + 0.26);
+    oscMain.frequency.linearRampToValueAtTime(doPitch * 0.82, now + dur);
+
+    oscSub.frequency.setValueAtTime(doPitch * 0.43, now);
+    oscSub.frequency.linearRampToValueAtTime(doPitch * 0.54, now + 0.06);
+    oscSub.frequency.linearRampToValueAtTime(doPitch * 0.41, now + dur);
+
+    // 呼気ノイズ（野太い息）
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = getBreathNoiseBuffer(ctx);
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(1100, now);
+    noiseFilter.Q.setValueAtTime(1.5, now);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(0.12 * intensity, now + 0.05);
+    noiseGain.gain.exponentialRampToValueAtTime(0.05 * intensity, now + 0.30);
+    noiseGain.gain.linearRampToValueAtTime(0.0001, now + dur);
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+
+    // フォルマント (/o/: 太く響く共鳴)
+    const formants = createFormantFilters(ctx, 430, 800, 2250);
+    formants.filter1.Q.value = 4.0;
+    formants.filter2.Q.value = 4.8;
+
+    const voiceSourceMix = ctx.createGain();
+    voiceSourceMix.gain.value = 0.65;
+    oscMain.connect(voiceSourceMix);
+    oscSub.connect(voiceSourceMix);
+    voiceSourceMix.connect(formants.busIn);
+    noiseGain.connect(formants.busIn);
+
+    // サチュレーション & マスターゲイン
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getKiaiShoutCurve();
+    formants.busOut.connect(shaper);
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(0.42 * intensity, now + 0.05); // 「ドォッ」の力強いアタック
+    masterGain.gain.exponentialRampToValueAtTime(0.30 * intensity, now + 0.30); // 腹の底からの張り
+    masterGain.gain.linearRampToValueAtTime(0.0001, now + dur); // 鋭く引く
+
+    shaper.connect(masterGain);
+    masterGain.connect(ctx.destination);
+    attachDojoReverb(ctx, now, masterGain, dur);
+
+    oscMain.start(now);
+    oscSub.start(now);
+    noiseSource.start(now);
+    oscMain.stop(now + dur + 0.05);
+    oscSub.stop(now + dur + 0.05);
+    noiseSource.stop(now + dur + 0.05);
+}
+
+// 4. 突きのシャウト：「ツキィーーッ！」
+function playTsukiShout(ctx, now, basePitch, intensity = 1.0) {
+    const dur = 0.38;
+
+    // 破擦音 /ts/（高周波摩擦ノイズ）
+    const tsNoise = ctx.createBufferSource();
+    tsNoise.buffer = getBreathNoiseBuffer(ctx);
+    const tsFilter = ctx.createBiquadFilter();
+    tsFilter.type = 'highpass';
+    tsFilter.frequency.setValueAtTime(5200, now);
+    const tsGain = ctx.createGain();
+    tsGain.gain.setValueAtTime(0.30 * intensity, now);
+    tsGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+    tsNoise.connect(tsFilter);
+    tsFilter.connect(tsGain);
+    tsGain.connect(ctx.destination);
+    tsNoise.start(now);
+    tsNoise.stop(now + 0.05);
+
+    // 声帯オシレータ
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    // ピッチ推移: 高音からさらに超高域へ一直線に突き抜ける
+    oscMain.frequency.setValueAtTime(basePitch * 1.08, now);
+    oscMain.frequency.setValueAtTime(basePitch * 1.15, now + 0.04);
+    oscMain.frequency.exponentialRampToValueAtTime(basePitch * 1.58, now + 0.12);
+    oscMain.frequency.linearRampToValueAtTime(basePitch * 1.68, now + 0.32);
+
+    oscSub.frequency.setValueAtTime(basePitch * 0.54, now);
+    oscSub.frequency.exponentialRampToValueAtTime(basePitch * 0.79, now + 0.12);
+
+    // 呼気ノイズ（高音の息漏れ）
+    const breathSource = ctx.createBufferSource();
+    breathSource.buffer = getBreathNoiseBuffer(ctx);
+    const breathFilter = ctx.createBiquadFilter();
+    breathFilter.type = 'bandpass';
+    breathFilter.frequency.setValueAtTime(3200, now);
+    breathFilter.Q.setValueAtTime(2.5, now);
+    const breathGain = ctx.createGain();
+    breathGain.gain.setValueAtTime(0.0001, now);
+    breathGain.gain.linearRampToValueAtTime(0.16 * intensity, now + 0.08);
+    breathGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+    breathSource.connect(breathFilter);
+    breathFilter.connect(breathGain);
+
+    // フォルマント (/u/ -> /i/ 鋭い貫通音)
+    const formants = createFormantFilters(ctx, 320, 1200, 2400);
+    formants.filter1.frequency.setValueAtTime(320, now);
+    formants.filter1.frequency.exponentialRampToValueAtTime(280, now + 0.10);
+
+    formants.filter2.frequency.setValueAtTime(1200, now);
+    formants.filter2.frequency.exponentialRampToValueAtTime(2450, now + 0.10);
+
+    formants.filter3.frequency.setValueAtTime(2400, now);
+    formants.filter3.frequency.exponentialRampToValueAtTime(3350, now + 0.10);
+
+    const voiceSourceMix = ctx.createGain();
+    voiceSourceMix.gain.value = 0.55;
+    oscMain.connect(voiceSourceMix);
+    oscSub.connect(voiceSourceMix);
+    voiceSourceMix.connect(formants.busIn);
+    breathGain.connect(formants.busIn);
+
+    // サチュレーション & マスターゲイン
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getKiaiShoutCurve();
+    formants.busOut.connect(shaper);
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(0.22 * intensity, now + 0.03);
+    masterGain.gain.linearRampToValueAtTime(0.42 * intensity, now + 0.10); // 「キィーーッ！」
+    masterGain.gain.setValueAtTime(0.36 * intensity, now + 0.30);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35); // 鋭く貫通して切れる
+
+    shaper.connect(masterGain);
+    masterGain.connect(ctx.destination);
+    attachDojoReverb(ctx, now, masterGain, 0.35);
+
+    oscMain.start(now);
+    oscSub.start(now);
+    breathSource.start(now);
+    oscMain.stop(now + dur);
+    oscSub.stop(now + dur);
+    breathSource.stop(now + dur);
+}
+
+// 打突ヒット時の技名気合（メェーーーン！、コテェーーッ！、ドォーーッ！、ツキィーーッ！）
+const KIAI_CALLS = {
+    '面': 'メェーーーン！',
+    '小手': 'コテェーーッ！',
+    '胴': 'ドォーーッ！',
+    '突き': 'ツキィーーッ！',
+};
+
+function playKiaiVoice(action, options = {}) {
+    if (!KIAI_CALLS[action]) return;
+
+    // オプション正規化
+    let isPlayer = true;
+    let intensity = 1.0;
+    let fighterId = 'player';
+    if (typeof options === 'number') {
+        intensity = options;
+    } else if (typeof options === 'object' && options !== null) {
+        if (options.isPlayer !== undefined) isPlayer = options.isPlayer;
+        if (options.intensity !== undefined) intensity = options.intensity;
+        if (options.fighterId !== undefined) fighterId = options.fighterId;
     }
-    return true;
+
+    // 1. Web Audio API によるプロシージャル合成（ゼロ遅延・高音質）
+    if (ensureAudio()) {
+        try {
+            const ctx = audioCtx;
+            const now = ctx.currentTime;
+
+            // 剣士ごとの基本周波数（ピッチ倍率）
+            let basePitch = 240; // プレイヤーの基本気合ピッチ（凛々しい中高音）
+            if (!isPlayer) {
+                const curEnemy = typeof getCurrentEnemy === 'function' ? getCurrentEnemy() : null;
+                const enemyId = curEnemy ? curEnemy.id : fighterId;
+                if (enemyId === 'onizuka') {
+                    basePitch = 155; // 鬼塚：野太くドスの利いた剛剣の叫び
+                } else if (enemyId === 'kasumi') {
+                    basePitch = 300; // 霞：鋭く高い突き抜ける気合
+                } else if (enemyId === 'ryuzen') {
+                    basePitch = 145; // 龍禅：重厚な師範の唸り
+                } else if (enemyId === 'sasaki') {
+                    basePitch = 215; // 佐々木：研ぎ澄まされた鋭い声
+                } else {
+                    basePitch = 265; // 健太：若々しい掛け声
+                }
+            }
+
+            if (action === '面') {
+                playMenShout(ctx, now, basePitch, intensity);
+            } else if (action === '小手') {
+                playKoteShout(ctx, now, basePitch, intensity);
+            } else if (action === '胴') {
+                playDoShout(ctx, now, basePitch, intensity);
+            } else if (action === '突き') {
+                playTsukiShout(ctx, now, basePitch, intensity);
+            }
+            return;
+        } catch (e) {
+            // Web Audio エラー時はフォールバックへ
+        }
+    }
+
+    // 2. フォールバック（Web Speech API）
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+            window.speechSynthesis.cancel();
+            const text = action === '面' ? 'めーん！' : action === '小手' ? 'こてー！' : action === '胴' ? 'どうー！' : 'つきー！';
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'ja-JP';
+            utter.rate = 1.25;
+            utter.pitch = isPlayer ? 1.4 : 0.9;
+            utter.volume = Math.max(0, Math.min(1, 0.5 * intensity));
+            if (!cachedKiaiVoice) refreshVoiceAssignments();
+            if (cachedKiaiVoice) utter.voice = cachedKiaiVoice;
+            window.speechSynthesis.speak(utter);
+        } catch (e) {}
+    }
 }
 
 // 竹刀の乾いた打突スナップ音（パァン！）を合成
@@ -4300,14 +4974,18 @@ function playRound(playerAction) {
     updateStatus(`第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs ${enemyData.shortName}【${eMoveName}】 — 立ち合い…！`, 'neutral');
     if (intentText) intentText.textContent = inTsuba ? '💥 鍔迫り合いから技が交錯しています…' : '⚔️ 技が交錯しています…';
 
-    // 攻撃がヒットした側の技名（面、小手、胴、突き）を判定
+    // 攻撃がヒットした側の技名（面、小手、胴、突き）および発声剣士を判定
     let hittingAction = null;
+    let hittingFighter = 'player';
     if (enemyOutcome === 'hit') {
         hittingAction = playerAction;
+        hittingFighter = 'player';
     } else if (playerOutcome === 'hit') {
         hittingAction = enemyAction;
+        hittingFighter = 'enemy';
     } else if (playerOutcome === 'mutual_hit' || enemyOutcome === 'mutual_hit') {
         hittingAction = playerAction;
+        hittingFighter = 'player';
     }
 
     // 2. 打突・被弾の連続キーフレームアニメーションを再生
@@ -4317,7 +4995,11 @@ function playRound(playerAction) {
     // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 380ms）到達時に打突音・画面シェイク・ズームを発火
     pendingImpactCallback = () => {
         if (hittingAction) {
-            playKiaiVoice(hittingAction);
+            playKiaiVoice(hittingAction, {
+                isPlayer: hittingFighter === 'player',
+                fighterId: hittingFighter === 'player' ? 'player' : enemyData.id,
+                intensity: impactWeight > 1.2 ? 1.25 : 1.0,
+            });
         }
         if (impactSound) playSound(impactSound);
         zoomTargets.forEach((el) => triggerImpactZoom(el));
