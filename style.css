@@ -417,6 +417,20 @@ body {
     box-shadow: 0 0 14px rgba(250, 204, 21, 0.45);
 }
 
+.stance-badge.jodan {
+    background: rgba(220, 38, 38, 0.25);
+    color: #fca5a5;
+    border-color: #f87171;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.stance-badge.waki {
+    background: rgba(14, 165, 233, 0.22);
+    color: #bae6fd;
+    border-color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
 .sprite-container {
     background: url("fighter-bg.svg") center / cover no-repeat;
     border: 2px solid rgba(139, 90, 43, 0.55);
@@ -445,6 +459,16 @@ body {
 .sprite-container.tsubazeriai-aura {
     border-color: #facc15;
     box-shadow: 0 0 20px rgba(250, 204, 21, 0.5), inset 0 0 14px rgba(217, 119, 6, 0.28);
+}
+
+.sprite-container.jodan-aura {
+    border-color: #ef4444;
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.45), inset 0 0 12px rgba(239, 68, 68, 0.2);
+}
+
+.sprite-container.waki-aura {
+    border-color: #38bdf8;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.4), inset 0 0 12px rgba(56, 189, 248, 0.18);
 }
 
 .sprite-container.hit-shake {
@@ -663,6 +687,15 @@ body {
     border: 1px solid #facc15;
 }
 
+.floating-popup.popup-heal {
+    top: 16%;
+    font-size: 0.9rem;
+    color: #dcfce7;
+    background: rgba(21, 128, 61, 0.9);
+    border: 1px solid #4ade80;
+    box-shadow: 0 0 14px rgba(74, 222, 128, 0.5);
+}
+
 @keyframes floatPopup {
     0% {
         opacity: 0;
@@ -734,8 +767,71 @@ canvas {
 }
 
 .controls {
-    padding: 20px 24px;
+    padding: 16px 24px 20px;
     text-align: center;
+}
+
+.stance-selector-wrap {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stance-selector {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.stance-tab {
+    background: rgba(15, 23, 42, 0.78);
+    color: #cbd5e1;
+    border: 1.5px solid rgba(148, 163, 184, 0.3);
+    border-radius: 12px;
+    padding: 7px 14px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.stance-tab .stance-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.82;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.stance-tab.active {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(234, 179, 8, 0.18));
+    color: #fef08a;
+    border-color: #facc15;
+    box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
+}
+
+.stance-tab.jodan.active {
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.36), rgba(249, 115, 22, 0.25));
+    color: #fecaca;
+    border-color: #f87171;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+}
+
+.stance-tab.waki.active {
+    background: linear-gradient(135deg, rgba(2, 132, 199, 0.36), rgba(56, 189, 248, 0.22));
+    color: #e0f2fe;
+    border-color: #38bdf8;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
+}
+
+.stance-desc {
+    font-size: 0.78rem;
+    color: #94a3b8;
 }
 
 .actions {
