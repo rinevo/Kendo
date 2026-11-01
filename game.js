@@ -1499,12 +1499,14 @@ const btnDefend = document.getElementById('btnDefend');
 const btnBreak = document.getElementById('btnBreak');
 const btnTsuki = document.getElementById('btnTsuki');
 const btnNextStage = document.getElementById('btnNextStage');
+const btnReset = document.getElementById('btnReset');
 const enemyNameText = document.getElementById('enemyNameText');
 const enemyTitleBadge = document.getElementById('enemyTitleBadge');
 const playerTitleBadge = document.getElementById('playerTitleBadge');
 const stageBar = document.getElementById('stageBar');
 const stageProgressText = document.getElementById('stageProgressText');
 const vsDivider = document.getElementById('vsDivider');
+const stanceSelectorWrap = document.getElementById('stanceSelectorWrap');
 const stanceSelectorBar = document.getElementById('stanceSelectorBar');
 const stanceDescText = document.getElementById('stanceDescText');
 const actionButtons = [btnMen, btnKote, btnDo, btnDefend, btnBreak, btnTsuki];
@@ -2860,6 +2862,20 @@ function updateUI() {
         ? (inTsuba ? '⚡ 離れ突き (3ダメ!)' : '⚡ 突き (発動可！)')
         : `⚡ 突き (${state.playerKiai}/${MAX_KIAI})`;
 
+    // 勝敗決定時は「構え切替」「攻撃・防御・崩し・突き」を非表示にし、「もう一度」（勝利時は「次の相手へ進む」）を表示する
+    // 試合開始・試合中は「構え切替」「攻撃・防御・崩し・突き」を表示し、「もう一度」「次の相手へ進む」を非表示にする
+    if (stanceSelectorWrap) {
+        stanceSelectorWrap.style.display = state.gameOver ? 'none' : '';
+    }
+    actionButtons.forEach((btn) => {
+        if (btn) {
+            btn.style.display = state.gameOver ? 'none' : '';
+        }
+    });
+    if (btnReset) {
+        btnReset.style.display = state.gameOver ? 'inline-block' : 'none';
+    }
+
     if (btnNextStage) {
         if (state.gameOver && state.lastOutcome === 'victory') {
             btnNextStage.style.display = 'inline-block';
@@ -2887,7 +2903,7 @@ function decideEnemyIntent() {
         intentBox.className = 'intent-box';
         if (state.lastOutcome === 'victory' && state.stageIndex < ENEMY_ROSTER.length - 1) {
             const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
-            intentText.textContent = `「⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む」または任意の技ボタンで次戦へ進めます。`;
+            intentText.textContent = `「⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む」または「🔄 もう一度」を選べます。`;
         } else {
             intentText.textContent = '「🔄 もう一度」または上部の剣士バッジから対戦相手を選べます。';
         }

@@ -112,7 +112,7 @@
         </div>
 
         <div class="controls">
-            <div class="stance-selector-wrap">
+            <div class="stance-selector-wrap" id="stanceSelectorWrap">
                 <div class="stance-selector" id="stanceSelectorBar" role="tablist" aria-label="あなたの構え選択">
                     <button type="button" class="stance-tab active" data-stance="chudan" onclick="selectStanceStyle('chudan')">
                         ⚖️ 中段の構え <span class="stance-sub">バランス</span>
@@ -135,7 +135,7 @@
                 <button id="btnBreak" class="tactical" onclick="playRound('崩し')">💥 崩し</button>
                 <button id="btnTsuki" class="special" onclick="playRound('突き')" disabled>⚡ 突き (気合3)</button>
                 <button id="btnNextStage" class="next-btn" onclick="advanceStage()" style="display: none;">⏭️ 次の相手へ進む</button>
-                <button class="reset-btn" onclick="resetGame()">🔄 もう一度</button>
+                <button id="btnReset" class="reset-btn" onclick="resetGame()" style="display: none;">🔄 もう一度</button>
             </div>
             <div class="footer-guide">
                 <p>相手の気配を読み、三すくみ・防御・崩し・必殺の突きで一本を奪え！</p>
