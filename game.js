@@ -188,6 +188,7 @@ const state = {
     enemyCounterReady: false,
     playerGuardBroken: false,
     enemyGuardBroken: false,
+    tsubazeriai: false,
     round: 0,
     gameOver: false,
     playerAnimState: 'idle',
@@ -231,6 +232,7 @@ const spriteDefinition = {
     guardBroken:  makeCellDef(1, 4),
     defend:       makeCellDef(6, 1),
     breakAttack:  makeCellDef(6, 6),
+    tsubazeriai:  makeCellDef(6, 6),
     attack1:      makeCellDef(2, 6), // 面打ちインパクト
     attack2:      makeCellDef(3, 4), // 小手打ちインパクト
     attack3:      makeCellDef(4, 5), // 胴打ち・突きインパクト
@@ -362,6 +364,33 @@ function getContinuousStancePose(stanceType, phase) {
     const s = Math.sin(phase);
     const c = Math.cos(phase);
     const s2 = Math.sin(phase * 2 + 0.4);
+
+    if (stanceType === 'tsubazeriai') {
+        const pushVib = Math.sin(phase * 3.4);
+        return {
+            hipX: 158 + pushVib * 3.2,
+            hipY: 266 + c * 2.0,
+            backFootX: 86 + s * 2.5,
+            backFootY: 374,
+            backHeel: 20 + pushVib * 2.5,
+            frontFootX: 202 + pushVib * 2.8,
+            frontFootY: 374,
+            frontHeel: 0,
+            torsoLean: 0.25 + pushVib * 0.025,
+            torsoTwist: -0.22 + c * 0.06,
+            breath: 0.8 + 0.2 * s,
+            tareSway: 4 + pushVib * 1.5,
+            hakamaSway: -10 + pushVib * 2.5,
+            headPitch: -0.02 + c * 0.015,
+            mendareSway: 4 + pushVib * 1.8,
+            gripX: 192 + pushVib * 3.5,
+            gripY: 198 + c * 2.5,
+            shinaiAngle: 66 + pushVib * 3.2,
+            shinaiFlex: 4 + pushVib * 1.5,
+            swingBlur: 0,
+            hitDebris: 0,
+        };
+    }
 
     if (stanceType === 'counterReady') {
         return {
@@ -1402,6 +1431,7 @@ const enemyTitleBadge = document.getElementById('enemyTitleBadge');
 const playerTitleBadge = document.getElementById('playerTitleBadge');
 const stageBar = document.getElementById('stageBar');
 const stageProgressText = document.getElementById('stageProgressText');
+const vsDivider = document.getElementById('vsDivider');
 const actionButtons = [btnMen, btnKote, btnDo, btnDefend, btnBreak, btnTsuki];
 
 let refereeHideTimer = null;
@@ -1575,7 +1605,7 @@ const STRIKE_IMPACT_T = 380;
 const ANIM_TOTAL_T = 1040;
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
-function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose) {
+function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false) {
     const m = POSE_ROWS.men;
     const k = POSE_ROWS.kote;
     const d = POSE_ROWS.do;
@@ -1583,6 +1613,8 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
     const df = POSE_ROWS.defend;
     const bk = POSE_ROWS.breakAttack;
     const h = POSE_ROWS.hit;
+    const startX = wasTsubazeriai ? 8 : 0;
+    const endTargetX = neutralSprite === 'tsubazeriai' ? 8 : 0;
 
     // 被ダメージ後の仰け反り・復帰キーフレーム列（t = STRIKE_IMPACT_T から開始）
     const buildHitTail = () => {
@@ -1595,92 +1627,150 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
             ];
         }
         return [
-            { t: 430,          sprite: 'hit_0',       pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
-            { t: 535,          sprite: 'hit_1',       pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
-            { t: 675,          sprite: 'hit_2',       pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
-            { t: 805,          sprite: 'hit_3',       pose: h[3],    x: -8,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeInOutQuad, fx: 'dust' },
-            { t: 925,          sprite: 'hit_4',       pose: h[4],    x: -3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: ANIM_TOTAL_T, sprite: neutralSprite, pose: endPose, x: 0,   y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 430,          sprite: 'hit_0',       pose: h[0],    x: -6,         y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
+            { t: 535,          sprite: 'hit_1',       pose: h[1],    x: -11,        y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
+            { t: 675,          sprite: 'hit_2',       pose: h[2],    x: -13,        y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
+            { t: 805,          sprite: 'hit_3',       pose: h[3],    x: -8,         y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeInOutQuad, fx: 'dust' },
+            { t: 925,          sprite: 'hit_4',       pose: h[4],    x: -3,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T, sprite: neutralSprite, pose: endPose, x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     };
 
     let actionKeyframes;
 
     if (action === '面') {
-        actionKeyframes = [
-            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 65,              sprite: 'men_0',       pose: m[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 130,             sprite: 'men_1',       pose: m[1],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
-            { t: 195,             sprite: 'men_2',       pose: m[2],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic },
-            { t: 255,             sprite: 'men_3',       pose: m[3],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
-            { t: 300,             sprite: 'men_4',       pose: m[4],      x: 2,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 340,             sprite: 'men_5',       pose: m[5],      x: 5,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart },
-            { t: STRIKE_IMPACT_T, sprite: 'men_6',       pose: m[6],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_men' },
-            { t: 660,             sprite: 'men_6',       pose: m[6],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 850,             sprite: 'men_7',       pose: m[7],      x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-        ];
+        if (wasTsubazeriai) {
+            // 引き面：鍔迫り合いの至近距離から相手を突き放し、後方へ跳び退きながら面を振り抜く
+            actionKeyframes = [
+                { t: 0,               sprite: 'brk_2',       pose: startPose, x: startX,     y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
+                { t: 75,              sprite: 'brk_2',       pose: bk[2],     x: 10,         y: 0, scaleX: 1.03, scaleY: 0.97, rot: 0.03,  ease: easeOutCubic, fx: 'dust' },
+                { t: 155,             sprite: 'men_2',       pose: m[2],      x: 4,          y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
+                { t: 230,             sprite: 'men_3',       pose: m[3],      x: -2,         y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
+                { t: 310,             sprite: 'men_5',       pose: m[5],      x: -5,         y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.01,  ease: easeOutQuart },
+                { t: STRIKE_IMPACT_T, sprite: 'men_6',       pose: m[6],      x: -6,         y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.01,  ease: easeOutQuart, fx: 'lunge_men' },
+                { t: 660,             sprite: 'men_6',       pose: m[6],      x: -5,         y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 850,             sprite: 'men_7',       pose: m[7],      x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            ];
+        } else {
+            actionKeyframes = [
+                { t: 0,               sprite: 'idle_0',      pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: 65,              sprite: 'men_0',       pose: m[0],      x: -1,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: 130,             sprite: 'men_1',       pose: m[1],      x: -2,         y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
+                { t: 195,             sprite: 'men_2',       pose: m[2],      x: -3,         y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic },
+                { t: 255,             sprite: 'men_3',       pose: m[3],      x: -2,         y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
+                { t: 300,             sprite: 'men_4',       pose: m[4],      x: 2,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 340,             sprite: 'men_5',       pose: m[5],      x: 5,          y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart },
+                { t: STRIKE_IMPACT_T, sprite: 'men_6',       pose: m[6],      x: 7,          y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_men' },
+                { t: 660,             sprite: 'men_6',       pose: m[6],      x: 6,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 850,             sprite: 'men_7',       pose: m[7],      x: 3,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            ];
+        }
     } else if (action === '小手') {
-        actionKeyframes = [
-            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 85,              sprite: 'kote_0',      pose: k[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 165,             sprite: 'kote_1',      pose: k[1],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: 240,             sprite: 'kote_2',      pose: k[2],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeOutCubic },
-            { t: 310,             sprite: 'kote_3',      pose: k[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: STRIKE_IMPACT_T, sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_kote' },
-            { t: 640,             sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 760,             sprite: 'kote_5',      pose: k[5],      x: 4,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 865,             sprite: 'kote_6',      pose: k[6],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 955,             sprite: 'kote_7',      pose: k[7],      x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-        ];
+        if (wasTsubazeriai) {
+            // 引き小手：鍔迫り合いから後方へ下がりつつ小手を鋭く打ち抜く
+            actionKeyframes = [
+                { t: 0,               sprite: 'brk_2',       pose: startPose, x: startX,     y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
+                { t: 80,              sprite: 'brk_2',       pose: bk[2],     x: 9,          y: 0, scaleX: 1.03, scaleY: 0.97, rot: 0.02,  ease: easeOutCubic, fx: 'dust' },
+                { t: 170,             sprite: 'kote_2',      pose: k[2],      x: 3,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+                { t: 260,             sprite: 'kote_3',      pose: k[3],      x: -3,         y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeOutCubic, fx: 'dust' },
+                { t: STRIKE_IMPACT_T, sprite: 'kote_4',      pose: k[4],      x: -6,         y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.01,  ease: easeOutQuart, fx: 'lunge_kote' },
+                { t: 640,             sprite: 'kote_4',      pose: k[4],      x: -5,         y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 820,             sprite: 'kote_6',      pose: k[6],      x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            ];
+        } else {
+            actionKeyframes = [
+                { t: 0,               sprite: 'idle_0',      pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: 85,              sprite: 'kote_0',      pose: k[0],      x: -1,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: 165,             sprite: 'kote_1',      pose: k[1],      x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+                { t: 240,             sprite: 'kote_2',      pose: k[2],      x: -1,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeOutCubic },
+                { t: 310,             sprite: 'kote_3',      pose: k[3],      x: 3,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: STRIKE_IMPACT_T, sprite: 'kote_4',      pose: k[4],      x: 6,          y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_kote' },
+                { t: 640,             sprite: 'kote_4',      pose: k[4],      x: 6,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 760,             sprite: 'kote_5',      pose: k[5],      x: 4,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 865,             sprite: 'kote_6',      pose: k[6],      x: 2,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: 955,             sprite: 'kote_7',      pose: k[7],      x: 1,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            ];
+        }
     } else if (action === '胴') {
-        actionKeyframes = [
-            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 75,              sprite: 'do_0',        pose: d[0],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: 150,             sprite: 'do_1',        pose: d[1],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
-            { t: 220,             sprite: 'do_2',        pose: d[2],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeOutCubic, fx: 'dust' },
-            { t: 280,             sprite: 'do_3',        pose: d[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 330,             sprite: 'do_4',        pose: d[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart },
-            { t: STRIKE_IMPACT_T, sprite: 'do_5',        pose: d[5],      x: 8,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_do' },
-            { t: 640,             sprite: 'do_5',        pose: d[5],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 790,             sprite: 'do_6',        pose: d[6],      x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 920,             sprite: 'do_7',        pose: d[7],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-        ];
+        if (wasTsubazeriai) {
+            // 引き胴：鍔迫り合いから身体を開きつつ後方へ退きながら胴を薙ぎ払う
+            actionKeyframes = [
+                { t: 0,               sprite: 'brk_2',       pose: startPose, x: startX,     y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
+                { t: 80,              sprite: 'brk_2',       pose: bk[2],     x: 9,          y: 0, scaleX: 1.03, scaleY: 0.97, rot: 0.02,  ease: easeOutCubic, fx: 'dust' },
+                { t: 165,             sprite: 'do_2',        pose: d[2],      x: 3,          y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
+                { t: 255,             sprite: 'do_4',        pose: d[4],      x: -3,         y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.01,  ease: easeOutCubic, fx: 'dust' },
+                { t: STRIKE_IMPACT_T, sprite: 'do_5',        pose: d[5],      x: -6,         y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_do' },
+                { t: 640,             sprite: 'do_5',        pose: d[5],      x: -5,         y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 830,             sprite: 'do_7',        pose: d[7],      x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            ];
+        } else {
+            actionKeyframes = [
+                { t: 0,               sprite: 'idle_0',      pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: 75,              sprite: 'do_0',        pose: d[0],      x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+                { t: 150,             sprite: 'do_1',        pose: d[1],      x: -3,         y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
+                { t: 220,             sprite: 'do_2',        pose: d[2],      x: -2,         y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeOutCubic, fx: 'dust' },
+                { t: 280,             sprite: 'do_3',        pose: d[3],      x: 3,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 330,             sprite: 'do_4',        pose: d[4],      x: 6,          y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart },
+                { t: STRIKE_IMPACT_T, sprite: 'do_5',        pose: d[5],      x: 8,          y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_do' },
+                { t: 640,             sprite: 'do_5',        pose: d[5],      x: 7,          y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+                { t: 790,             sprite: 'do_6',        pose: d[6],      x: 5,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+                { t: 920,             sprite: 'do_7',        pose: d[7],      x: 2,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+                { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            ];
+        }
     } else if (action === '突き') {
         actionKeyframes = [
-            { t: 0,               sprite: 'counter_0',   pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 85,              sprite: 'tsuki_0',     pose: ts[0],     x: -3, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
-            { t: 165,             sprite: 'tsuki_1',     pose: ts[1],     x: -5, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeInOutSine },
-            { t: 240,             sprite: 'tsuki_2',     pose: ts[2],     x: -6, y: 0, scaleX: 1.03, scaleY: 0.97, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
-            { t: 310,             sprite: 'tsuki_3',     pose: ts[3],     x: 3,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
-            { t: STRIKE_IMPACT_T, sprite: 'tsuki_4',     pose: ts[4],     x: 7,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_tsuki' },
-            { t: 640,             sprite: 'tsuki_4',     pose: ts[4],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 760,             sprite: 'tsuki_5',     pose: ts[5],     x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 860,             sprite: 'tsuki_6',     pose: ts[6],     x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
-            { t: 950,             sprite: 'tsuki_7',     pose: ts[7],     x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 0,               sprite: 'counter_0',   pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 85,              sprite: 'tsuki_0',     pose: ts[0],     x: -3,         y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
+            { t: 165,             sprite: 'tsuki_1',     pose: ts[1],     x: -5,         y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeInOutSine },
+            { t: 240,             sprite: 'tsuki_2',     pose: ts[2],     x: -6,         y: 0, scaleX: 1.03, scaleY: 0.97, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
+            { t: 310,             sprite: 'tsuki_3',     pose: ts[3],     x: 3,          y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
+            { t: STRIKE_IMPACT_T, sprite: 'tsuki_4',     pose: ts[4],     x: 7,          y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_tsuki' },
+            { t: 640,             sprite: 'tsuki_4',     pose: ts[4],     x: 6,          y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 760,             sprite: 'tsuki_5',     pose: ts[5],     x: 5,          y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 860,             sprite: 'tsuki_6',     pose: ts[6],     x: 3,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: 950,             sprite: 'tsuki_7',     pose: ts[7],     x: 1,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     } else if (action === '崩し') {
         actionKeyframes = [
-            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 135,             sprite: 'brk_0',       pose: bk[0],     x: -3, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
-            { t: 260,             sprite: 'brk_1',       pose: bk[1],     x: 4,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine, fx: 'dust' },
-            { t: STRIKE_IMPACT_T, sprite: 'brk_2',       pose: bk[2],     x: 8,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_break' },
-            { t: 640,             sprite: 'brk_2',       pose: bk[2],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 840,             sprite: 'brk_3',       pose: bk[3],     x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
-            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 135,             sprite: 'brk_0',       pose: bk[0],     x: startX - 2, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
+            { t: 260,             sprite: 'brk_1',       pose: bk[1],     x: 5,          y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine, fx: 'dust' },
+            { t: STRIKE_IMPACT_T, sprite: 'brk_2',       pose: bk[2],     x: 9,          y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_break' },
+            { t: 640,             sprite: 'brk_2',       pose: bk[2],     x: 6,          y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 840,             sprite: 'brk_3',       pose: bk[3],     x: 2,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     } else {
-        // 防御
+        // 防御 / 密着ガード
         actionKeyframes = [
-            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 165,             sprite: 'def_0',       pose: df[0],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeOutCubic },
-            { t: STRIKE_IMPACT_T, sprite: 'def_1',       pose: df[1],     x: -4, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.02, ease: easeOutCubic, fx: outcome === 'block_success' ? 'shield_success' : 'shield' },
-            { t: 600,             sprite: 'def_2',       pose: df[2],     x: -6, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeOutCubic },
-            { t: 820,             sprite: 'def_3',       pose: df[3],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 165,             sprite: 'def_0',       pose: df[0],     x: startX - 2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeOutCubic },
+            { t: STRIKE_IMPACT_T, sprite: 'def_1',       pose: df[1],     x: -4,         y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.02, ease: easeOutCubic, fx: outcome === 'block_success' ? 'shield_success' : 'shield' },
+            { t: 600,             sprite: 'def_2',       pose: df[2],     x: -6,         y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeOutCubic },
+            { t: 820,             sprite: 'def_3',       pose: df[3],     x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    }
+
+    // 鍔迫り合い突入時（同技交錯・崩し交錯）：打突インパクト後にそのまま至近距離で鍔元を押し合う構えに移行する
+    if (outcome === 'tsubazeriai_clash') {
+        const windup = actionKeyframes
+            .filter((kf) => kf.t <= STRIKE_IMPACT_T)
+            .map((kf) => ({ ...kf }));
+        const impactKf = windup[windup.length - 1];
+        impactKf.fx = 'clash_tsuba';
+        return [
+            ...windup,
+            { t: 520,          sprite: 'brk_2',       pose: bk[2],   x: 9, y: 0, scaleX: 1.03, scaleY: 0.97, rot: 0.03, ease: easeOutQuart, fx: 'dust' },
+            { t: 740,          sprite: 'brk_1',       pose: bk[1],   x: 7, y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02, ease: easeInOutSine, fx: 'clash_tsuba' },
+            { t: ANIM_TOTAL_T, sprite: 'tsubazeriai', pose: endPose, x: 8, y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02, ease: easeInOutSine },
         ];
     }
 
@@ -1701,7 +1791,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
     return actionKeyframes;
 }
 
-function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal') {
+function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', wasTsubazeriai = false) {
     const anim = animators[who];
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const finalStance = state.gameOver
@@ -1709,7 +1799,7 @@ function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal') 
         : getNeutralAnim(who);
     const startSnapshot = { ...anim.currentPose };
     const endTargetPose = getContinuousStancePose(finalStance, (now + ANIM_TOTAL_T) * 0.0042 + anim.phaseOffset);
-    anim.keyframes = buildActionKeyframes(action, outcome, finalStance, startSnapshot, endTargetPose);
+    anim.keyframes = buildActionKeyframes(action, outcome, finalStance, startSnapshot, endTargetPose, wasTsubazeriai);
     anim.seqStartTime = now;
     anim.virtualElapsed = 0;
     anim.lastUpdateNow = now;
@@ -1719,12 +1809,15 @@ function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal') 
 
 // 効果音生成
 function ensureAudio() {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return false;
     if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx = new AudioCtor();
     }
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
+    return true;
 }
 
 // 竹刀の乾いた打突スナップ音（パァン！）を合成
@@ -1783,7 +1876,7 @@ function playTaikoDon(ctx, now, intensity = 1.0) {
 }
 
 function playSound(type) {
-    ensureAudio();
+    if (!ensureAudio()) return;
     const ctx = audioCtx;
     const now = ctx.currentTime;
     const gain = ctx.createGain();
@@ -2093,8 +2186,8 @@ function updateAndDrawFighter(ctx, who, flip, now) {
             const phase = now * 0.0042 * speedMult + anim.phaseOffset;
             targetPose = getContinuousStancePose(defaultSprite, phase);
             anim.currentPose = interpolatePose(anim.currentPose, targetPose, 0.25);
-            const endX = (state.gameOver && defaultSprite === 'hit') ? -10 : 0;
-            const endRot = (state.gameOver && defaultSprite === 'hit') ? -0.03 : 0;
+            const endX = (state.gameOver && defaultSprite === 'hit') ? -10 : (defaultSprite === 'tsubazeriai' ? 8 : 0);
+            const endRot = (state.gameOver && defaultSprite === 'hit') ? -0.03 : (defaultSprite === 'tsubazeriai' ? 0.02 : 0);
             anim.posX = lerp(anim.posX, endX, 0.25);
             anim.posY = 0;
             anim.scaleX = lerp(anim.scaleX, 1, 0.25);
@@ -2149,6 +2242,11 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                         } else {
                             spawnShockwave(anim, currentFootX + dir * 44, impactY, '56, 189, 248', false);
                         }
+                    } else if (fx === 'clash_tsuba') {
+                        spawnDust(anim, currentFootX + dir * 12, GROUND_Y, dir);
+                        spawnSparks(anim, currentFootX + dir * 40, 96, '250, 204, 21', 20, 1.25);
+                        spawnShockwave(anim, currentFootX + dir * 38, 96, '250, 204, 21', false);
+                        triggerHitStop(50, 0, 1.0);
                     } else if (fx === 'shield' || fx === 'shield_success') {
                         anim.slashEffect = { type: fx, start: now, elapsed: 0, duration: 320, isHeavy: false };
                         if (fx === 'shield_success') {
@@ -2200,6 +2298,15 @@ function updateAndDrawFighter(ctx, who, flip, now) {
             anim.scaleX = lerp(anim.scaleX, 1.01, 0.12);
             anim.scaleY = lerp(anim.scaleY, 0.99, 0.12);
             anim.rot = lerp(anim.rot, -0.03, 0.12);
+        } else if (defaultSprite === 'tsubazeriai') {
+            const pushX = 8 + Math.sin(phase * 3.4) * 1.4;
+            anim.posX = lerp(anim.posX, pushX, 0.22);
+            anim.scaleX = lerp(anim.scaleX, 1.02, 0.2);
+            anim.scaleY = lerp(anim.scaleY, 0.98, 0.2);
+            anim.rot = lerp(anim.rot, 0.02, 0.2);
+            if (!inHitStop && Math.random() < 0.07) {
+                spawnSparks(anim, baseFootX + dir * 46, 98, '250, 204, 21', 2, 0.55);
+            }
         } else {
             const suriashiX = Math.sin(phase * 0.55) * 2.2;
             anim.posX = lerp(anim.posX, suriashiX, 0.16);
@@ -2456,6 +2563,7 @@ function gainKiai(who, amount) {
 }
 
 function getNeutralAnim(who) {
+    if (state.tsubazeriai) return 'tsubazeriai';
     if (who === 'player') {
         if (state.playerGuardBroken) return 'guardBroken';
         if (state.playerCounterReady || state.playerKiai >= MAX_KIAI) return 'counterReady';
@@ -2475,11 +2583,15 @@ function renderPips(container, count) {
     });
 }
 
-function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai) {
+function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai) {
     badgeEl.className = 'stance-badge';
-    spriteBoxEl.classList.remove('counter-aura', 'broken-aura');
+    spriteBoxEl.classList.remove('counter-aura', 'broken-aura', 'tsubazeriai-aura');
 
-    if (guardBroken) {
+    if (isTsubazeriai && !state.gameOver) {
+        badgeEl.textContent = '💥 鍔迫り合い (引き技2ダメ)';
+        badgeEl.classList.add('tsubazeriai');
+        spriteBoxEl.classList.add('tsubazeriai-aura');
+    } else if (guardBroken) {
         badgeEl.textContent = '💫 体勢崩れ (防御不可)';
         badgeEl.classList.add('broken');
         spriteBoxEl.classList.add('broken-aura');
@@ -2550,19 +2662,44 @@ function updateUI() {
     renderPips(playerKiaiPips, state.playerKiai);
     renderPips(enemyKiaiPips, state.enemyKiai);
 
-    updateBadge(playerBadge, playerSpriteBox, state.playerCounterReady, state.playerGuardBroken, state.playerKiai);
-    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken, state.enemyKiai);
+    updateBadge(playerBadge, playerSpriteBox, state.playerCounterReady, state.playerGuardBroken, state.playerKiai, state.tsubazeriai);
+    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken, state.enemyKiai, state.tsubazeriai);
 
-    // ボタンの有効・無効制御
-    if (btnMen) btnMen.disabled = false;
-    if (btnKote) btnKote.disabled = false;
-    if (btnDo) btnDo.disabled = false;
-    if (btnBreak) btnBreak.disabled = false;
+    const inTsuba = state.tsubazeriai && !state.gameOver;
+    if (vsDivider) {
+        vsDivider.textContent = inTsuba ? '💥 鍔迫り合い' : 'VS';
+        vsDivider.classList.toggle('tsubazeriai', inTsuba);
+    }
+
+    // ボタンの有効・無効＆鍔迫り合い時の引き技ラベル切り替え
+    if (btnMen) {
+        btnMen.disabled = false;
+        btnMen.textContent = inTsuba ? '⚡ 引き面 (2ダメ)' : '⚔️ 面';
+        btnMen.classList.toggle('hiki-mode', inTsuba);
+    }
+    if (btnKote) {
+        btnKote.disabled = false;
+        btnKote.textContent = inTsuba ? '⚡ 引き小手 (2ダメ)' : '⚔️ 小手';
+        btnKote.classList.toggle('hiki-mode', inTsuba);
+    }
+    if (btnDo) {
+        btnDo.disabled = false;
+        btnDo.textContent = inTsuba ? '⚡ 引き胴 (2ダメ)' : '⚔️ 胴';
+        btnDo.classList.toggle('hiki-mode', inTsuba);
+    }
+    if (btnBreak) {
+        btnBreak.disabled = false;
+        btnBreak.textContent = inTsuba ? '💥 突き放し' : '💥 崩し';
+    }
     btnDefend.disabled = state.playerGuardBroken && !state.gameOver;
-    btnDefend.textContent = state.playerGuardBroken ? '🛡️ 防御 (崩れ中)' : '🛡️ 防御';
+    btnDefend.textContent = state.playerGuardBroken
+        ? '🛡️ 防御 (崩れ中)'
+        : (inTsuba ? '🛡️ 密着ガード' : '🛡️ 防御');
 
     btnTsuki.disabled = state.playerKiai < MAX_KIAI || state.gameOver;
-    btnTsuki.textContent = state.playerKiai >= MAX_KIAI ? '⚡ 突き (発動可！)' : `⚡ 突き (${state.playerKiai}/${MAX_KIAI})`;
+    btnTsuki.textContent = state.playerKiai >= MAX_KIAI
+        ? (inTsuba ? '⚡ 離れ突き (3ダメ!)' : '⚡ 突き (発動可！)')
+        : `⚡ 突き (${state.playerKiai}/${MAX_KIAI})`;
 
     if (btnNextStage) {
         if (state.gameOver && state.lastOutcome === 'victory') {
@@ -2599,7 +2736,36 @@ function decideEnemyIntent() {
     }
 
     let intent;
-    if (state.enemyKiai >= MAX_KIAI) {
+    if (state.tsubazeriai) {
+        if (state.enemyKiai >= MAX_KIAI) {
+            intent = {
+                hint: `💥【鍔迫り合い】⚠️ ${enemyData.shortName}の気合が最高潮！離れ際の「離れ突き(3ダメ)」か「引き面」が来るぞ！`,
+                isDanger: true,
+                weights: { 突き: 52, 面: 22, 小手: 14, 崩し: 12, 胴: 0, 防御: 0 },
+            };
+        } else {
+            const r = Math.random();
+            if (r < 0.38) {
+                intent = {
+                    hint: `💥【鍔迫り合い】${enemyData.shortName}は鍔元を押し込み、離れ際の「引き面」か「引き胴」を狙っている！（引き技は2ダメージ！）`,
+                    isDanger: true,
+                    weights: { 面: 45, 胴: 35, 小手: 10, 崩し: 10, 防御: 0, 突き: 0 },
+                };
+            } else if (r < 0.72) {
+                intent = {
+                    hint: `💥【鍔迫り合い】${enemyData.shortName}は手元を詰め、鋭い「引き小手」か「突き放し」を狙っているぞ！`,
+                    isDanger: true,
+                    weights: { 小手: 46, 崩し: 26, 面: 18, 胴: 10, 防御: 0, 突き: 0 },
+                };
+            } else {
+                intent = {
+                    hint: `💥【鍔迫り合い】${enemyData.shortName}は「密着ガード」で引き技を封じようとしている…（「💥突き放し」か「引き胴」の好機！）`,
+                    isDanger: false,
+                    weights: { 防御: 48, 胴: 26, 小手: 16, 面: 10, 崩し: 0, 突き: 0 },
+                };
+            }
+        }
+    } else if (state.enemyKiai >= MAX_KIAI) {
         intent = {
             hint: `⚠️ ${enemyData.shortName}の気合が最高潮だ！必殺の「突き」か、守りを割る「崩し」が来るぞ！`,
             isDanger: true,
@@ -2700,7 +2866,9 @@ function playRound(playerAction) {
     const enemyAction = chooseEnemyAction();
     state.round += 1;
 
-    // このターン開始時点の応じ技バフを保持し、消費する
+    // このターン開始時点の鍔迫り合い・応じ技バフを保持し、消費する
+    const inTsuba = state.tsubazeriai;
+    state.tsubazeriai = false;
     const pCounter = state.playerCounterReady;
     const eCounter = state.enemyCounterReady;
     state.playerCounterReady = false;
@@ -2711,7 +2879,20 @@ function playRound(playerAction) {
     if (playerAction === '突き') state.playerKiai = 0;
     if (enemyAction === '突き') state.enemyKiai = 0;
 
-    let message = `第${state.round}合: あなた【${playerAction}】 vs 相手【${enemyAction}】 — `;
+    const formatMove = (act) => {
+        if (!inTsuba) return act;
+        if (act === '面') return '引き面';
+        if (act === '小手') return '引き小手';
+        if (act === '胴') return '引き胴';
+        if (act === '防御') return '密着ガード';
+        if (act === '崩し') return '突き放し';
+        if (act === '突き') return '離れ突き';
+        return act;
+    };
+    const pMoveName = formatMove(playerAction);
+    const eMoveName = formatMove(enemyAction);
+
+    let message = `第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs 相手【${eMoveName}】 — `;
     let statusType = 'neutral';
     let playerAnim = getActionAnim(playerAction);
     let enemyAnim = getActionAnim(enemyAction);
@@ -2742,7 +2923,7 @@ function playRound(playerAction) {
         playerOutcome = 'mutual_hit';
         enemyOutcome = 'mutual_hit';
         impactWeight = 'heavy';
-        message += '⚡ 互いに渾身の「突き」が交錯！双方に1ダメージ！';
+        message += `⚡ 互いに渾身の「${pMoveName}」が交錯！双方に1ダメージ！`;
         statusType = 'defeat';
         impactSound = 'special';
         shakeTargets.push({ el: playerSpriteBox, isHeavy: true }, { el: enemySpriteBox, isHeavy: true });
@@ -2751,51 +2932,55 @@ function playRound(playerAction) {
             { who: 'player', text: '-1 相打ち！', styleClass: 'popup-dmg' },
             { who: 'enemy', text: '-1 相打ち！', styleClass: 'popup-dmg' }
         );
-        calloutData = { winner: 'both', mainText: '相打ち！', subText: '双方 諸手突き', isCritical: true };
+        calloutData = { winner: 'both', mainText: '相打ち！', subText: `双方 ${pMoveName}`, isCritical: true };
     } else if (playerAction === '突き') {
-        state.enemyHealth -= 2;
+        const tsukiDmg = inTsuba ? 3 : 2;
+        state.enemyHealth -= tsukiDmg;
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
         impactWeight = 'heavy';
         if (enemyAction === '防御') {
-            message += '⚡ 会心の諸手突き！！相手の防御を貫通し、大ダメージ（2点）！';
+            message += `⚡ 会心の${pMoveName}！！相手の${eMoveName}を貫通し、大ダメージ（${tsukiDmg}点）！`;
         } else {
-            message += `⚡ 電光石火の諸手突き！！相手の「${enemyAction}」を圧倒し、大ダメージ（2点）！`;
+            message += `⚡ 電光石火の${pMoveName}！！相手の「${eMoveName}」を圧倒し、大ダメージ（${tsukiDmg}点）！`;
         }
         statusType = 'victory';
         impactSound = 'special';
         zoomTargets.push(playerSpriteBox);
         shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
         doArenaFlash = true;
-        popups.push({ who: 'enemy', text: '-2 会心！', styleClass: 'popup-crit' });
-        calloutData = { winner: 'player', mainText: '突きあり！', subText: '⚡ 会心の一閃 (2点)', isCritical: true };
+        popups.push({ who: 'enemy', text: `-${tsukiDmg} 会心！`, styleClass: 'popup-crit' });
+        calloutData = { winner: 'player', mainText: `${pMoveName}あり！`, subText: `⚡ 会心の一閃 (${tsukiDmg}点)`, isCritical: true };
     } else if (enemyAction === '突き') {
-        state.playerHealth -= 2;
+        const tsukiDmg = inTsuba ? 3 : 2;
+        state.playerHealth -= tsukiDmg;
         playerAnim = 'hit';
         playerOutcome = 'hit';
         impactWeight = 'heavy';
-        message += '⚡ 相手の必殺「突き」が防具を貫いた！！痛恨の2ダメージ！';
+        message += `⚡ 相手の必殺「${eMoveName}」が防具を貫いた！！痛恨の${tsukiDmg}ダメージ！`;
         statusType = 'defeat';
         impactSound = 'hurt';
         zoomTargets.push(enemySpriteBox);
         shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
         doArenaFlash = true;
-        popups.push({ who: 'player', text: '-2 痛恨！', styleClass: 'popup-crit' });
-        calloutData = { winner: 'enemy', mainText: '突きあり！', subText: '⚡ 必殺の諸手突き (2点)', isCritical: true };
+        popups.push({ who: 'player', text: `-${tsukiDmg} 痛恨！`, styleClass: 'popup-crit' });
+        calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `⚡ 必殺の${eMoveName} (${tsukiDmg}点)`, isCritical: true };
     }
     // 2. 防御 vs 防御
     else if (playerAction === '防御' && enemyAction === '防御') {
-        message += '互いに守りを固め、静かに間合いを測り合っています。';
+        message += inTsuba
+            ? '互いに慎重に間合いを切り、鍔迫り合いを解いて中段の構えに戻りました。'
+            : '互いに守りを固め、静かに間合いを測り合っています。';
         statusType = 'neutral';
     }
-    // 3. 防御 vs 崩し（ガードブレイク）
+    // 3. 防御 vs 崩し（ガードブレイク / 突き放し）
     else if (playerAction === '崩し' && enemyAction === '防御') {
         state.enemyHealth -= 1;
         gainKiai('player', 1);
         state.enemyGuardBroken = true;
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
-        message += '💥 崩し成功！相手の防御を体当たりで突き崩し1ダメージ＆相手は次ターン防御不可！';
+        message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し1ダメージ＆相手は次ターン防御不可！`;
         statusType = 'victory';
         impactSound = 'break';
         zoomTargets.push(playerSpriteBox);
@@ -2805,14 +2990,14 @@ function playRound(playerAction) {
             { who: 'enemy', text: '💫 防御崩壊！', styleClass: 'popup-break' },
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
-        calloutData = { winner: 'player', mainText: '崩し成功！', subText: '💥 相手は次ターン防御不可' };
+        calloutData = { winner: 'player', mainText: `${pMoveName}成功！`, subText: '💥 相手は次ターン防御不可' };
     } else if (playerAction === '防御' && enemyAction === '崩し') {
         state.playerHealth -= 1;
         gainKiai('enemy', 1);
         state.playerGuardBroken = true;
         playerAnim = 'hit';
         playerOutcome = 'hit';
-        message += '💥 相手の「崩し」で防御を割られた！1ダメージ＆次ターン防御不可！';
+        message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！1ダメージ＆次ターン防御不可！`;
         statusType = 'defeat';
         impactSound = 'break';
         zoomTargets.push(enemySpriteBox);
@@ -2829,12 +3014,12 @@ function playRound(playerAction) {
         gainKiai('player', 1);
         state.playerCounterReady = true;
         playerOutcome = 'block_success';
-        message += `🛡️ 相手の「${enemyAction}」を見事に受け止めた！気合+1＆次ターン「🔥応じ技（威力2倍）」チャンス！`;
+        message += `🛡️ 相手の「${eMoveName}」を${pMoveName}で封じた！気合+1＆次ターン「🔥応じ技（威力2倍）」チャンス！`;
         statusType = 'victory';
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
         popups.push(
-            { who: 'player', text: '🛡️ 受け成功！', styleClass: 'popup-block' },
+            { who: 'player', text: `🛡️ ${pMoveName}成功！`, styleClass: 'popup-block' },
             { who: 'player', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
         );
         calloutData = { winner: null, mainText: '見事な受け！', subText: '🔥 次ターン 応じ技(2倍)', isGuard: true };
@@ -2842,7 +3027,7 @@ function playRound(playerAction) {
         gainKiai('enemy', 1);
         state.enemyCounterReady = true;
         enemyOutcome = 'block_success';
-        message += `🛡️ 相手に「${playerAction}」を受け止められた！相手が「🔥応じ技」の構えに入った！`;
+        message += `🛡️ 相手に「${pMoveName}」を受け止められた！相手が「🔥応じ技」の構えに入った！`;
         statusType = 'neutral';
         impactSound = 'block';
         zoomTargets.push(enemySpriteBox);
@@ -2852,72 +3037,81 @@ function playRound(playerAction) {
         );
         calloutData = { winner: null, mainText: '受け止められた！', subText: '⚠️ 相手が応じ技の構え', isGuard: true };
     }
-    // 5. 崩し vs 崩し（鍔迫り合い）
+    // 5. 崩し vs 崩し（鍔迫り合い突入・継続）
     else if (playerAction === '崩し' && enemyAction === '崩し') {
         gainKiai('player', 1);
         gainKiai('enemy', 1);
-        message += '💥 激しい鍔迫り合い！互いに一歩も引かず気合が高まる！（双方 気合+1）';
+        state.tsubazeriai = true;
+        playerOutcome = 'tsubazeriai_clash';
+        enemyOutcome = 'tsubazeriai_clash';
+        message += '💥 激しい体当たりの交錯！「鍔迫り合い」に突入！（双方 気合+1・次ターン引き技威力2倍！）';
         statusType = 'neutral';
         impactSound = 'clash';
         popups.push(
-            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' },
+            { who: 'player', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
-        calloutData = { winner: 'both', mainText: '鍔迫り合い！', subText: '⚡ 双方 気合+1' };
+        calloutData = { winner: 'both', mainText: '鍔迫り合い突入！', subText: '💥 次ターン 引き技(2ダメ)チャンス' };
     }
     // 6. 崩し vs 基本打突（打突側が迎撃）
     else if (isBasic(playerAction) && enemyAction === '崩し') {
-        const dmg = pCounter ? 2 : 1;
+        const isBoosted = pCounter || inTsuba;
+        const dmg = isBoosted ? 2 : 1;
         state.enemyHealth -= dmg;
         gainKiai('player', 1);
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
-        impactWeight = pCounter ? 'heavy' : 'normal';
-        message += pCounter
-            ? `🔥 応じ技炸裂！相手の「崩し」の出端に強烈な「${playerAction}」が決まり ${dmg}ダメージ！`
-            : `⚔️ 相手の「崩し」の出端を「${playerAction}」で迎撃！ 1ダメージ＆気合+1！`;
+        impactWeight = isBoosted ? 'heavy' : 'normal';
+        message += inTsuba
+            ? `⚡ 鮮やかな「${pMoveName}」炸裂！相手の「${eMoveName}」を躱して斬り抜き、2ダメージ！`
+            : (pCounter
+                ? `🔥 応じ技炸裂！相手の「崩し」の出端に強烈な「${playerAction}」が決まり ${dmg}ダメージ！`
+                : `⚔️ 相手の「崩し」の出端を「${playerAction}」で迎撃！ 1ダメージ＆気合+1！`);
         statusType = 'victory';
-        impactSound = pCounter ? 'special' : 'attack';
+        impactSound = isBoosted ? 'special' : 'attack';
         zoomTargets.push(playerSpriteBox);
-        shakeTargets.push({ el: enemySpriteBox, isHeavy: pCounter });
-        if (pCounter) doArenaFlash = true;
+        shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
+        if (isBoosted) doArenaFlash = true;
         popups.push(
-            { who: 'enemy', text: pCounter ? `-2 応じ${playerAction}！` : '-1', styleClass: pCounter ? 'popup-crit' : 'popup-dmg' },
+            { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
             winner: 'player',
-            mainText: `${playerAction}あり！`,
-            subText: pCounter ? `🔥 応じ${playerAction}・二本分！` : `⚔️ 出ばな${playerAction}一本`,
-            isCritical: pCounter,
+            mainText: `${pMoveName}あり！`,
+            subText: inTsuba ? `⚡ 会心の${pMoveName} (2点)` : (pCounter ? `🔥 応じ${playerAction}・二本分！` : `⚔️ 出ばな${playerAction}一本`),
+            isCritical: isBoosted,
         };
     } else if (playerAction === '崩し' && isBasic(enemyAction)) {
-        const dmg = eCounter ? 2 : 1;
+        const isBoosted = eCounter || inTsuba;
+        const dmg = isBoosted ? 2 : 1;
         state.playerHealth -= dmg;
         gainKiai('enemy', 1);
         playerAnim = 'hit';
         playerOutcome = 'hit';
-        impactWeight = eCounter ? 'heavy' : 'normal';
-        message += eCounter
-            ? `相手の応じ技「${enemyAction}」に出端を挫かれた！痛恨の ${dmg}ダメージ！`
-            : `「崩し」に踏み込んだところへ相手の「${enemyAction}」を合わせられた！ 1ダメージ！`;
+        impactWeight = isBoosted ? 'heavy' : 'normal';
+        message += inTsuba
+            ? `相手の鋭い「${eMoveName}」に突き放しの出端を斬られた！痛恨の2ダメージ！`
+            : (eCounter
+                ? `相手の応じ技「${enemyAction}」に出端を挫かれた！痛恨の ${dmg}ダメージ！`
+                : `「崩し」に踏み込んだところへ相手の「${enemyAction}」を合わせられた！ 1ダメージ！`);
         statusType = 'defeat';
         impactSound = 'hurt';
         zoomTargets.push(enemySpriteBox);
-        shakeTargets.push({ el: playerSpriteBox, isHeavy: eCounter });
-        if (eCounter) doArenaFlash = true;
+        shakeTargets.push({ el: playerSpriteBox, isHeavy: isBoosted });
+        if (isBoosted) doArenaFlash = true;
         popups.push(
-            { who: 'player', text: eCounter ? `-2 応じ${enemyAction}！` : '-1', styleClass: eCounter ? 'popup-crit' : 'popup-dmg' },
+            { who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
             winner: 'enemy',
-            mainText: `${enemyAction}あり！`,
-            subText: eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `⚔️ 出ばな${enemyAction}一本`,
-            isCritical: eCounter,
+            mainText: `${eMoveName}あり！`,
+            subText: inTsuba ? `⚡ 相手の${eMoveName} (2点)` : (eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `⚔️ 出ばな${enemyAction}一本`),
+            isCritical: isBoosted,
         };
     }
-    // 7. 基本打突 vs 基本打突（三すくみ＆応じ技判定）
+    // 7. 基本打突 vs 基本打突（三すくみ＆応じ技＆鍔迫り合い判定）
     else if (playerAction === enemyAction) {
         if (pCounter && !eCounter) {
             state.enemyHealth -= 2;
@@ -2925,7 +3119,7 @@ function playRound(playerAction) {
             enemyAnim = 'hit';
             enemyOutcome = 'hit';
             impactWeight = 'heavy';
-            message += `🔥 応じ技の冴え！同じ「${playerAction}」の打ち合いを制し、2ダメージ奪った！`;
+            message += `🔥 応じ技の冴え！同じ「${pMoveName}」の打ち合いを制し、2ダメージ奪った！`;
             statusType = 'victory';
             impactSound = 'special';
             zoomTargets.push(playerSpriteBox);
@@ -2937,7 +3131,7 @@ function playRound(playerAction) {
             );
             calloutData = {
                 winner: 'player',
-                mainText: `${playerAction}あり！`,
+                mainText: `${pMoveName}あり！`,
                 subText: `🔥 応じ${playerAction}・相打ち制覇(2点)`,
                 isCritical: true,
             };
@@ -2947,7 +3141,7 @@ function playRound(playerAction) {
             playerAnim = 'hit';
             playerOutcome = 'hit';
             impactWeight = 'heavy';
-            message += `相手の応じ技「${enemyAction}」に打ち負けた！ 2ダメージ！`;
+            message += `相手の応じ技「${eMoveName}」に打ち負けた！ 2ダメージ！`;
             statusType = 'defeat';
             impactSound = 'hurt';
             zoomTargets.push(enemySpriteBox);
@@ -2959,18 +3153,39 @@ function playRound(playerAction) {
             );
             calloutData = {
                 winner: 'enemy',
-                mainText: `${enemyAction}あり！`,
+                mainText: `${eMoveName}あり！`,
                 subText: `🔥 相手の応じ${enemyAction} (2点)`,
                 isCritical: true,
             };
+        } else if (!inTsuba) {
+            // 通常間合いでの同技交錯 → 鍔迫り合いへ突入！
+            gainKiai('player', 1);
+            gainKiai('enemy', 1);
+            state.tsubazeriai = true;
+            playerOutcome = 'tsubazeriai_clash';
+            enemyOutcome = 'tsubazeriai_clash';
+            message += `💥 互いの「${playerAction}」が激しく火花を散らし、そのまま「鍔迫り合い」に突入！（双方 気合+1・次ターン引き技2ダメージ！）`;
+            statusType = 'neutral';
+            impactSound = 'clash';
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
+            popups.push(
+                { who: 'player', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
+                { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+            );
+            calloutData = {
+                winner: 'both',
+                mainText: '鍔迫り合い突入！',
+                subText: `💥 相${playerAction}から接近戦へ（次打・引き技2倍）`,
+            };
         } else {
+            // 鍔迫り合い中の同技交錯 → 相打ち1ダメージ＆間合いが離れる
             state.playerHealth -= 1;
             state.enemyHealth -= 1;
             gainKiai('player', 1);
             gainKiai('enemy', 1);
             playerOutcome = 'mutual_hit';
             enemyOutcome = 'mutual_hit';
-            message += `⚔️ 相打ち！互いに「${playerAction}」を打ち合い、双方に1ダメージ＆気合+1！`;
+            message += `⚔️ 引き技の相打ち！互いに「${pMoveName}」を打ち合い、双方に1ダメージ＆間合いが離れた！`;
             statusType = 'defeat';
             impactSound = 'clash';
             shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
@@ -2978,59 +3193,65 @@ function playRound(playerAction) {
                 { who: 'player', text: '-1 相打ち', styleClass: 'popup-dmg' },
                 { who: 'enemy', text: '-1 相打ち', styleClass: 'popup-dmg' }
             );
-            calloutData = { winner: 'both', mainText: '相打ち！', subText: `互いに${playerAction} (双方-1)` };
+            calloutData = { winner: 'both', mainText: '相打ち！', subText: `互いに${pMoveName} (双方-1)` };
         }
     } else {
         const isValid = attackMap[playerAction].includes(enemyAction);
         if (isValid) {
-            const dmg = pCounter ? 2 : 1;
+            const isBoosted = pCounter || inTsuba;
+            const dmg = isBoosted ? 2 : 1;
             state.enemyHealth -= dmg;
             gainKiai('player', 1);
             enemyAnim = 'hit';
             enemyOutcome = 'hit';
-            impactWeight = pCounter ? 'heavy' : 'normal';
-            message += pCounter
-                ? `🔥 応じ技「${playerAction}」が一閃！！ 2ダメージの有効打突！`
-                : `⚔️ 鮮やかな「${playerAction}」が決まりました！ 1ダメージ＆気合+1！`;
+            impactWeight = isBoosted ? 'heavy' : 'normal';
+            message += inTsuba
+                ? `⚡ 会心の「${pMoveName}」が一閃！！鍔迫り合いを制し、2ダメージの有効打突！`
+                : (pCounter
+                    ? `🔥 応じ技「${playerAction}」が一閃！！ 2ダメージの有効打突！`
+                    : `⚔️ 鮮やかな「${playerAction}」が決まりました！ 1ダメージ＆気合+1！`);
             statusType = 'victory';
-            impactSound = pCounter ? 'special' : 'attack';
+            impactSound = isBoosted ? 'special' : 'attack';
             zoomTargets.push(playerSpriteBox);
-            shakeTargets.push({ el: enemySpriteBox, isHeavy: pCounter });
-            if (pCounter) doArenaFlash = true;
+            shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
+            if (isBoosted) doArenaFlash = true;
             popups.push(
-                { who: 'enemy', text: pCounter ? `-2 応じ${playerAction}！` : '-1', styleClass: pCounter ? 'popup-crit' : 'popup-dmg' },
+                { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
                 { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
             );
             calloutData = {
                 winner: 'player',
-                mainText: `${playerAction}あり！`,
-                subText: pCounter ? `🔥 会心の応じ${playerAction} (2点)` : `🚩 有効打突・一本！`,
-                isCritical: pCounter,
+                mainText: `${pMoveName}あり！`,
+                subText: inTsuba ? `⚡ 鍔迫り合い制覇・${pMoveName} (2点)` : (pCounter ? `🔥 会心の応じ${playerAction} (2点)` : `🚩 有効打突・一本！`),
+                isCritical: isBoosted,
             };
         } else {
-            const dmg = eCounter ? 2 : 1;
+            const isBoosted = eCounter || inTsuba;
+            const dmg = isBoosted ? 2 : 1;
             state.playerHealth -= dmg;
             gainKiai('enemy', 1);
             playerAnim = 'hit';
             playerOutcome = 'hit';
-            impactWeight = eCounter ? 'heavy' : 'normal';
-            message += eCounter
-                ? `相手の強烈な応じ技「${enemyAction}」を浴びた！ 2ダメージ！`
-                : `相手の「${enemyAction}」があなたに決まりました！ 1ダメージ！`;
+            impactWeight = isBoosted ? 'heavy' : 'normal';
+            message += inTsuba
+                ? `相手の鋭い「${eMoveName}」に鍔迫り合いを制された！痛恨の2ダメージ！`
+                : (eCounter
+                    ? `相手の強烈な応じ技「${enemyAction}」を浴びた！ 2ダメージ！`
+                    : `相手の「${enemyAction}」があなたに決まりました！ 1ダメージ！`);
             statusType = 'defeat';
             impactSound = 'hurt';
             zoomTargets.push(enemySpriteBox);
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: eCounter });
-            if (eCounter) doArenaFlash = true;
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: isBoosted });
+            if (isBoosted) doArenaFlash = true;
             popups.push(
-                { who: 'player', text: eCounter ? `-2 応じ${enemyAction}！` : '-1', styleClass: eCounter ? 'popup-crit' : 'popup-dmg' },
+                { who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
                 { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
             );
             calloutData = {
                 winner: 'enemy',
-                mainText: `${enemyAction}あり！`,
-                subText: eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `🏳️ 相手の一本`,
-                isCritical: eCounter,
+                mainText: `${eMoveName}あり！`,
+                subText: inTsuba ? `⚡ 相手の${eMoveName} (2点)` : (eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `🏳️ 相手の一本`),
+                isCritical: isBoosted,
             };
         }
     }
@@ -3065,7 +3286,7 @@ function playRound(playerAction) {
         calloutData = {
             winner: 'enemy',
             mainText: '勝負あり！',
-            subText: `🏳️ 白（${enemyData.shortName}）の勝利（${enemyAction}）`,
+            subText: `🏳️ 白（${enemyData.shortName}）の勝利（${eMoveName}）`,
             isCritical: false,
         };
     } else if (state.enemyHealth <= 0) {
@@ -3103,21 +3324,25 @@ function playRound(playerAction) {
             calloutData = {
                 winner: 'player',
                 mainText: '🏆 勝負あり！',
-                subText: `🚩 赤（あなた）の勝利！（${playerAction}）`,
+                subText: `🚩 赤（あなた）の勝利！（${pMoveName}）`,
                 isCritical: true,
             };
         }
     }
 
+    if (state.gameOver) {
+        state.tsubazeriai = false;
+    }
+
     // 1. アニメーション開始時：前回の旗表示を消し、立ち合い中テキストを表示してボタンを一時ロック
     hideRefereeCallout();
     setActionButtonsLocked(true);
-    updateStatus(`第${state.round}合: あなた【${playerAction}】 vs ${enemyData.shortName}【${enemyAction}】 — 立ち合い…！`, 'neutral');
-    if (intentText) intentText.textContent = '⚔️ 技が交錯しています…';
+    updateStatus(`第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs ${enemyData.shortName}【${eMoveName}】 — 立ち合い…！`, 'neutral');
+    if (intentText) intentText.textContent = inTsuba ? '💥 鍔迫り合いから技が交錯しています…' : '⚔️ 技が交錯しています…';
 
     // 2. 打突・被弾の連続キーフレームアニメーションを再生
-    triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight);
-    triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight);
+    triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight, inTsuba);
+    triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight, inTsuba);
 
     // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 320ms）到達時に打突音・画面シェイク・ズームを発火
     pendingImpactCallback = () => {
@@ -3192,6 +3417,7 @@ function resetGame() {
     state.enemyCounterReady = false;
     state.playerGuardBroken = false;
     state.enemyGuardBroken = false;
+    state.tsubazeriai = false;
     state.round = 0;
     state.gameOver = false;
     state.lastOutcome = null;
