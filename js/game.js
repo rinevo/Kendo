@@ -1781,6 +1781,7 @@ function createAnimator(phaseOffset = 0) {
         scaleX: 1,
         scaleY: 1,
         rot: 0,
+        alpha: 1,
         clothVel: 0,
         clothOffset: 0,
         particles: [],
@@ -1857,7 +1858,7 @@ function spawnShockwave(anim, x, y, color = '250, 204, 21', isHeavy = false) {
 const STRIKE_IMPACT_T = 380;
 const ANIM_TOTAL_T = 1040;
 const OPENING_TOTAL_T = 2560;
-const CLOSING_TOTAL_T = 3200;
+const CLOSING_TOTAL_T = 4850;
 
 // 試合開始時の礼法キーフレーム列（提げ刀 → お互いに礼 → 帯刀・竹刀を構えて蹲踞 → 「始め！」で立ち上がる）
 function buildOpeningCeremonyKeyframes(startPose, endCombatPose, endSprite) {
@@ -1866,34 +1867,65 @@ function buildOpeningCeremonyKeyframes(startPose, endCombatPose, endSprite) {
     const chudan = CEREMONY_POSES.chudan_stand;
     const sonkyo = CEREMONY_POSES.sonkyo_kamae;
     return [
-        { t: 0,               sprite: 'sageto',       pose: startPose,     x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 320,             sprite: 'rei',          pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 620,             sprite: 'rei',          pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 940,             sprite: 'sageto',       pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 1280,            sprite: 'idle_0',       pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad, fx: 'dust' },
-        { t: 1700,            sprite: 'sonkyo_kamae', pose: sonkyo,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
-        { t: 2120,            sprite: 'sonkyo_kamae', pose: sonkyo,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: OPENING_TOTAL_T, sprite: endSprite,      pose: endCombatPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeOutCubic,  fx: 'dust' },
+        { t: 0,               sprite: 'sageto',       pose: startPose,     x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 320,             sprite: 'rei',          pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 620,             sprite: 'rei',          pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 940,             sprite: 'sageto',       pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 1280,            sprite: 'idle_0',       pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutQuad, fx: 'dust' },
+        { t: 1700,            sprite: 'sonkyo_kamae', pose: sonkyo,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutQuad },
+        { t: 2120,            sprite: 'sonkyo_kamae', pose: sonkyo,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: OPENING_TOTAL_T, sprite: endSprite,      pose: endCombatPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeOutCubic,  fx: 'dust' },
     ];
 }
 
-// 勝敗決定後の礼法キーフレーム列（中段の構え → 蹲踞 → 竹刀を左腰に収める → 立ち上がり → お互いに礼 → 提げ刀）
-function buildClosingCeremonyKeyframes(startPose) {
+// 勝敗決定後の礼法キーフレーム列（中段の構え → 蹲踞 → 竹刀を左腰に収める → 立ち上がり → お互いに礼 → 提げ刀 → 敗者は後ろに下がって退場）
+function buildClosingCeremonyKeyframes(startPose, isLoser = false) {
     const chudan = CEREMONY_POSES.chudan_stand;
     const sonkyoKamae = CEREMONY_POSES.sonkyo_kamae;
     const sonkyoOsameto = CEREMONY_POSES.sonkyo_osameto;
     const sageto = CEREMONY_POSES.sageto;
     const rei = CEREMONY_POSES.rei;
-    return [
-        { t: 0,               sprite: 'idle_0',         pose: startPose,     x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 500,             sprite: 'idle_0',         pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
-        { t: 1050,            sprite: 'sonkyo_kamae',   pose: sonkyoKamae,   x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad, fx: 'dust' },
-        { t: 1650,            sprite: 'sonkyo_osameto', pose: sonkyoOsameto, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 2150,            sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
-        { t: 2600,            sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 2900,            sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: CLOSING_TOTAL_T, sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+
+    const baseKfs = [
+        { t: 0,    sprite: 'idle_0',         pose: startPose,     x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 500,  sprite: 'idle_0',         pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutQuad },
+        { t: 1050, sprite: 'sonkyo_kamae',   pose: sonkyoKamae,   x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutQuad, fx: 'dust' },
+        { t: 1650, sprite: 'sonkyo_osameto', pose: sonkyoOsameto, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 2150, sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutQuad },
+        { t: 2600, sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 2900, sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
+        { t: 3200, sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
     ];
+
+    if (!isLoser) {
+        // 勝者：礼が終わった後もその場で提げ刀の姿勢を保つ
+        baseKfs.push({
+            t: CLOSING_TOTAL_T,
+            sprite: 'sageto',
+            pose: sageto,
+            x: 0,
+            y: 0,
+            scaleX: 1.0,
+            scaleY: 1.0,
+            rot: 0,
+            alpha: 1.0,
+            ease: easeInOutSine,
+        });
+        return baseKfs;
+    }
+
+    // 敗者：礼の後、提げ刀の姿勢ですり足で後ろへ下がり、画面外へ退場して消える
+    const step1 = { ...sageto, backFootX: 112, frontFootX: 130, hakamaSway: -4 };
+    const step2 = { ...sageto, backFootX: 122, frontFootX: 140, hakamaSway: 4 };
+
+    baseKfs.push(
+        { t: 3450, sprite: 'sageto', pose: step1,  x: -20,  y: 0, scaleX: 1.0, scaleY: 1.0, rot: -0.01, alpha: 1.0,  ease: easeInOutQuad, fx: 'dust' },
+        { t: 3800, sprite: 'sageto', pose: step2,  x: -60,  y: 0, scaleX: 1.0, scaleY: 1.0, rot: -0.01, alpha: 0.95, ease: easeInOutQuad, fx: 'dust' },
+        { t: 4150, sprite: 'sageto', pose: step1,  x: -115, y: 0, scaleX: 1.0, scaleY: 1.0, rot: -0.01, alpha: 0.70, ease: easeInOutQuad, fx: 'dust' },
+        { t: 4500, sprite: 'sageto', pose: step2,  x: -175, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0,     alpha: 0.25, ease: easeInOutQuad },
+        { t: CLOSING_TOTAL_T, sprite: 'sageto', pose: sageto, x: -240, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 0.0,  ease: easeOutCubic }
+    );
+    return baseKfs;
 }
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
@@ -2576,18 +2608,23 @@ function updateAndDrawFighter(ctx, who, flip, now) {
             if (!animators.player.keyframes && !animators.enemy.keyframes) {
                 flushPendingRound();
             }
-            setSpriteWithFade(anim, defaultSprite, now);
-            const speedMult = (isCounter || kiai >= MAX_KIAI) ? 1.35 : 1.0;
-            const phase = now * 0.0042 * speedMult + anim.phaseOffset;
-            targetPose = getContinuousStancePose(defaultSprite, phase);
-            anim.currentPose = interpolatePose(anim.currentPose, targetPose, 0.25);
-            const endX = (state.gameOver && defaultSprite === 'hit') ? -10 : (defaultSprite === 'tsubazeriai' ? 8 : 0);
-            const endRot = (state.gameOver && defaultSprite === 'hit') ? -0.03 : (defaultSprite === 'tsubazeriai' ? 0.02 : 0);
-            anim.posX = lerp(anim.posX, endX, 0.25);
-            anim.posY = 0;
-            anim.scaleX = lerp(anim.scaleX, 1, 0.25);
-            anim.scaleY = lerp(anim.scaleY, 1, 0.25);
-            anim.rot = lerp(anim.rot, endRot, 0.25);
+            if ((anim.alpha !== undefined && anim.alpha <= 0.02) || anim.posX <= -180) {
+                anim.alpha = 0;
+                anim.posX = -250;
+            } else {
+                setSpriteWithFade(anim, defaultSprite, now);
+                const speedMult = (isCounter || kiai >= MAX_KIAI) ? 1.35 : 1.0;
+                const phase = now * 0.0042 * speedMult + anim.phaseOffset;
+                targetPose = getContinuousStancePose(defaultSprite, phase);
+                anim.currentPose = interpolatePose(anim.currentPose, targetPose, 0.25);
+                const endX = (state.gameOver && defaultSprite === 'hit') ? -10 : (defaultSprite === 'tsubazeriai' ? 8 : 0);
+                const endRot = (state.gameOver && defaultSprite === 'hit') ? -0.03 : (defaultSprite === 'tsubazeriai' ? 0.02 : 0);
+                anim.posX = lerp(anim.posX, endX, 0.25);
+                anim.posY = 0;
+                anim.scaleX = lerp(anim.scaleX, 1, 0.25);
+                anim.scaleY = lerp(anim.scaleY, 1, 0.25);
+                anim.rot = lerp(anim.rot, endRot, 0.25);
+            }
         } else {
             let idx = 0;
             for (let i = 0; i < kfs.length - 1; i++) {
@@ -2665,6 +2702,9 @@ function updateAndDrawFighter(ctx, who, flip, now) {
             anim.scaleX = lerp(k0.scaleX, k1.scaleX, easedT);
             anim.scaleY = lerp(k0.scaleY, k1.scaleY, easedT);
             anim.rot = lerp(k0.rot, k1.rot, easedT);
+            const a0 = k0.alpha !== undefined ? k0.alpha : 1;
+            const a1 = k1.alpha !== undefined ? k1.alpha : 1;
+            anim.alpha = lerp(a0, a1, easedT);
 
             // 高速踏み込み・打突スイング中は連続ポーズ残像を追加
             const poseLungeDist = Math.abs((anim.currentPose.hipX - 132) * 0.47 + anim.posX);
@@ -2706,12 +2746,17 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                 spawnSparks(anim, baseFootX + dir * 46, 98, '250, 204, 21', 2, 0.55);
             }
         } else {
-            const isCeremonyIdle = defaultSprite === 'sageto' || defaultSprite === 'rei' || defaultSprite === 'sonkyo_kamae' || defaultSprite === 'sonkyo_osameto';
-            const suriashiX = isCeremonyIdle ? 0 : Math.sin(phase * 0.55) * 2.2;
-            anim.posX = lerp(anim.posX, suriashiX, 0.16);
-            anim.scaleX = lerp(anim.scaleX, 1.0, 0.16);
-            anim.scaleY = lerp(anim.scaleY, 1.0, 0.16);
-            anim.rot = lerp(anim.rot, 0, 0.16);
+            if (anim.alpha !== undefined && anim.alpha <= 0.02) {
+                anim.posX = -250;
+                anim.alpha = 0;
+            } else {
+                const isCeremonyIdle = defaultSprite === 'sageto' || defaultSprite === 'rei' || defaultSprite === 'sonkyo_kamae' || defaultSprite === 'sonkyo_osameto';
+                const suriashiX = isCeremonyIdle ? 0 : Math.sin(phase * 0.55) * 2.2;
+                anim.posX = lerp(anim.posX, suriashiX, 0.16);
+                anim.scaleX = lerp(anim.scaleX, 1.0, 0.16);
+                anim.scaleY = lerp(anim.scaleY, 1.0, 0.16);
+                anim.rot = lerp(anim.rot, 0, 0.16);
+            }
         }
     }
 
@@ -2735,6 +2780,12 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     const pivotX = baseFootX + dir * anim.posX + hitStopJitterX;
     const pivotY = GROUND_Y;
     const vScale = CANVAS_W / VIRTUAL_W;
+    const renderAlpha = anim.alpha !== undefined ? Math.max(0, Math.min(1, anim.alpha)) : 1;
+
+    // 完全に画面外へ退場して消えている場合は描画スキップ
+    if (renderAlpha <= 0.001) {
+        return;
+    }
 
     // 応じ技構え・気合MAX時のオーラ粒子生成（待機中のみ足元から立ち昇る）
     if (!state.gameOver && !anim.keyframes && (isCounter || kiai >= MAX_KIAI) && Math.random() < 0.25) {
@@ -2760,6 +2811,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     const frontLiftRatio = Math.max(0.35, 1 - Math.max(0, ANCHOR_FOOT_Y - renderPose.frontFootY) * 0.035);
 
     ctx.save();
+    ctx.globalAlpha *= renderAlpha;
     ctx.fillStyle = 'rgba(2, 6, 23, 0.48)';
     ctx.beginPath();
     ctx.ellipse(midFootScreenX, pivotY + 1, strideHalfSpan, 5.2, 0, 0, Math.PI * 2);
@@ -2806,7 +2858,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     if (flip) ctx.scale(-1, 1);
     ctx.rotate(anim.rot);
     ctx.scale(anim.scaleX, anim.scaleY);
-    drawArticulatedPoseOnCanvas(ctx, renderPose, 1, fighterArmorTheme);
+    drawArticulatedPoseOnCanvas(ctx, renderPose, renderAlpha, fighterArmorTheme);
     ctx.restore();
 
     // 5. 斬撃軌跡・防御シールドの描画
@@ -3450,6 +3502,10 @@ function startMatchCeremony() {
     warmupVoices();
     clearPendingRoundTimers();
     hideRefereeCallout();
+    animators.player.alpha = 1;
+    animators.enemy.alpha = 1;
+    animators.player.posX = 0;
+    animators.enemy.posX = 0;
 
     const enemyData = getCurrentEnemy();
     state.matchPhase = 'opening_ceremony';
@@ -3536,24 +3592,27 @@ function startMatchCeremony() {
 }
 
 // 勝敗決定後の礼法シーケンス（「勝負あり」などのメッセージが消えてから実行）
-// 中段の構えに整える → 蹲踞 → 竹刀を左腰に収める → 立ち上がる → 相互の立礼 → 提げ刀
+// 中段の構えに整える → 蹲踞 → 竹刀を左腰に収める → 立ち上がる → 相互の立礼 → 提げ刀 → 負けたほうは後退して退場
 function startClosingCeremony() {
     if (!state.gameOver) return;
     clearCeremonyTimers();
     state.matchPhase = 'closing_ceremony';
     updateUI();
     decideEnemyIntent();
-    updateStatus('勝負あり — お互いに中段の構えから蹲踞・収め刀・礼を行います…', 'neutral');
+    updateStatus('勝負あり — お互いに中段の構えから蹲踞・収め刀・礼を行い、敗者は退場します…', 'neutral');
 
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-    animators.player.keyframes = buildClosingCeremonyKeyframes({ ...animators.player.currentPose });
+    const isPlayerLoser = state.playerHealth <= 0;
+    const isEnemyLoser = state.enemyHealth <= 0;
+
+    animators.player.keyframes = buildClosingCeremonyKeyframes({ ...animators.player.currentPose }, isPlayerLoser);
     animators.player.seqStartTime = now;
     animators.player.virtualElapsed = 0;
     animators.player.lastUpdateNow = now;
     animators.player.lastKeyIndex = -1;
     animators.player.impactWeight = 'normal';
 
-    animators.enemy.keyframes = buildClosingCeremonyKeyframes({ ...animators.enemy.currentPose });
+    animators.enemy.keyframes = buildClosingCeremonyKeyframes({ ...animators.enemy.currentPose }, isEnemyLoser);
     animators.enemy.seqStartTime = now;
     animators.enemy.virtualElapsed = 0;
     animators.enemy.lastUpdateNow = now;
@@ -3563,8 +3622,8 @@ function startClosingCeremony() {
     pendingClosingCallback = () => {
         clearCeremonyTimers();
         state.matchPhase = 'post_match';
-        state.playerAnimState = 'sageto';
-        state.enemyAnimState = 'sageto';
+        state.playerAnimState = isPlayerLoser ? 'exited' : 'sageto';
+        state.enemyAnimState = isEnemyLoser ? 'exited' : 'sageto';
         decideEnemyIntent();
         updateUI();
     };
