@@ -14,7 +14,15 @@
             </div>
             <h1>⚔️ 剣道</h1>
 
-            <div class="stage-bar-wrap">
+            <!-- モードプレイ中のみ表示されるトップナビバー -->
+            <div class="header-mode-bar" id="headerModeBar" style="display: none;">
+                <button type="button" class="btn-back-to-menu" onclick="window.KendoGameEngine.showModeSelect()">
+                    🏠 モード選択へ戻る
+                </button>
+                <span class="current-mode-badge" id="currentModeBadge">🏆 勝ち抜き五人掛け</span>
+            </div>
+
+            <div class="stage-bar-wrap" id="classicStageBarWrap" style="display: none;">
                 <div class="stage-bar-header">
                     <span class="stage-bar-title">🏆 勝ち抜き五人掛け</span>
                     <span class="stage-bar-progress" id="stageProgressText">制覇: 0 / 5人（クリックで相手を指名可）</span>
@@ -44,7 +52,58 @@
             </div>
         </div>
 
-        <div class="battle-arena" id="battleArena">
+        <!-- 🏠 起動時モード選択メニュー (タイトル画面) -->
+        <div id="modeSelectScreen" class="mode-select-screen">
+            <div class="mode-select-hero">
+                <p class="mode-select-lead">読み合いと間合いの駆け引き — プレイするモードを選択してください</p>
+            </div>
+            <div class="mode-cards-grid">
+                <!-- 勝ち抜き五人掛けカード -->
+                <div class="mode-card card-classic" onclick="window.KendoGameEngine.switchMode('classic')">
+                    <div class="mode-card-badge">1対1 真剣勝負</div>
+                    <div class="mode-card-icon">🏆</div>
+                    <h2 class="mode-card-title">勝ち抜き五人掛け</h2>
+                    <p class="mode-card-tagline">個性豊かな5人の剣士と勝ち抜き連戦！</p>
+                    <p class="mode-card-desc">先鋒・健太（初段）から大将・龍禅（六段）まで、異なる剣風と構えを持つ相手と戦う王道の勝ち抜き対戦モード。</p>
+                    <div class="mode-card-features">
+                        <span>⚔️ 構え切替</span>
+                        <span>💥 鍔迫り合い</span>
+                        <span>⚡ 必殺の突き</span>
+                    </div>
+                    <button type="button" class="btn-mode-start btn-classic-start">
+                        ⚔️ 五人掛けを開始する
+                    </button>
+                </div>
+
+                <!-- 団体戦・全国制覇モードカード -->
+                <div class="mode-card card-club" onclick="window.KendoClub.onCardClick()">
+                    <div class="mode-card-badge">5対5 チーム育成</div>
+                    <div class="mode-card-icon">🥋</div>
+                    <h2 class="mode-card-title">団体戦・全国制覇モード</h2>
+                    <p class="mode-card-tagline">世代を紡ぎ仲間と共に目指す日本一！</p>
+                    <p class="mode-card-desc">高校剣道部の2年生主将として仲間を鍛え上げ、オーダーを編成して12月地区予選・3月全国高校選抜大会での全国制覇を目指す育成シミュレーション。</p>
+                    <div class="mode-card-features">
+                        <span>👥 5人団体戦</span>
+                        <span>👑 世代交代・新主将指名</span>
+                        <span>🏆 全国選抜大会制覇</span>
+                    </div>
+                    <div class="mode-card-actions" id="clubCardActions">
+                        <div class="mode-btn-group">
+                            <button type="button" class="btn-mode-start btn-club-start" onclick="event.stopPropagation(); window.KendoClub.startNewGame(true);">
+                                ⚔️ 最初から始める
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🥋 団体戦・全国制覇モード (Club / Career Mode) コンテナ -->
+        <div id="clubModeView" class="club-mode-container" style="display: none;"></div>
+
+        <!-- ⚔️ 共通実戦戦闘エリア (五人掛け ＆ 団体戦プレイヤー出番時に表示) -->
+        <div id="combatAreaWrap" class="combat-area-wrap" style="display: none;">
+            <div class="battle-arena" id="battleArena">
             <div class="fighter-card" id="playerCard">
                 <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
                 <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
@@ -127,6 +186,21 @@
                 <div class="stance-desc" id="stanceDescText">⚖️【中段の構え】攻守のバランスが取れた王道の構え。すべての技を標準性能で繰り出せます。</div>
             </div>
 
+            <div id="spectatorControls" class="spectator-controls-wrap" style="display: none;">
+                <div class="spectator-status-banner">
+                    <span class="spectator-pulse">👀</span>
+                    <span class="spectator-label" id="spectatorLabel">仲間部員の試合をリアルタイム観戦中…</span>
+                </div>
+                <div class="spectator-btn-group">
+                    <button type="button" id="btnSpectateSkip" class="btn-spectate-skip" onclick="window.KendoGameEngine.skipCurrentSpectate()">
+                        ⏩ この試合をスキップ
+                    </button>
+                    <button type="button" id="btnSpectateSkipAll" class="btn-spectate-skip-all" onclick="window.KendoGameEngine.skipSpectateToPlayer()">
+                        ⏭️ 主将の出番までスキップ
+                    </button>
+                </div>
+            </div>
+
             <div class="actions">
                 <button id="btnStartMatch" class="start-btn" onclick="startMatchCeremony()">🙇 礼をして試合開始</button>
                 <button id="btnMen" onclick="playRound('面')" style="display: none;">⚔️ 面</button>
@@ -136,6 +210,7 @@
                 <button id="btnBreak" class="tactical" onclick="playRound('崩し')" style="display: none;">💥 崩し</button>
                 <button id="btnTsuki" class="special" onclick="playRound('突き')" style="display: none;" disabled>⚡ 突き (気合3)</button>
                 <button id="btnNextStage" class="next-btn" onclick="advanceStage()" style="display: none;">⏭️ 次の相手へ進む</button>
+                <button id="btnReturnToClub" class="next-btn club-return-btn" onclick="window.KendoGameEngine.returnFromCombatToClub()" style="display: none;">🥋 団体戦スコアボードへ戻る</button>
                 <button id="btnReset" class="reset-btn" onclick="resetGame()" style="display: none;">🔄 もう一度</button>
             </div>
             <div class="footer-guide">
@@ -150,8 +225,10 @@
                 </div>
             </div>
         </div>
+        </div>
     </div>
 
     <script src="js/game.js"></script>
+    <script src="js/club.js"></script>
 </body>
 </html>

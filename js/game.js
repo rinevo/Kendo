@@ -214,9 +214,20 @@ const state = {
     enemyIntent: null,
     animResetTimer: null,
     ceremonyTimers: [],
+    customMatch: null,
 };
 
+function getPlayerMaxHealth() {
+    if (state.customMatch && state.customMatch.active && state.customMatch.player && state.customMatch.player.maxHealth) {
+        return state.customMatch.player.maxHealth;
+    }
+    return MAX_HEALTH;
+}
+
 function getCurrentEnemy() {
+    if (state.customMatch && state.customMatch.active && state.customMatch.enemy) {
+        return state.customMatch.enemy;
+    }
     return ENEMY_ROSTER[state.stageIndex] || ENEMY_ROSTER[0];
 }
 
@@ -360,7 +371,7 @@ const POSE_KEYS = [
     'oneHanded'
 ];
 
-// 礼法・所作ポーズ定義（提げ刀・立礼・蹲踞構え・蹲踞収め刀・中段立ち）
+// 礼法・所作ポーズ定義（提げ刀・立礼・蹲踞構え・蹲踞納刀・中段立ち）
 const CEREMONY_POSES = {
     // 提げ刀（左手で竹刀の鍔付近を左腰脇に自然に下げて持つ試合前・試合後の基本姿勢）
     sageto: {
@@ -401,7 +412,7 @@ const CEREMONY_POSES = {
         swingBlur: 0, hitDebris: 0,
         oneHanded: 0,
     },
-    // 蹲踞・収め刀（蹲踞したまま竹刀を左腰に収めた姿勢）
+    // 蹲踞・納刀（蹲踞したまま竹刀を左腰に納めた姿勢）
     sonkyo_osameto: {
         hipX: 130, hipY: 314,
         backFootX: 108, backFootY: 374, backHeel: 18,
@@ -1389,7 +1400,7 @@ function getHandTargets(gripX, gripY, angleDeg, oneHanded = 0, hipX = 132, hipY 
         };
     }
     const t = Math.max(0, Math.min(1, oneHanded));
-    // 提げ刀・収め刀（oneHanded = 1）時は左手で鍔元付近（+34px）を保持し、右手は右腰脇へ自然に下ろす
+    // 提げ刀・納刀（oneHanded = 1）時は左手で鍔元付近（+34px）を保持し、右手は右腰脇へ自然に下ろす
     const leftOneX = gripX + 34 * cos;
     const leftOneY = gripY + 34 * sin;
     const rightOneX = hipX + 12;
@@ -3505,7 +3516,9 @@ function updateAndDrawFighter(ctx, who, flip, now) {
     ctx.restore();
 
     // 3. 残像（アフターイメージ）の描画
-    const fighterArmorTheme = who === 'enemy' ? getCurrentEnemy().armorTheme : null;
+    const fighterArmorTheme = who === 'enemy'
+        ? getCurrentEnemy().armorTheme
+        : (state.customMatch && state.customMatch.active && state.customMatch.player ? state.customMatch.player.armorTheme : null);
     for (let i = anim.afterimages.length - 1; i >= 0; i--) {
         const img = anim.afterimages[i];
         img.alpha -= 0.045 * (inHitStop ? 0.2 : 1);
@@ -3750,7 +3763,7 @@ function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTs
         return;
     }
     if (state.matchPhase === 'closing_ceremony') {
-        badgeEl.textContent = '🙇 蹲踞・収め刀・礼';
+        badgeEl.textContent = '🙇 蹲踞・納刀・礼';
         return;
     }
     if (state.matchPhase === 'post_match') {
@@ -3873,18 +3886,26 @@ function updateStageBarUI() {
 
 function updateUI() {
     const enemyData = getCurrentEnemy();
+    const pMax = getPlayerMaxHealth();
     const pHp = Math.max(0, state.playerHealth);
     const eHp = Math.max(0, state.enemyHealth);
     const eMax = state.enemyMaxHealth || enemyData.maxHealth;
-    const playerPct = (pHp / MAX_HEALTH) * 100;
+    const playerPct = (pHp / pMax) * 100;
     const enemyPct = (eHp / eMax) * 100;
 
     if (enemyNameText) enemyNameText.textContent = enemyData.name;
     if (enemyTitleBadge) enemyTitleBadge.textContent = `${enemyData.role}・${enemyData.rank}（${enemyData.styleTag}）`;
     if (playerTitleBadge) {
-        playerTitleBadge.textContent = state.clearedStages.size === ENEMY_ROSTER.length
-            ? '🏆 天下無双・五人掛け覇者'
-            : `挑戦者（${state.clearedStages.size}/${ENEMY_ROSTER.length}人撃破）`;
+        if (state.customMatch && state.customMatch.active && state.customMatch.player) {
+            const defaultSchool = (window.KendoClub && window.KendoClub.getState && window.KendoClub.getState().schoolName) || '青雲高校';
+            playerTitleBadge.textContent = state.customMatch.player.roleTitle || `${defaultSchool}・主将`;
+            if (playerNameText) playerNameText.textContent = state.customMatch.player.name || 'あなた';
+        } else {
+            if (playerNameText) playerNameText.textContent = 'あなた';
+            playerTitleBadge.textContent = state.clearedStages.size === ENEMY_ROSTER.length
+                ? '🏆 天下無双・五人掛け覇者'
+                : `挑戦者（${state.clearedStages.size}/${ENEMY_ROSTER.length}人撃破）`;
+        }
     }
     updateStageBarUI();
     updateStanceBarUI();
@@ -3896,7 +3917,7 @@ function updateUI() {
     playerHealthBar.classList.toggle('low', pHp <= 2);
     enemyHealthBar.classList.toggle('low', eHp <= 2);
 
-    playerHealthText.textContent = `体力: ${pHp} / ${MAX_HEALTH}`;
+    playerHealthText.textContent = `体力: ${pHp} / ${pMax}`;
     enemyHealthText.textContent = `体力: ${eHp} / ${eMax}`;
 
     playerKiaiText.textContent = `気合: ${state.playerKiai} / ${MAX_KIAI}`;
@@ -3961,23 +3982,41 @@ function updateUI() {
     const isFighting = state.matchPhase === 'fighting' && !state.gameOver;
     const isPostMatch = state.matchPhase === 'post_match';
 
+    const isCustom = state.customMatch && state.customMatch.active;
+    const isSpectating = isCustom && state.customMatch.isSpectating;
+    const btnReturnToClub = document.getElementById('btnReturnToClub');
+    const spectatorControls = document.getElementById('spectatorControls');
+    const spectatorLabel = document.getElementById('spectatorLabel');
+
+    if (spectatorControls) {
+        spectatorControls.style.display = (isSpectating && !isPostMatch) ? 'flex' : 'none';
+        if (spectatorLabel && state.customMatch && state.customMatch.player && state.customMatch.enemy) {
+            spectatorLabel.textContent = `👀 リアルタイム観戦中：${state.customMatch.player.name} vs ${state.customMatch.enemy.shortName || state.customMatch.enemy.name}`;
+        }
+    }
+
     if (btnStartMatch) {
-        btnStartMatch.style.display = isPreMatch ? 'inline-block' : 'none';
+        btnStartMatch.style.display = (isPreMatch && !isSpectating) ? 'inline-block' : 'none';
     }
     if (stanceSelectorWrap) {
-        stanceSelectorWrap.style.display = isFighting ? '' : 'none';
+        stanceSelectorWrap.style.display = (isFighting && !isSpectating) ? '' : 'none';
     }
     actionButtons.forEach((btn) => {
         if (btn) {
-            btn.style.display = isFighting ? '' : 'none';
+            btn.style.display = (isFighting && !isSpectating) ? '' : 'none';
         }
     });
+
+    if (btnReturnToClub) {
+        btnReturnToClub.style.display = (isPostMatch && isCustom) ? 'inline-block' : 'none';
+    }
+
     if (btnReset) {
-        btnReset.style.display = isPostMatch ? 'inline-block' : 'none';
+        btnReset.style.display = (isPostMatch && !isCustom) ? 'inline-block' : 'none';
     }
 
     if (btnNextStage) {
-        if (isPostMatch && state.lastOutcome === 'victory') {
+        if (isPostMatch && !isCustom && state.lastOutcome === 'victory') {
             btnNextStage.style.display = 'inline-block';
             if (state.stageIndex < ENEMY_ROSTER.length - 1) {
                 const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
@@ -4011,7 +4050,7 @@ function decideEnemyIntent() {
     }
     if (state.matchPhase === 'closing_ceremony') {
         intentBox.className = 'intent-box';
-        intentText.textContent = '🙇 勝敗が決まり、お互いに中段の構えから蹲踞・収め刀・立礼を行っています…';
+        intentText.textContent = '🙇 勝敗が決まり、お互いに中段の構えから蹲踞・納刀・立礼を行っています…';
         return;
     }
     if (state.gameOver) {
@@ -4160,6 +4199,71 @@ function chooseEnemyAction() {
     return entries[0][0];
 }
 
+function chooseFriendlyAIAction() {
+    const pData = (state.customMatch && state.customMatch.player) || {};
+    const skills = pData.skills || { men: 10, kote: 10, do: 10, tsuki: 8 };
+    const inTsuba = state.tsubazeriai;
+    const isJodan = state.playerStanceStyle === 'jodan';
+    const isBroken = state.playerGuardBroken;
+    const kiai = state.playerKiai;
+
+    // 気合MAXかつ突き可能な場合
+    if (kiai >= MAX_KIAI && Math.random() < 0.65) {
+        return '突き';
+    }
+
+    let wMen = skills.men || 10;
+    let wKote = skills.kote || 10;
+    let wDo = skills.do || 10;
+    let wDefend = isBroken || isJodan ? 0 : 8;
+    let wBreak = 6;
+
+    if (state.enemyIntent && state.enemyIntent.weights && state.enemyIntent.weights['防御'] > 30) {
+        wBreak += 14;
+    }
+    if (state.enemyStanceStyle === 'jodan') {
+        wKote += 14;
+        wDo += 8;
+    }
+    if (isJodan) {
+        wMen += 16;
+    }
+    if (state.playerStanceStyle === 'waki') {
+        if (!isBroken) wDefend += 12;
+        wDo += 10;
+    }
+
+    const pool = [
+        { act: '面', w: wMen },
+        { act: '小手', w: wKote },
+        { act: '胴', w: wDo },
+        { act: '防御', w: wDefend },
+        { act: '崩し', w: wBreak },
+    ].filter((item) => item.w > 0);
+
+    const total = pool.reduce((s, item) => s + item.w, 0);
+    let r = Math.random() * total;
+    for (const item of pool) {
+        if (r < item.w) return item.act;
+        r -= item.w;
+    }
+    return pool[0].act;
+}
+
+function scheduleNextSpectateTurn(delayMs = 1200) {
+    if (!state.customMatch || !state.customMatch.isSpectating || state.gameOver) return;
+    clearTimeout(state.customMatch.spectateTurnTimer);
+    state.customMatch.spectateTurnTimer = setTimeout(() => {
+        if (!state.customMatch || !state.customMatch.isSpectating || state.gameOver) return;
+        if (state.matchPhase === 'pre_match') {
+            startMatchCeremony();
+        } else if (state.matchPhase === 'fighting') {
+            const act = chooseFriendlyAIAction();
+            playRound(act);
+        }
+    }, delayMs);
+}
+
 function getActionAnim(action) {
     if (action === '面') return 'attack1';
     if (action === '小手') return 'attack2';
@@ -4258,7 +4362,12 @@ function startMatchCeremony() {
             decideEnemyIntent();
         }
         updateUI();
-        updateStatus(`始め！【${enemyData.role}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
+        if (state.customMatch && state.customMatch.isSpectating) {
+            updateStatus(`始め！【観戦中】${state.customMatch.player.name} vs ${enemyData.name} — 立ち合いを見届けます。`, 'neutral');
+            scheduleNextSpectateTurn(1100);
+        } else {
+            updateStatus(`始め！【${enemyData.role}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
+        }
     };
     pendingRoundTimer = setTimeout(() => {
         flushPendingRound();
@@ -4266,14 +4375,14 @@ function startMatchCeremony() {
 }
 
 // 勝敗決定後の礼法シーケンス（「勝負あり」などのメッセージが消えてから実行）
-// 中段の構えに整える → 蹲踞 → 竹刀を左腰に収める → 立ち上がる → 相互の立礼 → 提げ刀 → 負けたほうは後退して退場
+// 中段の構えに整える → 蹲踞 → 竹刀を左腰に納める（納刀） → 立ち上がる → 相互の立礼 → 提げ刀 → 負けたほうは後退して退場
 function startClosingCeremony() {
     if (!state.gameOver) return;
     clearCeremonyTimers();
     state.matchPhase = 'closing_ceremony';
     updateUI();
     decideEnemyIntent();
-    updateStatus('勝負あり — お互いに中段の構えから蹲踞・収め刀・礼を行い、敗者は退場します…', 'neutral');
+    updateStatus('勝負あり — お互いに中段の構えから蹲踞・納刀・礼を行い、敗者は退場します…', 'neutral');
 
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const isPlayerLoser = state.playerHealth <= 0;
@@ -4300,6 +4409,24 @@ function startClosingCeremony() {
         state.enemyAnimState = isEnemyLoser ? 'exited' : 'sageto';
         decideEnemyIntent();
         updateUI();
+
+        if (state.customMatch && state.customMatch.active) {
+            const resultData = {
+                winner: isPlayerLoser ? 'enemy' : 'player',
+                playerHp: state.playerHealth,
+                enemyHp: state.enemyHealth,
+                rounds: state.round,
+            };
+            if (typeof state.customMatch.onComplete === 'function') {
+                const cb = state.customMatch.onComplete;
+                setTimeout(() => {
+                    if (state.customMatch && state.customMatch.active) {
+                        state.customMatch.active = false;
+                        cb(resultData);
+                    }
+                }, 1500);
+            }
+        }
     };
     pendingClosingTimer = setTimeout(() => {
         flushPendingRound();
@@ -4469,49 +4596,72 @@ function playRound(playerAction) {
             : '互いに守りを固め、静かに間合いを測り合っています。';
         statusType = 'neutral';
     }
-    // 3. 防御 vs 崩し（ガードブレイク / 突き放し）
+    // 3. 防御 vs 崩し（ガードブレイク / 突き放し ※崩しではHP0にできない仕様）
     else if (playerAction === '崩し' && enemyAction === '防御') {
-        state.enemyHealth -= 1;
+        const canDealDmg = state.enemyHealth > 1;
+        if (canDealDmg) {
+            state.enemyHealth -= 1;
+        }
         gainKiai('player', 1);
         state.enemyGuardBroken = true;
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
-        message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し1ダメージ＆相手は次ターン防御不可！`;
+        if (canDealDmg) {
+            message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し1ダメージ＆相手は次ターン防御不可！`;
+        } else {
+            message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し防御崩壊！（※崩しではHP0にできず、相手HP1で耐える！）`;
+        }
         statusType = 'victory';
         impactSound = 'break';
         zoomTargets.push(playerSpriteBox);
         shakeTargets.push({ el: enemySpriteBox, isHeavy: false });
         popups.push(
-            { who: 'enemy', text: '-1', styleClass: 'popup-dmg' },
+            ...(canDealDmg ? [{ who: 'enemy', text: '-1', styleClass: 'popup-dmg' }] : [{ who: 'enemy', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
             { who: 'enemy', text: '💫 防御崩壊！', styleClass: 'popup-break' },
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
-        calloutData = { winner: 'player', mainText: `${pMoveName}成功！`, subText: '💥 相手は次ターン防御不可' };
+        calloutData = {
+            winner: 'player',
+            mainText: `${pMoveName}成功！`,
+            subText: canDealDmg ? '💥 相手は次ターン防御不可' : '💥 相手HP1で耐える！次ターン打突で仕留めよ！'
+        };
     } else if (playerAction === '防御' && enemyAction === '崩し') {
-        state.playerHealth -= 1;
+        const canDealDmg = state.playerHealth > 1;
+        if (canDealDmg) {
+            state.playerHealth -= 1;
+        }
         gainKiai('enemy', 1);
         state.playerGuardBroken = true;
         playerAnim = 'hit';
         playerOutcome = 'hit';
-        message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！1ダメージ＆次ターン防御不可！`;
+        if (canDealDmg) {
+            message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！1ダメージ＆次ターン防御不可！`;
+        } else {
+            message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！防御崩壊！（※崩しではHP0にならず、HP1で耐えた！）`;
+        }
         statusType = 'defeat';
         impactSound = 'break';
         zoomTargets.push(enemySpriteBox);
         shakeTargets.push({ el: playerSpriteBox, isHeavy: false });
         popups.push(
-            { who: 'player', text: '-1', styleClass: 'popup-dmg' },
+            ...(canDealDmg ? [{ who: 'player', text: '-1', styleClass: 'popup-dmg' }] : [{ who: 'player', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
             { who: 'player', text: '💫 防御崩壊！', styleClass: 'popup-break' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
-        calloutData = { winner: 'enemy', mainText: '防御崩壊！', subText: '💥 次ターン防御不可' };
+        calloutData = {
+            winner: 'enemy',
+            mainText: '防御崩壊！',
+            subText: canDealDmg ? '💥 次ターン防御不可' : '💥 HP1で耐えた！次ターン反撃せよ！'
+        };
     }
     // 4. 防御 vs 基本打突（応じ技準備！）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
         const kiaiBonus = isWaki ? 2 : 1;
         gainKiai('player', kiaiBonus);
         let healed = 0;
-        if (isWaki && state.playerHealth < MAX_HEALTH) {
-            state.playerHealth = Math.min(MAX_HEALTH, state.playerHealth + 1);
+        const pMaxHealth = getPlayerMaxHealth();
+        if (isWaki && state.playerHealth < pMaxHealth) {
+            state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
             healed = 1;
         }
         state.playerCounterReady = true;
@@ -4931,35 +5081,54 @@ function playRound(playerAction) {
         impactWeight = 'heavy';
         endGameSound = 'win';
 
-        const allCleared = state.clearedStages.size === ENEMY_ROSTER.length;
-        if (allCleared && state.stageIndex === ENEMY_ROSTER.length - 1) {
-            finalStatusMessage = `🎉 天下無双！！大将【${enemyData.name}】を破り、勝ち抜き五人掛けを完全制覇しました！！（${message}）`;
-            finalStatusType = 'victory';
-            calloutData = {
-                winner: 'player',
-                mainText: '🏆 五人掛け完全制覇！',
-                subText: `🚩 天下無双・${enemyData.shortName}を撃破！`,
-                isCritical: true,
-            };
-        } else if (state.stageIndex < ENEMY_ROSTER.length - 1) {
-            const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
-            finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】を撃破！次は${nextEnemy.role}【${nextEnemy.name}】が待ち受ける！（${message}）`;
-            finalStatusType = 'victory';
-            calloutData = {
-                winner: 'player',
-                mainText: `🏆 ${enemyData.role}撃破！`,
-                subText: `🚩 赤（あなた）の勝利！（次戦：${nextEnemy.role}・${nextEnemy.shortName}）`,
-                isCritical: true,
-            };
-        } else {
-            finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】に勝利しました！（${message}）`;
+        const isCustom = state.customMatch && state.customMatch.active;
+        if (isCustom) {
+            const pData = state.customMatch.player || {};
+            const pSchool = pData.schoolName
+                || (pData.roleTitle && pData.roleTitle.includes('・') ? pData.roleTitle.split('・')[1] : null)
+                || (window.KendoClub && window.KendoClub.getState && window.KendoClub.getState().schoolName)
+                || '本校';
+            const pName = pData.name || 'あなた';
+
+            finalStatusMessage = `🏆 勝負あり！【${enemyData.name}】に勝利しました！（${message}）`;
             finalStatusType = 'victory';
             calloutData = {
                 winner: 'player',
                 mainText: '🏆 勝負あり！',
-                subText: `🚩 赤（あなた）の勝利！（${pMoveName}）`,
+                subText: `🚩 赤（${pSchool}・${pName}）の勝利！`,
                 isCritical: true,
             };
+        } else {
+            const allCleared = state.clearedStages.size === ENEMY_ROSTER.length;
+            if (allCleared && state.stageIndex === ENEMY_ROSTER.length - 1) {
+                finalStatusMessage = `🎉 天下無双！！大将【${enemyData.name}】を破り、勝ち抜き五人掛けを完全制覇しました！！（${message}）`;
+                finalStatusType = 'victory';
+                calloutData = {
+                    winner: 'player',
+                    mainText: '🏆 五人掛け完全制覇！',
+                    subText: `🚩 天下無双・${enemyData.shortName}を撃破！`,
+                    isCritical: true,
+                };
+            } else if (state.stageIndex < ENEMY_ROSTER.length - 1) {
+                const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
+                finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】を撃破！次は${nextEnemy.role}【${nextEnemy.name}】が待ち受ける！（${message}）`;
+                finalStatusType = 'victory';
+                calloutData = {
+                    winner: 'player',
+                    mainText: `🏆 ${enemyData.role}撃破！`,
+                    subText: `🚩 赤（あなた）の勝利！（次戦：${nextEnemy.role}・${nextEnemy.shortName}）`,
+                    isCritical: true,
+                };
+            } else {
+                finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】に勝利しました！（${message}）`;
+                finalStatusType = 'victory';
+                calloutData = {
+                    winner: 'player',
+                    mainText: '🏆 勝負あり！',
+                    subText: `🚩 赤（あなた）の勝利！（${pMoveName}）`,
+                    isCritical: true,
+                };
+            }
         }
     }
 
@@ -5022,6 +5191,10 @@ function playRound(playerAction) {
         updateUI();
         popups.forEach((p) => spawnFloatingPopup(p.who, p.text, p.styleClass));
         updateStatus(finalStatusMessage, finalStatusType);
+
+        if (!state.gameOver && state.customMatch && state.customMatch.isSpectating) {
+            scheduleNextSpectateTurn(1350);
+        }
 
         if (state.gameOver) {
             // 勝敗決定時は、キャラクタ上のダメージ数値表示（約1.05s）が完全に消えてから「勝負あり」メッセージを表示する
@@ -5087,8 +5260,9 @@ function resetGame() {
     timeState.slowMoUntil = 0;
 
     const enemyData = getCurrentEnemy();
+    const pMax = getPlayerMaxHealth();
     state.enemyMaxHealth = enemyData.maxHealth;
-    state.playerHealth = MAX_HEALTH;
+    state.playerHealth = pMax;
     state.enemyHealth = enemyData.maxHealth;
     state.playerKiai = 0;
     state.enemyKiai = enemyData.initialKiai || 0;
@@ -5116,8 +5290,26 @@ function resetGame() {
     animators.enemy.prevSprite = 'sageto';
     animators.enemy.currentPose = { ...getContinuousStancePose(state.enemyAnimState, 1.8) };
 
+    if (state.customMatch && state.customMatch.player && state.customMatch.player.favStance) {
+        state.playerStanceStyle = state.customMatch.player.favStance;
+    }
+
     updateUI();
-    updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）が登場！ ${enemyData.introQuote} — 「🙇 礼をして試合開始」で立ち合いを始めましょう。`, 'neutral');
+    if (state.customMatch && state.customMatch.active) {
+        if (state.customMatch.isSpectating) {
+            updateStatus(`【観戦中・${enemyData.role}戦】${state.customMatch.player.name} vs ${enemyData.name} — まもなく立ち合いが始まります…`, 'neutral');
+            clearTimeout(state.customMatch.spectateTurnTimer);
+            state.customMatch.spectateTurnTimer = setTimeout(() => {
+                if (state.customMatch && state.customMatch.isSpectating && state.matchPhase === 'pre_match') {
+                    startMatchCeremony();
+                }
+            }, 850);
+        } else {
+            updateStatus(`【団体戦・${enemyData.role}戦】相手校の強豪【${enemyData.name}】と対峙！ 「🙇 礼をして試合開始」で立ち合いを始めましょう。`, 'neutral');
+        }
+    } else {
+        updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）が登場！ ${enemyData.introQuote} — 「🙇 礼をして試合開始」で立ち合いを始めましょう。`, 'neutral');
+    }
 }
 
 function animationLoop(timestamp) {
@@ -5130,6 +5322,203 @@ function animationLoop(timestamp) {
     requestAnimationFrame(animationLoop);
 }
 
-// 初期化
+// ───────────────────────────────────────────
+// 外部公開インターフェース (window.KendoGameEngine)
+// ───────────────────────────────────────────
+window.KendoGameEngine = {
+    // 団体戦モード等からプレイヤー戦または観戦を呼び出す
+    startCustomMatch: function (options) {
+        state.customMatch = {
+            active: true,
+            isSpectating: !!options.isSpectating,
+            player: options.playerData,
+            enemy: options.enemyData,
+            onComplete: options.onMatchEnd,
+            tournamentType: options.tournamentType || null,
+            spectateTurnTimer: null,
+        };
+
+        const arenaElem = document.getElementById('battleArena');
+        if (arenaElem) {
+            arenaElem.classList.remove('bg-national', 'bg-district');
+            if (options.tournamentType) {
+                arenaElem.classList.add(`bg-${options.tournamentType}`);
+            }
+        }
+
+        if (document.body) {
+            document.body.classList.remove('bg-national', 'bg-district');
+            if (options.tournamentType) {
+                document.body.classList.add(`bg-${options.tournamentType}`);
+            }
+        }
+
+        window.KendoGameEngine.showCombatScreen();
+        resetGame();
+    },
+
+    // 観戦をスキップして即時決着
+    skipCurrentSpectate: function () {
+        if (!state.customMatch || !state.customMatch.isSpectating) return;
+        clearTimeout(state.customMatch.spectateTurnTimer);
+        clearPendingRoundTimers();
+        clearCeremonyTimers();
+
+        const pStr = (state.customMatch.player && state.customMatch.player.str) || 10;
+        const eStr = (state.customMatch.enemy && state.customMatch.enemy.str) || 10;
+        const isPlayerWin = (state.playerHealth > state.enemyHealth) || (pStr >= eStr ? Math.random() < 0.6 : Math.random() < 0.35);
+
+        const cb = state.customMatch.onComplete;
+        const res = {
+            winner: isPlayerWin ? 'player' : 'enemy',
+            playerHp: isPlayerWin ? 1 : 0,
+            enemyHp: isPlayerWin ? 0 : 1,
+            rounds: state.round + 1,
+            skipped: true,
+        };
+        state.customMatch.active = false;
+        state.customMatch.isSpectating = false;
+        if (typeof cb === 'function') {
+            cb(res);
+        }
+    },
+
+    // 観戦を中断して主将の出番まで一括スキップ
+    skipSpectateToPlayer: function () {
+        if (!state.customMatch || !state.customMatch.isSpectating) return;
+        clearTimeout(state.customMatch.spectateTurnTimer);
+        clearPendingRoundTimers();
+        clearCeremonyTimers();
+
+        state.customMatch.active = false;
+        state.customMatch.isSpectating = false;
+
+        if (window.KendoClub && window.KendoClub.stopAutoSpectateAndSkipToPlayer) {
+            window.KendoClub.stopAutoSpectateAndSkipToPlayer();
+        } else {
+            window.KendoGameEngine.showClubScreen();
+        }
+    },
+
+    // 試合終了後に団体戦スコアボードへ戻る
+    returnFromCombatToClub: function () {
+        if (state.customMatch && typeof state.customMatch.onComplete === 'function') {
+            const cb = state.customMatch.onComplete;
+            const res = {
+                winner: state.lastOutcome === 'victory' ? 'player' : 'enemy',
+                playerHp: state.playerHealth,
+                enemyHp: state.enemyHealth,
+                rounds: state.round,
+            };
+            state.customMatch.active = false;
+            cb(res);
+        } else {
+            window.KendoGameEngine.showClubScreen();
+        }
+    },
+
+    // モード選択メニュー（タイトル画面）を表示
+    showModeSelect: function () {
+        const modeSelectScreen = document.getElementById('modeSelectScreen');
+        const headerModeBar = document.getElementById('headerModeBar');
+        const classicStageWrap = document.getElementById('classicStageBarWrap');
+        const clubView = document.getElementById('clubModeView');
+        const combatArea = document.getElementById('combatAreaWrap');
+        const arenaElem = document.getElementById('battleArena');
+
+        if (arenaElem) {
+            arenaElem.classList.remove('bg-national', 'bg-district');
+        }
+        if (document.body) {
+            document.body.classList.remove('bg-national', 'bg-district');
+        }
+
+        if (modeSelectScreen) modeSelectScreen.style.display = 'block';
+        if (headerModeBar) headerModeBar.style.display = 'none';
+        if (classicStageWrap) classicStageWrap.style.display = 'none';
+        if (clubView) clubView.style.display = 'none';
+        if (combatArea) combatArea.style.display = 'none';
+
+        if (window.KendoClub && window.KendoClub.updateModeCardUI) {
+            window.KendoClub.updateModeCardUI();
+        }
+    },
+
+    // モード切り替え（五人掛け ⇄ 団体戦 ⇄ メニュー）
+    switchMode: function (mode) {
+        const modeSelectScreen = document.getElementById('modeSelectScreen');
+        const headerModeBar = document.getElementById('headerModeBar');
+        const currentModeBadge = document.getElementById('currentModeBadge');
+        const classicStageWrap = document.getElementById('classicStageBarWrap');
+        const clubView = document.getElementById('clubModeView');
+        const combatArea = document.getElementById('combatAreaWrap');
+
+        if (mode === 'menu') {
+            window.KendoGameEngine.showModeSelect();
+            return;
+        }
+
+        if (modeSelectScreen) modeSelectScreen.style.display = 'none';
+        if (headerModeBar) headerModeBar.style.display = 'flex';
+
+        if (mode === 'classic') {
+            if (currentModeBadge) currentModeBadge.textContent = '🏆 勝ち抜き五人掛け';
+            if (classicStageWrap) classicStageWrap.style.display = '';
+            if (clubView) clubView.style.display = 'none';
+            if (combatArea) combatArea.style.display = '';
+
+            state.customMatch = null;
+            resetGame();
+        } else if (mode === 'club') {
+            if (currentModeBadge) currentModeBadge.textContent = '🥋 団体戦・全国制覇モード';
+            if (classicStageWrap) classicStageWrap.style.display = 'none';
+            if (clubView) clubView.style.display = '';
+            if (combatArea) combatArea.style.display = 'none';
+
+            if (window.KendoClub && window.KendoClub.init) {
+                window.KendoClub.init();
+            }
+        }
+    },
+
+    showClubScreen: function () {
+        const modeSelectScreen = document.getElementById('modeSelectScreen');
+        const headerModeBar = document.getElementById('headerModeBar');
+        const classicStageWrap = document.getElementById('classicStageBarWrap');
+        const clubView = document.getElementById('clubModeView');
+        const combatArea = document.getElementById('combatAreaWrap');
+        const arenaElem = document.getElementById('battleArena');
+
+        if (arenaElem) {
+            arenaElem.classList.remove('bg-national', 'bg-district');
+        }
+        if (document.body) {
+            document.body.classList.remove('bg-national', 'bg-district');
+        }
+
+        if (modeSelectScreen) modeSelectScreen.style.display = 'none';
+        if (headerModeBar) headerModeBar.style.display = 'flex';
+        if (classicStageWrap) classicStageWrap.style.display = 'none';
+        if (clubView) clubView.style.display = '';
+        if (combatArea) combatArea.style.display = 'none';
+    },
+
+    showCombatScreen: function () {
+        const modeSelectScreen = document.getElementById('modeSelectScreen');
+        const headerModeBar = document.getElementById('headerModeBar');
+        const classicStageWrap = document.getElementById('classicStageBarWrap');
+        const clubView = document.getElementById('clubModeView');
+        const combatArea = document.getElementById('combatAreaWrap');
+
+        if (modeSelectScreen) modeSelectScreen.style.display = 'none';
+        if (headerModeBar) headerModeBar.style.display = 'none'; // 戦闘中は余計なUIを隠して集中
+        if (classicStageWrap) classicStageWrap.style.display = 'none';
+        if (clubView) clubView.style.display = 'none';
+        if (combatArea) combatArea.style.display = '';
+    },
+};
+
+// 初期化（システム・描画エンジンの初期化後に、モード選択メニューを表示）
 resetGame();
 animationLoop();
+window.KendoGameEngine.showModeSelect();
