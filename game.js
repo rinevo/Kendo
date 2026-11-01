@@ -1930,19 +1930,50 @@ function drawSingleSpriteFrame(ctx, spriteKey, alpha = 1) {
 }
 
 function drawDojoFloor(ctx) {
+    // キャラクター背景画像（fighter-bg.svg）の白い漆喰壁・琥珀色の板張り床・白線と色調を完全統一
     ctx.save();
     const floorGrad = ctx.createLinearGradient(0, GROUND_Y - 2, 0, CANVAS_H);
-    floorGrad.addColorStop(0, 'rgba(30, 41, 59, 0.85)');
-    floorGrad.addColorStop(0.25, 'rgba(51, 65, 85, 0.92)');
-    floorGrad.addColorStop(1, 'rgba(15, 23, 42, 0.98)');
+    floorGrad.addColorStop(0, 'rgba(222, 152, 78, 0.92)');
+    floorGrad.addColorStop(0.45, 'rgba(196, 121, 50, 0.95)');
+    floorGrad.addColorStop(1, 'rgba(156, 88, 30, 0.98)');
     ctx.fillStyle = floorGrad;
-    ctx.fillRect(0, GROUND_Y - 1, CANVAS_W, CANVAS_H - GROUND_Y + 1);
+    ctx.fillRect(0, GROUND_Y - 2, CANVAS_W, CANVAS_H - GROUND_Y + 2);
 
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.32)';
-    ctx.lineWidth = 1.5;
+    // 板目の水平ライン
+    ctx.strokeStyle = 'rgba(124, 67, 20, 0.5)';
+    ctx.lineWidth = 1;
+    [GROUND_Y + 6, GROUND_Y + 14].forEach((py) => {
+        ctx.beginPath();
+        ctx.moveTo(0, py);
+        ctx.lineTo(CANVAS_W, py);
+        ctx.stroke();
+    });
+
+    // 板の継ぎ目（パースライン）
+    ctx.strokeStyle = 'rgba(124, 67, 20, 0.4)';
+    [
+        [36, GROUND_Y - 2, 20, CANVAS_H],
+        [91, GROUND_Y - 2, 91, CANVAS_H],
+        [146, GROUND_Y - 2, 162, CANVAS_H]
+    ].forEach(([x1, y1, x2, y2]) => {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+    });
+
+    // 試合場の白線（水平ライン＋開始線マーク）
+    ctx.strokeStyle = 'rgba(248, 241, 229, 0.92)';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.moveTo(0, GROUND_Y - 1);
     ctx.lineTo(CANVAS_W, GROUND_Y - 1);
+    ctx.stroke();
+
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(112, GROUND_Y - 1);
+    ctx.lineTo(118, GROUND_Y + 16);
     ctx.stroke();
     ctx.restore();
 }
