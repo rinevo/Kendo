@@ -1571,8 +1571,8 @@ function spawnShockwave(anim, x, y, color = '250, 204, 21', isHeavy = false) {
     });
 }
 
-const STRIKE_IMPACT_T = 320;
-const ANIM_TOTAL_T = 980;
+const STRIKE_IMPACT_T = 380;
+const ANIM_TOTAL_T = 1040;
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
 function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose) {
@@ -1588,121 +1588,117 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
     const buildHitTail = () => {
         if (neutralSprite === 'hit') {
             return [
-                { t: 365,          sprite: 'hit_0', pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
-                { t: 475,          sprite: 'hit_1', pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
-                { t: 635,          sprite: 'hit_2', pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.04, ease: easeInOutSine, fx: 'dust' },
+                { t: 430,          sprite: 'hit_0', pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
+                { t: 545,          sprite: 'hit_1', pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
+                { t: 710,          sprite: 'hit_2', pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.04, ease: easeInOutSine, fx: 'dust' },
                 { t: ANIM_TOTAL_T, sprite: 'hit',   pose: endPose, x: -10, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
             ];
         }
         return [
-            { t: 365,          sprite: 'hit_0',       pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
-            { t: 465,          sprite: 'hit_1',       pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
-            { t: 600,          sprite: 'hit_2',       pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
-            { t: 735,          sprite: 'hit_3',       pose: h[3],    x: -8,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeInOutQuad, fx: 'dust' },
-            { t: 860,          sprite: 'hit_4',       pose: h[4],    x: -3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 430,          sprite: 'hit_0',       pose: h[0],    x: -6,  y: 0, scaleX: 0.98, scaleY: 1.02, rot: -0.03, ease: easeOutQuart, fx: 'hitstop' },
+            { t: 535,          sprite: 'hit_1',       pose: h[1],    x: -11, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.05, ease: easeOutCubic, fx: 'dust' },
+            { t: 675,          sprite: 'hit_2',       pose: h[2],    x: -13, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.03, ease: easeInOutSine },
+            { t: 805,          sprite: 'hit_3',       pose: h[3],    x: -8,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeInOutQuad, fx: 'dust' },
+            { t: 925,          sprite: 'hit_4',       pose: h[4],    x: -3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: ANIM_TOTAL_T, sprite: neutralSprite, pose: endPose, x: 0,   y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     };
 
-    // 被ダメージ時は、攻撃側の打突の最後のコマ（t = STRIKE_IMPACT_T）に到達するまで構えを維持し、
-    // 攻撃側の打突の最後のコマと同時に被ダメージアニメーション（hit_0〜）を開始する
-    if (outcome === 'hit') {
-        return [
-            { t: 0,               sprite: 'idle_0', pose: startPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-            { t: STRIKE_IMPACT_T, sprite: 'idle_0', pose: startPose, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine, fx: 'sparks', flash: 0.65 },
-            ...buildHitTail(),
-        ];
-    }
-
-    let attackKeyframes = null;
+    let actionKeyframes;
 
     if (action === '面') {
-        attackKeyframes = [
+        actionKeyframes = [
             { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 55,              sprite: 'men_0',       pose: m[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 110,             sprite: 'men_1',       pose: m[1],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
-            { t: 165,             sprite: 'men_2',       pose: m[2],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic },
-            { t: 215,             sprite: 'men_3',       pose: m[3],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
-            { t: 255,             sprite: 'men_4',       pose: m[4],      x: 2,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 290,             sprite: 'men_5',       pose: m[5],      x: 5,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart },
+            { t: 65,              sprite: 'men_0',       pose: m[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 130,             sprite: 'men_1',       pose: m[1],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
+            { t: 195,             sprite: 'men_2',       pose: m[2],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeOutCubic },
+            { t: 255,             sprite: 'men_3',       pose: m[3],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeInOutSine },
+            { t: 300,             sprite: 'men_4',       pose: m[4],      x: 2,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 340,             sprite: 'men_5',       pose: m[5],      x: 5,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart },
             { t: STRIKE_IMPACT_T, sprite: 'men_6',       pose: m[6],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_men' },
-            { t: 600,             sprite: 'men_6',       pose: m[6],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 790,             sprite: 'men_7',       pose: m[7],      x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 660,             sprite: 'men_6',       pose: m[6],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 850,             sprite: 'men_7',       pose: m[7],      x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     } else if (action === '小手') {
-        attackKeyframes = [
+        actionKeyframes = [
             { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 75,              sprite: 'kote_0',      pose: k[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 145,             sprite: 'kote_1',      pose: k[1],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: 210,             sprite: 'kote_2',      pose: k[2],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeOutCubic },
-            { t: 265,             sprite: 'kote_3',      pose: k[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 85,              sprite: 'kote_0',      pose: k[0],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 165,             sprite: 'kote_1',      pose: k[1],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+            { t: 240,             sprite: 'kote_2',      pose: k[2],      x: -1, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeOutCubic },
+            { t: 310,             sprite: 'kote_3',      pose: k[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
             { t: STRIKE_IMPACT_T, sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeOutQuart, fx: 'lunge_kote' },
-            { t: 580,             sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 700,             sprite: 'kote_5',      pose: k[5],      x: 4,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 810,             sprite: 'kote_6',      pose: k[6],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 900,             sprite: 'kote_7',      pose: k[7],      x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 640,             sprite: 'kote_4',      pose: k[4],      x: 6,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 760,             sprite: 'kote_5',      pose: k[5],      x: 4,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 865,             sprite: 'kote_6',      pose: k[6],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 955,             sprite: 'kote_7',      pose: k[7],      x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     } else if (action === '胴') {
-        attackKeyframes = [
+        actionKeyframes = [
             { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 65,              sprite: 'do_0',        pose: d[0],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-            { t: 130,             sprite: 'do_1',        pose: d[1],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
-            { t: 190,             sprite: 'do_2',        pose: d[2],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeOutCubic, fx: 'dust' },
-            { t: 240,             sprite: 'do_3',        pose: d[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 280,             sprite: 'do_4',        pose: d[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart },
+            { t: 75,              sprite: 'do_0',        pose: d[0],      x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
+            { t: 150,             sprite: 'do_1',        pose: d[1],      x: -3, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.02, ease: easeInOutSine },
+            { t: 220,             sprite: 'do_2',        pose: d[2],      x: -2, y: 0, scaleX: 0.99, scaleY: 1.01, rot: -0.01, ease: easeOutCubic, fx: 'dust' },
+            { t: 280,             sprite: 'do_3',        pose: d[3],      x: 3,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 330,             sprite: 'do_4',        pose: d[4],      x: 6,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeOutQuart },
             { t: STRIKE_IMPACT_T, sprite: 'do_5',        pose: d[5],      x: 8,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_do' },
-            { t: 580,             sprite: 'do_5',        pose: d[5],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 730,             sprite: 'do_6',        pose: d[6],      x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 860,             sprite: 'do_7',        pose: d[7],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 640,             sprite: 'do_5',        pose: d[5],      x: 7,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 790,             sprite: 'do_6',        pose: d[6],      x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 920,             sprite: 'do_7',        pose: d[7],      x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     } else if (action === '突き') {
-        attackKeyframes = [
+        actionKeyframes = [
             { t: 0,               sprite: 'counter_0',   pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 75,              sprite: 'tsuki_0',     pose: ts[0],     x: -3, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
-            { t: 145,             sprite: 'tsuki_1',     pose: ts[1],     x: -5, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeInOutSine },
-            { t: 210,             sprite: 'tsuki_2',     pose: ts[2],     x: -6, y: 0, scaleX: 1.03, scaleY: 0.97, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
-            { t: 265,             sprite: 'tsuki_3',     pose: ts[3],     x: 3,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
+            { t: 85,              sprite: 'tsuki_0',     pose: ts[0],     x: -3, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
+            { t: 165,             sprite: 'tsuki_1',     pose: ts[1],     x: -5, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeInOutSine },
+            { t: 240,             sprite: 'tsuki_2',     pose: ts[2],     x: -6, y: 0, scaleX: 1.03, scaleY: 0.97, rot: -0.02, ease: easeOutCubic, fx: 'dust' },
+            { t: 310,             sprite: 'tsuki_3',     pose: ts[3],     x: 3,  y: 0, scaleX: 1.03, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine },
             { t: STRIKE_IMPACT_T, sprite: 'tsuki_4',     pose: ts[4],     x: 7,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_tsuki' },
-            { t: 580,             sprite: 'tsuki_4',     pose: ts[4],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 700,             sprite: 'tsuki_5',     pose: ts[5],     x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
-            { t: 800,             sprite: 'tsuki_6',     pose: ts[6],     x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
-            { t: 890,             sprite: 'tsuki_7',     pose: ts[7],     x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 640,             sprite: 'tsuki_4',     pose: ts[4],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 760,             sprite: 'tsuki_5',     pose: ts[5],     x: 5,  y: 0, scaleX: 1.01, scaleY: 0.99, rot: 0.01,  ease: easeInOutSine },
+            { t: 860,             sprite: 'tsuki_6',     pose: ts[6],     x: 3,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: 950,             sprite: 'tsuki_7',     pose: ts[7],     x: 1,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     } else if (action === '崩し') {
-        attackKeyframes = [
+        actionKeyframes = [
             { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-            { t: 115,             sprite: 'brk_0',       pose: bk[0],     x: -3, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
-            { t: 220,             sprite: 'brk_1',       pose: bk[1],     x: 4,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine, fx: 'dust' },
+            { t: 135,             sprite: 'brk_0',       pose: bk[0],     x: -3, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
+            { t: 260,             sprite: 'brk_1',       pose: bk[1],     x: 4,  y: 0, scaleX: 1.02, scaleY: 0.98, rot: 0.02,  ease: easeInOutSine, fx: 'dust' },
             { t: STRIKE_IMPACT_T, sprite: 'brk_2',       pose: bk[2],     x: 8,  y: 0, scaleX: 1.04, scaleY: 0.97, rot: 0.03,  ease: easeOutQuart, fx: 'lunge_break' },
-            { t: 580,             sprite: 'brk_2',       pose: bk[2],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
-            { t: 780,             sprite: 'brk_3',       pose: bk[3],     x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: 640,             sprite: 'brk_2',       pose: bk[2],     x: 6,  y: 0, scaleX: 1.02, scaleY: 0.99, rot: 0.02,  ease: easeInOutSine },
+            { t: 840,             sprite: 'brk_3',       pose: bk[3],     x: 2,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
+            { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+        ];
+    } else {
+        // 防御
+        actionKeyframes = [
+            { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
+            { t: 165,             sprite: 'def_0',       pose: df[0],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeOutCubic },
+            { t: STRIKE_IMPACT_T, sprite: 'def_1',       pose: df[1],     x: -4, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.02, ease: easeOutCubic, fx: outcome === 'block_success' ? 'shield_success' : 'shield' },
+            { t: 600,             sprite: 'def_2',       pose: df[2],     x: -6, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeOutCubic },
+            { t: 820,             sprite: 'def_3',       pose: df[3],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
     }
 
-    if (attackKeyframes) {
-        if (outcome === 'mutual_hit') {
-            const windup = attackKeyframes.filter((kf) => kf.t <= STRIKE_IMPACT_T);
-            const lastStrikeKf = windup[windup.length - 1];
-            lastStrikeKf.flash = 0.65;
-            return [...windup, ...buildHitTail()];
+    // ダメージを受ける側も、t = 0 〜 STRIKE_IMPACT_T までは自身の攻撃（または防御）アニメーションを同時に行い、
+    // 攻撃が成功する側の打突の最後のコマ（t = STRIKE_IMPACT_T）と同時にダメージアニメーション（buildHitTail）へ移行する
+    if (outcome === 'hit' || outcome === 'mutual_hit') {
+        const windup = actionKeyframes
+            .filter((kf) => kf.t <= STRIKE_IMPACT_T)
+            .map((kf) => ({ ...kf }));
+        const lastStrikeKf = windup[windup.length - 1];
+        if (outcome === 'hit') {
+            lastStrikeKf.fx = 'sparks';
         }
-        return attackKeyframes;
+        lastStrikeKf.flash = 0.65;
+        return [...windup, ...buildHitTail()];
     }
 
-    // 防御
-    return [
-        { t: 0,               sprite: 'idle_0',      pose: startPose, x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-        { t: 140,             sprite: 'def_0',       pose: df[0],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeOutCubic },
-        { t: STRIKE_IMPACT_T, sprite: 'def_1',       pose: df[1],     x: -4, y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.02, ease: easeOutCubic, fx: outcome === 'block_success' ? 'shield_success' : 'shield' },
-        { t: 540,             sprite: 'def_2',       pose: df[2],     x: -6, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.02, ease: easeOutCubic },
-        { t: 760,             sprite: 'def_3',       pose: df[3],     x: -2, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
-        { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: 0,  y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
-    ];
+    return actionKeyframes;
 }
 
 function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal') {
@@ -2089,6 +2085,9 @@ function updateAndDrawFighter(ctx, who, flip, now) {
 
         if (elapsed >= lastKf.t) {
             anim.keyframes = null;
+            if (!animators.player.keyframes && !animators.enemy.keyframes) {
+                flushPendingRound();
+            }
             setSpriteWithFade(anim, defaultSprite, now);
             const speedMult = (isCounter || kiai >= MAX_KIAI) ? 1.35 : 1.0;
             const phase = now * 0.0042 * speedMult + anim.phaseOffset;
@@ -2740,8 +2739,8 @@ function playRound(playerAction) {
         state.enemyHealth -= 1;
         playerAnim = 'hit';
         enemyAnim = 'hit';
-        playerOutcome = 'hit';
-        enemyOutcome = 'hit';
+        playerOutcome = 'mutual_hit';
+        enemyOutcome = 'mutual_hit';
         impactWeight = 'heavy';
         message += '⚡ 互いに渾身の「突き」が交錯！双方に1ダメージ！';
         statusType = 'defeat';
@@ -3152,7 +3151,7 @@ function playRound(playerAction) {
     };
     pendingRoundTimer = setTimeout(() => {
         flushPendingRound();
-    }, 1150);
+    }, 1250);
 }
 
 function selectStage(stageIndex) {
