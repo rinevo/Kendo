@@ -10,7 +10,7 @@
 
 👉 **[GitHub Pages で今すぐプレイする (https://rinevo.github.io/Kendo/)](https://rinevo.github.io/Kendo/)**
 
-![スプライトシート](kendo.png)
+![スプライトシート](img/kendo.png)
 
 ---
 
@@ -106,11 +106,16 @@ cd Kendo
 
 ```text
 Kendo/
-├── index.html   # ゲーム画面レイアウト・UI構造
-├── style.css    # スタイリング・ゲージ演出・レスポンシブ対応
-├── game.js      # ゲームロジック・敵AI・60fpsアニメーション＆Web Audio効果音
-├── kendo.png    # 剣道キャラクターのスプライトシート（288×300px × 64コマ [8列×8行]）
-└── README.md    # 本ドキュメント
+├── index.html          # ゲーム画面レイアウト・UI構造
+├── README.md           # 本ドキュメント
+├── css/
+│   └── style.css       # スタイリング・ゲージ演出・レスポンシブ対応
+├── img/
+│   ├── dojo-bg.png     # 剣道場の全体背景画像
+│   ├── fighter-bg.svg  # 剣士枠の背景（漆喰壁・琥珀色の板張り床・白線）
+│   └── kendo.png       # 剣道キャラクターのスプライトシート（288×300px × 64コマ [8列×8行]）
+└── js/
+    └── game.js         # ゲームロジック・敵AI・60fpsアニメーション＆Web Audio効果音
 ```
 
 ---

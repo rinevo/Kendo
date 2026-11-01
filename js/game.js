@@ -222,7 +222,7 @@ let audioCtx = null;
 
 // スプライトシート (2304x2400: 288x300 のコマが 8列×8行 = 全64コマ)
 const sprite = new Image();
-sprite.src = "kendo.png";
+sprite.src = "img/kendo.png";
 
 const FRAME_W = 288;
 const FRAME_H = 300;
