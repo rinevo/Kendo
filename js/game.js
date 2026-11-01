@@ -2099,6 +2099,109 @@ function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', 
     anim.impactWeight = impactWeight;
 }
 
+// 審判の掛け声音声合成（Web Speech API）
+let cachedRefereeVoice = null;
+let cachedKiaiVoice = null;
+const MALE_VOICE_KEYWORDS = ['ichiro', 'keita', 'daichi', 'naoki', 'otoya', 'hattori', 'male', '男', 'kenji', 'taro'];
+const FEMALE_VOICE_KEYWORDS = ['ayumi', 'haruka', 'nanami', 'sayaka', 'aoi', 'shiori', 'kyoko', 'female', '女', 'google'];
+
+function refreshVoiceAssignments() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) return;
+        const jaVoices = voices.filter((v) => v.lang && (v.lang === 'ja-JP' || v.lang.startsWith('ja')));
+        if (jaVoices.length === 0) return;
+
+        // 審判用：男性ボイスを優先探索
+        const maleVoice = jaVoices.find((v) => {
+            const name = (v.name || '').toLowerCase();
+            return MALE_VOICE_KEYWORDS.some((kw) => name.includes(kw));
+        });
+        cachedRefereeVoice = maleVoice || jaVoices[0];
+
+        // 技名発声用：女性ボイスを優先探索
+        let femaleVoice = jaVoices.find((v) => {
+            const name = (v.name || '').toLowerCase();
+            return FEMALE_VOICE_KEYWORDS.some((kw) => name.includes(kw));
+        });
+        if (!femaleVoice) {
+            femaleVoice = jaVoices.find((v) => {
+                const name = (v.name || '').toLowerCase();
+                return !MALE_VOICE_KEYWORDS.some((kw) => name.includes(kw));
+            });
+        }
+        cachedKiaiVoice = femaleVoice || jaVoices.find((v) => v !== cachedRefereeVoice) || jaVoices[0];
+    } catch (e) {}
+}
+
+function warmupVoices() {
+    refreshVoiceAssignments();
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    warmupVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = warmupVoices;
+    }
+}
+
+// 審判の号令（始め！）：低く引き締まった男性の声
+function playRefereeVoice(text = 'ハジメッ！', volume = 0.45) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'ja-JP';
+        utter.rate = 1.35; // 短く切れ味のある素早い号令
+        utter.pitch = 0.82; // 男性審判の低く引き締まった太い声
+        utter.volume = Math.max(0, Math.min(1, volume)); // 音量を控えめに設定
+
+        if (!cachedRefereeVoice) {
+            refreshVoiceAssignments();
+        }
+        if (cachedRefereeVoice) {
+            utter.voice = cachedRefereeVoice;
+        }
+        window.speechSynthesis.speak(utter);
+    } catch (e) {
+        // 音声合成が利用できない環境でも安全にフォールスルー
+    }
+}
+
+// 打突ヒット時の技名気合（めーん、こてー、どうー、つきー）：凛とした女性の声
+const KIAI_CALLS = {
+    '面': 'めーん！',
+    '小手': 'こてー！',
+    '胴': 'どうー！',
+    '突き': 'つきー！',
+};
+
+function playKiaiVoice(action, volume = 0.5) {
+    const text = KIAI_CALLS[action];
+    if (!text) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'ja-JP';
+        utter.rate = 1.18; // 凛と通る気合のテンポ
+        utter.pitch = 1.25; // 華やかで張りのある女性の気合声
+        utter.volume = Math.max(0, Math.min(1, volume));
+
+        if (!cachedKiaiVoice) {
+            refreshVoiceAssignments();
+        }
+        if (cachedKiaiVoice) {
+            utter.voice = cachedKiaiVoice;
+        }
+        window.speechSynthesis.speak(utter);
+    } catch (e) {
+        // 音声合成が利用できない環境でも安全にフォールスルー
+    }
+}
+
 // 効果音生成
 function ensureAudio() {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -2828,6 +2931,11 @@ function showRefereeCallout({ winner = null, mainText = '', subText = '', isCrit
     if (isCritical) refereeCallout.classList.add('critical-ippon');
     if (isGuard) refereeCallout.classList.add('guard-call');
 
+    const flagsEl = refereeCallout.querySelector('.referee-flags');
+    if (flagsEl) {
+        flagsEl.style.display = (winner === 'player' || winner === 'enemy' || winner === 'both') ? 'flex' : 'none';
+    }
+
     refFlagRed.classList.toggle('flag-up', winner === 'player' || winner === 'both');
     refFlagWhite.classList.toggle('flag-up', winner === 'enemy' || winner === 'both');
 
@@ -2856,6 +2964,10 @@ function hideRefereeCallout() {
     }
     if (refereeCallout) {
         refereeCallout.className = 'referee-callout';
+        const flagsEl = refereeCallout.querySelector('.referee-flags');
+        if (flagsEl) {
+            flagsEl.style.display = 'flex';
+        }
     }
 }
 
@@ -3334,6 +3446,8 @@ function getActionAnim(action) {
 // 試合開始の礼法シーケンス（提げ刀 → お互いに礼 → 竹刀を構えて蹲踞 → 「始め！」で立ち上がり戦闘開始）
 function startMatchCeremony() {
     if (state.matchPhase !== 'pre_match') return;
+    ensureAudio();
+    warmupVoices();
     clearPendingRoundTimers();
     hideRefereeCallout();
 
@@ -3386,23 +3500,18 @@ function startMatchCeremony() {
 
     state.ceremonyTimers.push(
         setTimeout(() => {
-            spawnFloatingPopup('player', '🙇 礼！', 'popup-block');
-            spawnFloatingPopup('enemy', '🙇 礼！', 'popup-block');
-        }, 120),
-        setTimeout(() => {
-            spawnFloatingPopup('player', '⚔️ 蹲踞', 'popup-block');
-            spawnFloatingPopup('enemy', '⚔️ 蹲踞', 'popup-block');
             updateStatus('⚔️ 竹刀を構えて蹲踞…審判の「始め！」の掛け声を待ちます。', 'neutral');
         }, 1280),
         setTimeout(() => {
             playSound('clash');
+            playRefereeVoice('ハジメッ！');
             showRefereeCallout({
-                winner: 'both',
-                mainText: '🚩 始め！',
+                winner: null,
+                mainText: '始め！',
                 subText: `⚔️ ${enemyData.role}・${enemyData.shortName}戦 立ち合い開始！`,
                 isCritical: false,
             });
-            updateStatus('🚩 審判「始め！」 — お互いに立ち上がって立ち合い開始！', 'neutral');
+            updateStatus('審判「始め！」 — お互いに立ち上がって立ち合い開始！', 'neutral');
         }, 1950)
     );
 
@@ -3419,7 +3528,7 @@ function startMatchCeremony() {
             decideEnemyIntent();
         }
         updateUI();
-        updateStatus(`🚩 始め！【${enemyData.role}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
+        updateStatus(`始め！【${enemyData.role}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
     };
     pendingRoundTimer = setTimeout(() => {
         flushPendingRound();
@@ -3450,25 +3559,6 @@ function startClosingCeremony() {
     animators.enemy.lastUpdateNow = now;
     animators.enemy.lastKeyIndex = -1;
     animators.enemy.impactWeight = 'normal';
-
-    state.ceremonyTimers.push(
-        setTimeout(() => {
-            spawnFloatingPopup('player', '⚖️ 中段の構え', 'popup-block');
-            spawnFloatingPopup('enemy', '⚖️ 中段の構え', 'popup-block');
-        }, 400),
-        setTimeout(() => {
-            spawnFloatingPopup('player', '⚔️ 蹲踞', 'popup-block');
-            spawnFloatingPopup('enemy', '⚔️ 蹲踞', 'popup-block');
-        }, 950),
-        setTimeout(() => {
-            spawnFloatingPopup('player', '🎋 収め刀', 'popup-block');
-            spawnFloatingPopup('enemy', '🎋 収め刀', 'popup-block');
-        }, 1550),
-        setTimeout(() => {
-            spawnFloatingPopup('player', '🙇 礼！', 'popup-block');
-            spawnFloatingPopup('enemy', '🙇 礼！', 'popup-block');
-        }, 2500)
-    );
 
     pendingClosingCallback = () => {
         clearCeremonyTimers();
@@ -4151,12 +4241,25 @@ function playRound(playerAction) {
     updateStatus(`第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs ${enemyData.shortName}【${eMoveName}】 — 立ち合い…！`, 'neutral');
     if (intentText) intentText.textContent = inTsuba ? '💥 鍔迫り合いから技が交錯しています…' : '⚔️ 技が交錯しています…';
 
+    // 攻撃がヒットした側の技名（面、小手、胴、突き）を判定
+    let hittingAction = null;
+    if (enemyOutcome === 'hit') {
+        hittingAction = playerAction;
+    } else if (playerOutcome === 'hit') {
+        hittingAction = enemyAction;
+    } else if (playerOutcome === 'mutual_hit' || enemyOutcome === 'mutual_hit') {
+        hittingAction = playerAction;
+    }
+
     // 2. 打突・被弾の連続キーフレームアニメーションを再生
     triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight, inTsuba);
     triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight, inTsuba);
 
     // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 380ms）到達時に打突音・画面シェイク・ズームを発火
     pendingImpactCallback = () => {
+        if (hittingAction) {
+            playKiaiVoice(hittingAction);
+        }
         if (impactSound) playSound(impactSound);
         zoomTargets.forEach((el) => triggerImpactZoom(el));
         shakeTargets.forEach((t) => triggerShake(t.el, t.isHeavy));
@@ -4177,21 +4280,36 @@ function playRound(playerAction) {
         }
         updateUI();
         popups.forEach((p) => spawnFloatingPopup(p.who, p.text, p.styleClass));
-        if (calloutData) {
-            // 勝敗決定時はメッセージが消えてから蹲踞・収め刀・礼を開始する
-            showRefereeCallout(calloutData, state.gameOver ? () => {
-                startClosingCeremony();
-            } : null);
+        updateStatus(finalStatusMessage, finalStatusType);
+
+        if (state.gameOver) {
+            // 勝敗決定時は、キャラクタ上のダメージ数値表示（約1.05s）が完全に消えてから「勝負あり」メッセージを表示する
+            const dmgDuration = 1150;
+            const gameOverCalloutTimer = setTimeout(() => {
+                if (calloutData) {
+                    showRefereeCallout(calloutData, () => {
+                        startClosingCeremony();
+                    });
+                } else {
+                    startClosingCeremony();
+                }
+                if (endGameSound) {
+                    playSound(endGameSound);
+                }
+            }, dmgDuration);
+            if (state.ceremonyTimers) {
+                state.ceremonyTimers.push(gameOverCalloutTimer);
+            }
         } else {
-            hideRefereeCallout();
-            if (state.gameOver) {
-                startClosingCeremony();
+            if (calloutData) {
+                showRefereeCallout(calloutData);
+            } else {
+                hideRefereeCallout();
+            }
+            if (endGameSound) {
+                playSound(endGameSound);
             }
         }
-        if (endGameSound) {
-            playSound(endGameSound);
-        }
-        updateStatus(finalStatusMessage, finalStatusType);
     };
 
     pendingRoundTimer = setTimeout(() => {
