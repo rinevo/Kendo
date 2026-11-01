@@ -1857,7 +1857,7 @@ function spawnShockwave(anim, x, y, color = '250, 204, 21', isHeavy = false) {
 const STRIKE_IMPACT_T = 380;
 const ANIM_TOTAL_T = 1040;
 const OPENING_TOTAL_T = 2560;
-const CLOSING_TOTAL_T = 3400;
+const CLOSING_TOTAL_T = 3200;
 
 // 試合開始時の礼法キーフレーム列（提げ刀 → お互いに礼 → 帯刀・竹刀を構えて蹲踞 → 「始め！」で立ち上がる）
 function buildOpeningCeremonyKeyframes(startPose, endCombatPose, endSprite) {
@@ -1878,24 +1878,26 @@ function buildOpeningCeremonyKeyframes(startPose, endCombatPose, endSprite) {
 }
 
 // 勝敗決定後の礼法キーフレーム列（中段の構え → 蹲踞 → 竹刀を左腰に収める → 立ち上がり → お互いに礼 → 提げ刀）
-function buildClosingCeremonyTail() {
+function buildClosingCeremonyKeyframes(startPose) {
     const chudan = CEREMONY_POSES.chudan_stand;
     const sonkyoKamae = CEREMONY_POSES.sonkyo_kamae;
     const sonkyoOsameto = CEREMONY_POSES.sonkyo_osameto;
     const sageto = CEREMONY_POSES.sageto;
     const rei = CEREMONY_POSES.rei;
     return [
-        { t: 1460,            sprite: 'idle_0',         pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
-        { t: 1900,            sprite: 'sonkyo_kamae',   pose: sonkyoKamae,   x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad, fx: 'dust' },
-        { t: 2320,            sprite: 'sonkyo_osameto', pose: sonkyoOsameto, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
-        { t: 2720,            sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
-        { t: 3080,            sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 0,               sprite: 'idle_0',         pose: startPose,     x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 500,             sprite: 'idle_0',         pose: chudan,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
+        { t: 1050,            sprite: 'sonkyo_kamae',   pose: sonkyoKamae,   x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad, fx: 'dust' },
+        { t: 1650,            sprite: 'sonkyo_osameto', pose: sonkyoOsameto, x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 2150,            sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutQuad },
+        { t: 2600,            sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
+        { t: 2900,            sprite: 'rei',            pose: rei,           x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
         { t: CLOSING_TOTAL_T, sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, ease: easeInOutSine },
     ];
 }
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
-function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false, includeClosingCeremony = false) {
+function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false) {
     const m = POSE_ROWS.men;
     const k = POSE_ROWS.kote;
     const d = POSE_ROWS.do;
@@ -2075,23 +2077,21 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
             lastStrikeKf.fx = 'sparks';
         }
         lastStrikeKf.flash = 0.65;
-        const hitSequence = [...windup, ...buildHitTail()];
-        return includeClosingCeremony ? [...hitSequence, ...buildClosingCeremonyTail()] : hitSequence;
+        return [...windup, ...buildHitTail()];
     }
 
-    return includeClosingCeremony ? [...actionKeyframes, ...buildClosingCeremonyTail()] : actionKeyframes;
+    return actionKeyframes;
 }
 
 function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', wasTsubazeriai = false) {
     const anim = animators[who];
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-    const includeClosing = state.gameOver;
-    const strikeEndStance = includeClosing
+    const strikeEndStance = state.gameOver
         ? (outcome === 'hit' || outcome === 'mutual_hit' ? 'hit' : 'victory')
-        : getNeutralAnim(who);
+        : getCombatStanceAnim(who);
     const startSnapshot = { ...anim.currentPose };
     const endTargetPose = getContinuousStancePose(strikeEndStance, (now + ANIM_TOTAL_T) * 0.0042 + anim.phaseOffset);
-    anim.keyframes = buildActionKeyframes(action, outcome, strikeEndStance, startSnapshot, endTargetPose, wasTsubazeriai, includeClosing);
+    anim.keyframes = buildActionKeyframes(action, outcome, strikeEndStance, startSnapshot, endTargetPose, wasTsubazeriai);
     anim.seqStartTime = now;
     anim.virtualElapsed = 0;
     anim.lastUpdateNow = now;
@@ -2815,7 +2815,7 @@ function spawnFloatingPopup(who, text, styleClass = 'popup-dmg', offsetY = 0) {
 }
 
 // 審判の紅白旗・技コールカットインを表示
-function showRefereeCallout({ winner = null, mainText = '', subText = '', isCritical = false, isGuard = false }) {
+function showRefereeCallout({ winner = null, mainText = '', subText = '', isCritical = false, isGuard = false }, onHidden = null) {
     if (!refereeCallout) return;
     if (refereeHideTimer) {
         clearTimeout(refereeHideTimer);
@@ -2834,9 +2834,18 @@ function showRefereeCallout({ winner = null, mainText = '', subText = '', isCrit
     refereeMainText.textContent = mainText;
     refereeSubText.textContent = subText;
 
-    const duration = state.gameOver ? 2600 : 1250;
+    const duration = state.gameOver ? 2500 : 1250;
     refereeHideTimer = setTimeout(() => {
         refereeCallout.classList.remove('show');
+        if (onHidden) {
+            // CSSフェードアウト（約200ms）完了を待ってからコールバックを呼ぶ
+            const hideFadeTimer = setTimeout(() => {
+                onHidden();
+            }, 250);
+            if (state.ceremonyTimers) {
+                state.ceremonyTimers.push(hideFadeTimer);
+            }
+        }
     }, duration);
 }
 
@@ -2908,6 +2917,10 @@ function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTs
     }
     if (state.matchPhase === 'post_match') {
         badgeEl.textContent = '🙇 礼 (試合終了)';
+        return;
+    }
+    if (state.gameOver) {
+        badgeEl.textContent = '勝負あり！';
         return;
     }
 
@@ -3108,7 +3121,7 @@ function updateUI() {
     // 試合フェーズ（開始前・開始礼法中・試合中・終了礼法中・試合後）に応じたボタン表示制御
     const isPreMatch = state.matchPhase === 'pre_match';
     const isFighting = state.matchPhase === 'fighting' && !state.gameOver;
-    const isPostMatch = state.matchPhase === 'post_match' || (state.gameOver && state.matchPhase !== 'closing_ceremony');
+    const isPostMatch = state.matchPhase === 'post_match';
 
     if (btnStartMatch) {
         btnStartMatch.style.display = isPreMatch ? 'inline-block' : 'none';
@@ -3411,6 +3424,63 @@ function startMatchCeremony() {
     pendingRoundTimer = setTimeout(() => {
         flushPendingRound();
     }, OPENING_TOTAL_T + 80);
+}
+
+// 勝敗決定後の礼法シーケンス（「勝負あり」などのメッセージが消えてから実行）
+// 中段の構えに整える → 蹲踞 → 竹刀を左腰に収める → 立ち上がる → 相互の立礼 → 提げ刀
+function startClosingCeremony() {
+    if (!state.gameOver) return;
+    clearCeremonyTimers();
+    state.matchPhase = 'closing_ceremony';
+    updateUI();
+    decideEnemyIntent();
+    updateStatus('勝負あり — お互いに中段の構えから蹲踞・収め刀・礼を行います…', 'neutral');
+
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    animators.player.keyframes = buildClosingCeremonyKeyframes({ ...animators.player.currentPose });
+    animators.player.seqStartTime = now;
+    animators.player.virtualElapsed = 0;
+    animators.player.lastUpdateNow = now;
+    animators.player.lastKeyIndex = -1;
+    animators.player.impactWeight = 'normal';
+
+    animators.enemy.keyframes = buildClosingCeremonyKeyframes({ ...animators.enemy.currentPose });
+    animators.enemy.seqStartTime = now;
+    animators.enemy.virtualElapsed = 0;
+    animators.enemy.lastUpdateNow = now;
+    animators.enemy.lastKeyIndex = -1;
+    animators.enemy.impactWeight = 'normal';
+
+    state.ceremonyTimers.push(
+        setTimeout(() => {
+            spawnFloatingPopup('player', '⚖️ 中段の構え', 'popup-block');
+            spawnFloatingPopup('enemy', '⚖️ 中段の構え', 'popup-block');
+        }, 400),
+        setTimeout(() => {
+            spawnFloatingPopup('player', '⚔️ 蹲踞', 'popup-block');
+            spawnFloatingPopup('enemy', '⚔️ 蹲踞', 'popup-block');
+        }, 950),
+        setTimeout(() => {
+            spawnFloatingPopup('player', '🎋 収め刀', 'popup-block');
+            spawnFloatingPopup('enemy', '🎋 収め刀', 'popup-block');
+        }, 1550),
+        setTimeout(() => {
+            spawnFloatingPopup('player', '🙇 礼！', 'popup-block');
+            spawnFloatingPopup('enemy', '🙇 礼！', 'popup-block');
+        }, 2500)
+    );
+
+    pendingClosingCallback = () => {
+        clearCeremonyTimers();
+        state.matchPhase = 'post_match';
+        state.playerAnimState = 'sageto';
+        state.enemyAnimState = 'sageto';
+        decideEnemyIntent();
+        updateUI();
+    };
+    pendingClosingTimer = setTimeout(() => {
+        flushPendingRound();
+    }, CLOSING_TOTAL_T + 80);
 }
 
 function playRound(playerAction) {
@@ -4072,9 +4142,6 @@ function playRound(playerAction) {
 
     if (state.gameOver) {
         state.tsubazeriai = false;
-        state.matchPhase = 'closing_ceremony';
-        state.playerAnimState = 'sageto';
-        state.enemyAnimState = 'sageto';
         updateUI();
     }
 
@@ -4111,9 +4178,15 @@ function playRound(playerAction) {
         updateUI();
         popups.forEach((p) => spawnFloatingPopup(p.who, p.text, p.styleClass));
         if (calloutData) {
-            showRefereeCallout(calloutData);
+            // 勝敗決定時はメッセージが消えてから蹲踞・収め刀・礼を開始する
+            showRefereeCallout(calloutData, state.gameOver ? () => {
+                startClosingCeremony();
+            } : null);
         } else {
             hideRefereeCallout();
+            if (state.gameOver) {
+                startClosingCeremony();
+            }
         }
         if (endGameSound) {
             playSound(endGameSound);
@@ -4121,47 +4194,9 @@ function playRound(playerAction) {
         updateStatus(finalStatusMessage, finalStatusType);
     };
 
-    if (state.gameOver) {
-        // 勝敗決定時は 1040ms で一本・勝負ありコールを表示したあと、中段→蹲踞→収め刀→立ち上がり→相互の礼（3400ms）を行って終了する
-        pendingRoundTimer = setTimeout(() => {
-            firePendingRoundResult();
-        }, ANIM_TOTAL_T + 40);
-
-        state.ceremonyTimers.push(
-            setTimeout(() => {
-                spawnFloatingPopup('player', '⚖️ 中段の構え', 'popup-block');
-                spawnFloatingPopup('enemy', '⚖️ 中段の構え', 'popup-block');
-            }, 1380),
-            setTimeout(() => {
-                spawnFloatingPopup('player', '⚔️ 蹲踞', 'popup-block');
-                spawnFloatingPopup('enemy', '⚔️ 蹲踞', 'popup-block');
-            }, 1840),
-            setTimeout(() => {
-                spawnFloatingPopup('player', '🎋 収め刀', 'popup-block');
-                spawnFloatingPopup('enemy', '🎋 収め刀', 'popup-block');
-            }, 2260),
-            setTimeout(() => {
-                spawnFloatingPopup('player', '🙇 礼！', 'popup-block');
-                spawnFloatingPopup('enemy', '🙇 礼！', 'popup-block');
-            }, 2960)
-        );
-
-        pendingClosingCallback = () => {
-            clearCeremonyTimers();
-            state.matchPhase = 'post_match';
-            state.playerAnimState = 'sageto';
-            state.enemyAnimState = 'sageto';
-            decideEnemyIntent();
-            updateUI();
-        };
-        pendingClosingTimer = setTimeout(() => {
-            flushPendingRound();
-        }, CLOSING_TOTAL_T + 120);
-    } else {
-        pendingRoundTimer = setTimeout(() => {
-            flushPendingRound();
-        }, 1250);
-    }
+    pendingRoundTimer = setTimeout(() => {
+        flushPendingRound();
+    }, 1250);
 }
 
 function selectStage(stageIndex) {
