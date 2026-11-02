@@ -14,6 +14,16 @@
             </div>
             <h1>⚔️ 剣道</h1>
 
+            <!-- BGM 音響コントロール -->
+            <div class="bgm-control-bar" id="bgmControlBar">
+                <button type="button" class="btn-bgm-mute" id="bgmMuteBtn" onclick="window.KendoBGM && window.KendoBGM.toggleMute()" title="BGMのミュート切り替え">🔊</button>
+                <div class="bgm-volume-slider-wrap">
+                    <span class="bgm-label">BGM</span>
+                    <input type="range" id="bgmVolumeSlider" min="0" max="100" value="65" oninput="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" title="BGM音量">
+                    <span class="bgm-vol-text" id="bgmVolumeText">65%</span>
+                </div>
+            </div>
+
             <!-- モードプレイ中のみ表示されるトップナビバー -->
             <div class="header-mode-bar" id="headerModeBar" style="display: none;">
                 <button type="button" class="btn-back-to-menu" onclick="window.KendoGameEngine.showModeSelect()">
@@ -56,6 +66,9 @@
         <div id="modeSelectScreen" class="mode-select-screen">
             <div class="mode-select-hero">
                 <p class="mode-select-lead">読み合いと間合いの駆け引き — プレイするモードを選択してください</p>
+                <div class="bgm-prompt-badge" id="bgmPromptBadge" onclick="window.KendoBGM && (window.KendoBGM.isMuted() ? window.KendoBGM.setMute(false) : window.KendoBGM.play('title', 400, true))" title="クリックでBGMを再生">
+                    🎵 <span class="bgm-badge-text pulse">画面をクリックしてBGMを再生</span>
+                </div>
             </div>
             <div class="mode-cards-grid">
                 <!-- 勝ち抜き五人掛けカード -->
@@ -228,6 +241,7 @@
         </div>
     </div>
 
+    <script src="js/bgm.js"></script>
     <script src="js/game.js"></script>
     <script src="js/club.js"></script>
 </body>

@@ -3410,6 +3410,26 @@ function playSound(type) {
         osc.connect(gain);
         osc.start(now);
         osc.stop(now + 0.4);
+    } else if (type === 'stat_up') {
+        // 🌟 パラメータUPの爽やかで心地よい和風上昇アルペジオ音（ポロロロロン♪）
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
+        notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const noteGain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+            noteGain.gain.setValueAtTime(0.0001, now + idx * 0.05);
+            noteGain.gain.exponentialRampToValueAtTime(0.065, now + idx * 0.05 + 0.015);
+            noteGain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.05 + 0.28);
+
+            osc.connect(noteGain);
+            noteGain.connect(ctx.destination);
+
+            osc.start(now + idx * 0.05);
+            osc.stop(now + idx * 0.05 + 0.3);
+        });
+        return;
     }
 
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
@@ -4405,6 +4425,8 @@ function updateUI() {
             btnNextStage.style.display = 'none';
         }
     }
+
+    // 試合中は勝敗決定後もBGMを再生継続（別画面へ画面遷移するときに停止）
 }
 
 function updateStatus(message, type = 'neutral') {
@@ -4690,6 +4712,12 @@ function startMatchCeremony() {
     warmupVoices();
     clearPendingRoundTimers();
     hideRefereeCallout();
+
+    // 立ち合い開始時に試合中BGMを再生
+    if (window.KendoBGM && window.KendoBGM.play) {
+        window.KendoBGM.play('match');
+    }
+
     animators.player.alpha = 1;
     animators.enemy.alpha = 1;
     animators.player.posX = 0;
@@ -4822,17 +4850,22 @@ function startClosingCeremony() {
         updateUI();
 
         if (state.customMatch && state.customMatch.active) {
-            const winner = isPlayerLoser ? 'enemy' : 'player';
-            const winningKana = state.finalWinningKana
-                || (winner === 'player'
-                    ? ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
-                        ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
-                        : 'メ')
-                    : ((state.scoringMoves && state.scoringMoves.enemy && state.scoringMoves.enemy.length)
-                        ? state.scoringMoves.enemy[state.scoringMoves.enemy.length - 1]
-                        : 'メ'));
-            const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
-            const winningMove = getBaseMoveName(rawWinningMove, winningKana);
+            const isDraw = state.lastOutcome === 'draw' || (isPlayerLoser && isEnemyLoser);
+            const winner = isDraw ? 'draw' : (isPlayerLoser ? 'enemy' : 'player');
+            const winningKana = (winner === 'draw')
+                ? '-'
+                : (state.finalWinningKana
+                    || (winner === 'player'
+                        ? ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
+                            ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
+                            : 'メ')
+                        : ((state.scoringMoves && state.scoringMoves.enemy && state.scoringMoves.enemy.length)
+                            ? state.scoringMoves.enemy[state.scoringMoves.enemy.length - 1]
+                            : 'メ')));
+            const rawWinningMove = (winner === 'draw')
+                ? '相打ち'
+                : (state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面'))));
+            const winningMove = (winner === 'draw') ? '相打ち' : getBaseMoveName(rawWinningMove, winningKana);
 
             const resultData = {
                 winner: winner,
@@ -4843,14 +4876,14 @@ function startClosingCeremony() {
                 enemyScore: winner === 'enemy' ? [winningKana] : [],
                 winningMove: winningMove,
                 winningKana: winningKana,
-                boutStats: state.boutStats ? { ...state.boutStats, winningMove } : {
+                boutStats: state.boutStats ? { ...state.boutStats, winningMove: (winner === 'draw' ? null : winningMove) } : {
                     playerHits: winner === 'player' ? 1 : 0,
                     playerBlocks: 0,
                     enemyHits: winner === 'enemy' ? 1 : 0,
                     enemyBlocks: 0,
                     rounds: state.round,
                     pushWins: 0,
-                    winningMove: winningMove,
+                    winningMove: (winner === 'draw' ? null : winningMove),
                 },
             };
             if (typeof state.customMatch.onComplete === 'function') {
@@ -5754,7 +5787,7 @@ function playRound(playerAction) {
     let finalStatusMessage = message;
     let finalStatusType = statusType;
 
-    // 勝敗判定
+    // 勝敗判定（試合中は勝敗決定後もBGMを再生継続し、別画面への遷移時に停止）
     if (state.playerHealth <= 0 && state.enemyHealth <= 0) {
         state.playerAnimState = 'hit';
         state.enemyAnimState = 'hit';
@@ -6171,17 +6204,22 @@ window.KendoGameEngine = {
     returnFromCombatToClub: function () {
         if (state.customMatch && typeof state.customMatch.onComplete === 'function') {
             const cb = state.customMatch.onComplete;
-            const winner = state.lastOutcome === 'victory' ? 'player' : 'enemy';
-            const winningKana = state.finalWinningKana
-                || (winner === 'player'
-                    ? ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
-                        ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
-                        : 'メ')
-                    : ((state.scoringMoves && state.scoringMoves.enemy && state.scoringMoves.enemy.length)
-                        ? state.scoringMoves.enemy[state.scoringMoves.enemy.length - 1]
-                        : 'メ'));
-            const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
-            const winningMove = getBaseMoveName(rawWinningMove, winningKana);
+            const isDraw = state.lastOutcome === 'draw' || (state.playerHealth <= 0 && state.enemyHealth <= 0);
+            const winner = isDraw ? 'draw' : (state.lastOutcome === 'victory' ? 'player' : 'enemy');
+            const winningKana = (winner === 'draw')
+                ? '-'
+                : (state.finalWinningKana
+                    || (winner === 'player'
+                        ? ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
+                            ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
+                            : 'メ')
+                        : ((state.scoringMoves && state.scoringMoves.enemy && state.scoringMoves.enemy.length)
+                            ? state.scoringMoves.enemy[state.scoringMoves.enemy.length - 1]
+                            : 'メ')));
+            const rawWinningMove = (winner === 'draw')
+                ? '相打ち'
+                : (state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面'))));
+            const winningMove = (winner === 'draw') ? '相打ち' : getBaseMoveName(rawWinningMove, winningKana);
 
             const res = {
                 winner: winner,
@@ -6192,14 +6230,14 @@ window.KendoGameEngine = {
                 enemyScore: winner === 'enemy' ? [winningKana] : [],
                 winningMove: winningMove,
                 winningKana: winningKana,
-                boutStats: state.boutStats ? { ...state.boutStats, winningMove } : {
+                boutStats: state.boutStats ? { ...state.boutStats, winningMove: (winner === 'draw' ? null : winningMove) } : {
                     playerHits: winner === 'player' ? 1 : 0,
                     playerBlocks: 0,
                     enemyHits: winner === 'enemy' ? 1 : 0,
                     enemyBlocks: 0,
                     rounds: state.round,
                     pushWins: 0,
-                    winningMove: winningMove,
+                    winningMove: (winner === 'draw' ? null : winningMove),
                 },
             };
             state.customMatch.active = false;
@@ -6230,6 +6268,10 @@ window.KendoGameEngine = {
         if (classicStageWrap) classicStageWrap.style.display = 'none';
         if (clubView) clubView.style.display = 'none';
         if (combatArea) combatArea.style.display = 'none';
+
+        if (window.KendoBGM && window.KendoBGM.play) {
+            window.KendoBGM.play('title');
+        }
 
         if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
             window.KendoClub.stopClubMiniCharaLoop();
@@ -6269,11 +6311,19 @@ window.KendoGameEngine = {
 
             state.customMatch = null;
             resetGame();
+
+            if (window.KendoBGM && window.KendoBGM.play) {
+                window.KendoBGM.play('match');
+            }
         } else if (mode === 'club') {
             if (currentModeBadge) currentModeBadge.textContent = '🥋 全国制覇モード';
             if (classicStageWrap) classicStageWrap.style.display = 'none';
             if (clubView) clubView.style.display = '';
             if (combatArea) combatArea.style.display = 'none';
+
+            if (window.KendoBGM && window.KendoBGM.play) {
+                window.KendoBGM.play('club');
+            }
 
             if (window.KendoClub && window.KendoClub.init) {
                 window.KendoClub.init();
@@ -6302,6 +6352,21 @@ window.KendoGameEngine = {
         if (clubView) clubView.style.display = '';
         if (combatArea) combatArea.style.display = 'none';
 
+        if (window.KendoBGM) {
+            if (window.KendoClub && window.KendoClub.getState) {
+                const cs = window.KendoClub.getState();
+                if (cs && cs.viewPhase === 'tournament_ceremony') {
+                    if (window.KendoBGM.play) window.KendoBGM.play('ceremony');
+                } else if (cs && ['tournament_opening', 'match_sim', 'match_result'].includes(cs.viewPhase)) {
+                    if (window.KendoBGM.stop) window.KendoBGM.stop();
+                } else {
+                    if (window.KendoBGM.play) window.KendoBGM.play('club');
+                }
+            } else {
+                if (window.KendoBGM.play) window.KendoBGM.play('club');
+            }
+        }
+
         if (window.KendoClub && window.KendoClub.startClubMiniCharaLoop) {
             window.KendoClub.startClubMiniCharaLoop();
         }
@@ -6323,6 +6388,10 @@ window.KendoGameEngine = {
         if (classicStageWrap) classicStageWrap.style.display = 'none';
         if (clubView) clubView.style.display = 'none';
         if (combatArea) combatArea.style.display = '';
+
+        if (window.KendoBGM && window.KendoBGM.play) {
+            window.KendoBGM.play('match');
+        }
     },
 
     // 部員カード等のミニキャラ描画（試合中 Canvas 182x200 の半分のサイズ 91x100）
@@ -6389,6 +6458,8 @@ window.KendoGameEngine = {
         ctx.restore();
     },
 };
+
+window.playSound = playSound;
 
 // 初期化（システム・描画エンジンの初期化後に、モード選択メニューを表示）
 resetGame();

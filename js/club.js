@@ -359,6 +359,10 @@
             member.fatigue = Math.max(0, (member.fatigue || 0) - fatigueRelief);
         }
 
+        if (gains.length > 0) {
+            playStatUpSound();
+        }
+
         return {
             member: member,
             memberId: member.id,
@@ -1851,11 +1855,55 @@
     const assignCaptainToTaisho = assignOrderByCombatPower;
 
     // ───────────────────────────────────────────
+    // パラメータUP効果音再生ヘルパー
+    // ───────────────────────────────────────────
+    function playStatUpSound() {
+        if (typeof window !== 'undefined' && typeof window.playSound === 'function') {
+            window.playSound('stat_up');
+            return;
+        }
+        try {
+            const AudioCtor = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtor) return;
+            const ctx = window._kendoAudioCtx || (window._kendoAudioCtx = new AudioCtor());
+            if (ctx.state === 'suspended') ctx.resume();
+            const now = ctx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+            notes.forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                const noteGain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+                noteGain.gain.setValueAtTime(0.0001, now + idx * 0.05);
+                noteGain.gain.exponentialRampToValueAtTime(0.065, now + idx * 0.05 + 0.015);
+                noteGain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.05 + 0.28);
+                osc.connect(noteGain);
+                noteGain.connect(ctx.destination);
+                osc.start(now + idx * 0.05);
+                osc.stop(now + idx * 0.05 + 0.3);
+            });
+        } catch (e) {}
+    }
+
+    // ───────────────────────────────────────────
     // 練習実行
     // ───────────────────────────────────────────
     function applyPracticeLogic(menuId, targetMemberId) {
         const menu = menuId === 'special' ? null : PRACTICE_MENUS.find((m) => m.id === menuId);
         if (!menu && menuId !== 'special') return;
+
+        // 実行前の部員全体ステータス合計を計測
+        const getTeamStatSum = () => {
+            let sum = 0;
+            ClubState.members.forEach((m) => {
+                sum += (m.str || 0) + (m.agi || 0) + (m.spi || 0) + (m.maxHealth || 0);
+                if (m.skills) {
+                    sum += (m.skills.men || 0) + (m.skills.kote || 0) + (m.skills.do || 0) + (m.skills.tsuki || 0);
+                }
+            });
+            return sum;
+        };
+        const prevStatSum = getTeamStatSum();
 
         let logEntry = '';
         if (menuId === 'special') {
@@ -1900,6 +1948,12 @@
             });
             const exhaustWarn = hadExhaustedMember ? ' ⚠️過度の疲労（100%）を抱えた部員の能力が低下しました！' : '';
             logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】全体稽古【${menu.name}】を実施！心技体を鍛えました。${exhaustWarn}`;
+        }
+
+        // パラメータがUPしていれば、爽やかなステータスUP効果音を再生！
+        const postStatSum = getTeamStatSum();
+        if (postStatSum > prevStatSum) {
+            playStatUpSound();
         }
 
         ClubState.activityLog.unshift(logEntry);
@@ -3305,29 +3359,41 @@
 
         if (!ClubState.isConfigured || ClubState.viewPhase === 'setup') {
             stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderSetupScreen(container);
         } else if (ClubState.viewPhase === 'captain_select') {
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('farewell');
             renderCaptainSelectScreen(container);
             startClubMiniCharaLoop();
         } else if (ClubState.viewPhase === 'order_edit') {
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderOrderEditor(container);
             startClubMiniCharaLoop();
         } else if (ClubState.viewPhase === 'history') {
             stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderHistoryScreen(container);
         } else if (ClubState.viewPhase === 'tournament_opening') {
             stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.stop) window.KendoBGM.stop();
             renderTournamentOpening(container);
         } else if (ClubState.viewPhase === 'match_sim') {
             stopClubMiniCharaLoop();
+            // 勝敗表・試合進行画面ではBGMを停止
+            if (window.KendoBGM && window.KendoBGM.stop) window.KendoBGM.stop();
             renderMatchSimulator(container);
         } else if (ClubState.viewPhase === 'match_result') {
             stopClubMiniCharaLoop();
+            // 試合結果の表示画面ではBGMを再生しない
+            if (window.KendoBGM && window.KendoBGM.stop) window.KendoBGM.stop();
             renderMatchResult(container);
         } else if (ClubState.viewPhase === 'tournament_ceremony') {
             stopClubMiniCharaLoop();
+            // 大会終了・表彰状表示画面：bgm/The_Sunlit_Dojo.mp3 を1回のみ再生（ループなし）
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
             renderTournamentCeremony(container);
         } else {
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderDashboard(container);
             startClubMiniCharaLoop();
         }
@@ -3559,16 +3625,22 @@
             }
         } else {
             let nextEventText = '';
-            if (ClubState.month < 6 || (ClubState.month === 6 && ClubState.week < 1)) {
+            // 年度内（4月1週〜翌年3月4週）のタイムライン順序値 (4月1週=41 ... 12月4週=124, 1月1週=131 ... 3月4週=154)
+            const schoolMonth = ClubState.month >= 4 ? ClubState.month : ClubState.month + 12;
+            const currentTimeline = schoolMonth * 10 + ClubState.week;
+
+            if (currentTimeline < 61) {
                 nextEventText = '6月1週：インターハイ都道府県個人予選';
-            } else if (ClubState.month < 8 && ClubState.qualifiedForInterhigh) {
+            } else if (currentTimeline < 81 && ClubState.qualifiedForInterhigh) {
                 nextEventText = '8月1週：インターハイ（全国高校総体）個人戦';
-            } else if (ClubState.month < 9) {
+            } else if (currentTimeline < 91) {
                 nextEventText = '9月1週：3年生引退 ＆ 新主将指名';
-            } else if (ClubState.month < 12 || (ClubState.month === 12 && ClubState.week < 3)) {
+            } else if (currentTimeline < 123) {
                 nextEventText = '12月3週：選抜地区予選（団体戦 8校トーナメント）';
-            } else if (ClubState.qualifiedForNational) {
-                nextEventText = '3月4週：全国高校選抜大会（団体戦 47代表）';
+            } else if (currentTimeline < 154) {
+                nextEventText = ClubState.qualifiedForNational
+                    ? '3月4週：全国高校選抜大会（団体戦 47代表）'
+                    : '3月4週：全国高校選抜大会（※地区敗退のため不出場）';
             } else {
                 nextEventText = '4月1週：新年度進級 ＆ 新入部員入部';
             }
@@ -5594,9 +5666,11 @@
                                 winnerSide = 'draw';
                                 curBout.myScore = [];
                                 curBout.enemyScore = [];
+                                const isMutual = result.winningMove === '相打ち' || (result.playerHp <= 0 && result.enemyHp <= 0);
+                                const drawReason = isMutual ? '相打ちにより引き分け！' : '決定打なく引き分け！';
                                 curBout.log.push(isSpectating
-                                    ? `【観戦】互いに譲らぬ攻防の末、決定打なく引き分け！`
-                                    : `【主将実戦】互いに譲らぬ攻防の末、決定打なく引き分け！`);
+                                    ? `【観戦】互いに譲らぬ攻防の末、${drawReason}`
+                                    : `【主将実戦】互いに譲らぬ攻防の末、${drawReason}`);
                             }
                         }
 
@@ -5653,6 +5727,11 @@
 
                         saveClubData();
 
+                        // 試合終了・結果反映時はBGMを停止
+                        if (window.KendoBGM && window.KendoBGM.stop) {
+                            window.KendoBGM.stop();
+                        }
+
                         // 1試合終了後はスコアボード画面を表示
                         if (window.KendoGameEngine && window.KendoGameEngine.showClubScreen) {
                             window.KendoGameEngine.showClubScreen();
@@ -5677,6 +5756,9 @@
 
         showRoundResult: function () {
             ClubState.viewPhase = 'match_result';
+            if (window.KendoBGM && window.KendoBGM.stop) {
+                window.KendoBGM.stop();
+            }
             renderClubUI();
         },
 
