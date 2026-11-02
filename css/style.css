@@ -18,11 +18,20 @@ body {
         linear-gradient(135deg, #020617 0%, var(--bg) 100%);
     color: var(--text);
     min-height: 100vh;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
     padding: 16px;
+    box-sizing: border-box;
     overflow-x: hidden;
     transition: background 0.4s ease;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 8px 6px;
+    }
 }
 
 body.bg-national {
@@ -54,15 +63,26 @@ body.bg-district {
 }
 
 .game {
-    width: min(1000px, 100%);
+    width: 100%;
+    max-width: min(1480px, 96vw);
+    min-width: 0;
+    margin: 0 auto;
+    box-sizing: border-box;
     background: rgba(15, 23, 42, 0.82);
     backdrop-filter: blur(8px);
     border: 2px solid rgba(251, 191, 36, 0.22);
     border-radius: 24px;
     box-shadow: 0 24px 55px rgba(0, 0, 0, 0.55);
-    overflow: hidden;
+    overflow: clip;
     display: flex;
     flex-direction: column;
+}
+
+@media (max-width: 600px) {
+    .game {
+        border-radius: 16px;
+        border-width: 1.5px;
+    }
 }
 
 .header {
@@ -212,7 +232,7 @@ body.bg-district {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 24px;
+    gap: 68px;
     padding: 26px 24px;
     flex: 1;
     position: relative;
@@ -245,30 +265,45 @@ body.bg-district {
 }
 
 .vs-divider {
-    position: relative;
-    top: 100px;
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 76px);
+    transform: translate(-50%, -50%);
     font-weight: 900;
     font-size: 1.25rem;
     color: rgba(254, 240, 138, 0.85);
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
     letter-spacing: 0.1em;
     user-select: none;
-    min-width: 36px;
     text-align: center;
+    z-index: 15;
+    pointer-events: none;
     transition: all 0.25s ease;
 }
 
 .vs-divider.tsubazeriai {
     font-size: 0.86rem;
     letter-spacing: 0.04em;
-    padding: 6px 10px;
+    padding: 6px 14px;
     border-radius: 999px;
     color: #fef08a;
-    background: linear-gradient(135deg, rgba(180, 83, 9, 0.92), rgba(126, 34, 206, 0.92));
+    background: linear-gradient(135deg, rgba(180, 83, 9, 0.95), rgba(126, 34, 206, 0.95));
     border: 1.5px solid #fde047;
-    box-shadow: 0 0 18px rgba(250, 204, 21, 0.65);
-    animation: kiaiPulse 0.75s infinite alternate;
+    box-shadow: 0 0 20px rgba(250, 204, 21, 0.75), 0 4px 12px rgba(0, 0, 0, 0.6);
+    animation: tsubazeriaiPulse 0.75s infinite alternate;
     white-space: nowrap;
+    z-index: 25;
+}
+
+@keyframes tsubazeriaiPulse {
+    from {
+        transform: translate(-50%, -50%) scale(1);
+        box-shadow: 0 0 12px rgba(250, 204, 21, 0.65), 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+    to {
+        transform: translate(-50%, -50%) scale(1.06);
+        box-shadow: 0 0 24px rgba(250, 204, 21, 0.95), 0 6px 16px rgba(0, 0, 0, 0.65);
+    }
 }
 
 .fighter-card {
@@ -405,7 +440,9 @@ body.bg-district {
 }
 
 .stance-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.75rem;
     font-weight: 700;
     padding: 3px 10px;
@@ -414,6 +451,13 @@ body.bg-district {
     background: rgba(255, 255, 255, 0.06);
     color: var(--muted);
     border: 1px solid rgba(255, 255, 255, 0.12);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    box-sizing: border-box;
+    height: 24px;
+    line-height: 1;
     transition: all 0.2s ease;
 }
 
@@ -969,8 +1013,10 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 @media (max-width: 768px) {
-    .battle-arena { gap: 8px; padding: 14px; }
-    .vs-divider { display: none; }
+    .battle-arena { gap: 12px; padding: 14px; }
+    .vs-divider { top: calc(50% + 64px); }
+    .vs-divider:not(.tsubazeriai) { display: none; }
+    .vs-divider.tsubazeriai { display: block; font-size: 0.76rem; padding: 4px 10px; }
     .fighter-card { max-width: 170px; }
     .sprite-container { width: 165px; height: 185px; }
     .referee-callout { top: 52%; min-width: 128px; padding: 6px 12px; }
@@ -978,6 +1024,44 @@ button.reset-btn:hover:not(:disabled) {
     .header h1 { font-size: 1.4rem; }
     .rule-pill { font-size: 0.72rem; padding: 3px 9px; }
     button { padding: 9px 13px; font-size: 0.85rem; }
+
+    /* オーダー編成画面のレスポンシブ対応 */
+    .order-slot-card {
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        gap: 10px;
+    }
+    .order-bench-card {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+    .order-member-info,
+    .bench-member-info {
+        flex: 1 1 180px;
+        min-width: 0;
+    }
+    .order-radar-wrap,
+    .bench-radar-wrap {
+        margin: 0 auto;
+    }
+    .order-mini-chara-wrap,
+    .bench-mini-chara-wrap {
+        margin: 0 auto;
+    }
+    .order-swap-btns {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .bench-assign-actions {
+        width: 100%;
+        justify-content: space-between;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 380px) {
+    .fighter-card { max-width: 145px; }
+    .sprite-container { width: 140px; height: 160px; }
 }
 
 
@@ -1030,7 +1114,7 @@ button.reset-btn:hover:not(:disabled) {
 ─────────────────────────────────────────── */
 .mode-select-screen {
     width: 100%;
-    max-width: 820px;
+    max-width: 980px;
     margin: 10px auto 30px;
     animation: fadeIn 0.4s ease;
 }
@@ -1049,9 +1133,12 @@ button.reset-btn:hover:not(:disabled) {
 
 .mode-cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     gap: 20px;
     padding: 0 10px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .mode-card {
@@ -1262,6 +1349,9 @@ button.reset-btn:hover:not(:disabled) {
 ─────────────────────────────────────────── */
 .club-mode-container {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     margin-top: 6px;
     animation: fadeIn 0.3s ease;
 }
@@ -1270,17 +1360,49 @@ button.reset-btn:hover:not(:disabled) {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.club-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 6px;
+    padding-bottom: 10px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.94) 88%, rgba(15, 23, 42, 0) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .club-top-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
     border: 1px solid rgba(56, 189, 248, 0.3);
     border-radius: 16px;
     padding: 14px 20px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.club-title-group {
+    min-width: 0;
 }
 
 .club-title-group h2 {
@@ -1288,6 +1410,14 @@ button.reset-btn:hover:not(:disabled) {
     font-size: 1.35rem;
     color: #f8fafc;
     letter-spacing: 0.04em;
+    word-break: break-word;
+}
+
+.club-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .club-subtitle {
@@ -1317,6 +1447,16 @@ button.reset-btn:hover:not(:disabled) {
     background: rgba(15, 23, 42, 0.8);
     border: 1px solid rgba(148, 163, 184, 0.25);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.tourney-alert .alert-body {
+    flex: 1 1 200px;
+    min-width: 0;
 }
 
 .tourney-alert.ready {
@@ -1528,7 +1668,13 @@ button.reset-btn:hover:not(:disabled) {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-top: 6px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .section-title-wrap h3 {
@@ -1547,6 +1693,7 @@ button.reset-btn:hover:not(:disabled) {
     font-weight: 700;
     cursor: pointer;
     box-shadow: none;
+    flex-shrink: 0;
 }
 
 .btn-edit-order:hover {
@@ -1554,14 +1701,49 @@ button.reset-btn:hover:not(:disabled) {
     transform: translateY(-1px);
 }
 
-/* 部員カードグリッド */
+/* 部員カードグリッド（横スクロールコンテナ） */
 .club-members-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 12px;
+    padding: 6px 4px 16px 4px;
+    scroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.club-members-grid::-webkit-scrollbar {
+    height: 10px;
+}
+
+.club-members-grid::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.club-members-grid::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.5), rgba(14, 165, 233, 0.7));
+    border-radius: 999px;
+    border: 2px solid rgba(15, 23, 42, 0.7);
+}
+
+.club-members-grid::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.8), rgba(14, 165, 233, 1));
 }
 
 .club-member-card {
+    flex: 0 0 230px;
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
+    box-sizing: border-box;
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.9));
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 12px;
@@ -1571,6 +1753,99 @@ button.reset-btn:hover:not(:disabled) {
     gap: 8px;
     text-align: left;
     transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.club-member-card.is-bench {
+    border-color: rgba(148, 163, 184, 0.35);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95));
+}
+
+.member-pos-badge.bench {
+    background: #475569;
+    color: #f1f5f9;
+    border: 1px solid rgba(203, 213, 225, 0.3);
+}
+
+.order-scroll-divider {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    user-select: none;
+}
+
+.order-scroll-divider .divider-line {
+    width: 2px;
+    flex: 1;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.1), rgba(56, 189, 248, 0.5), rgba(56, 189, 248, 0.1));
+}
+
+.order-scroll-divider .divider-text {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 4px;
+    padding: 8px 0;
+    color: #38bdf8;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.section-title-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.scroll-hint-pill {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.order-scroll-controls {
+    display: flex;
+    gap: 4px;
+    margin-left: 6px;
+}
+
+.btn-scroll-nav {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: #94a3b8;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-scroll-nav:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    color: #fff;
+}
+
+/* 部員カードの上寄せブロック（説明文まで） */
+.member-card-top {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* 部員カードの下寄せブロック（レーダーチャート〜ミニキャラ） */
+.member-card-bottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .club-member-card:hover {
@@ -1651,8 +1926,12 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .member-cond {
-    font-size: 0.75rem;
+    font-size: 1.5rem;
     font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .cond-best { color: #facc15; }
@@ -1678,6 +1957,10 @@ button.reset-btn:hover:not(:disabled) {
     align-items: center;
     margin: 2px 0 4px;
     overflow: visible;
+}
+
+.club-member-card .member-radar-wrap {
+    margin-top: auto;
 }
 
 .member-radar-chart {
@@ -1788,6 +2071,126 @@ button.reset-btn:hover:not(:disabled) {
     background: #ef4444;
 }
 
+/* 部員カード ミニキャラ表示 */
+.member-mini-chara-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(148, 163, 184, 0.2);
+    position: relative;
+}
+
+.mini-chara-motion-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #38bdf8;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    transition: all 0.2s ease;
+}
+
+.motion-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 6px #38bdf8;
+    animation: pulseMotionDot 1.4s infinite ease-in-out;
+}
+
+@keyframes pulseMotionDot {
+    0%, 100% {
+        transform: scale(0.9);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scale(1.35);
+        opacity: 1;
+        box-shadow: 0 0 10px #38bdf8;
+    }
+}
+
+.mini-chara-canvas-box {
+    width: 91px;
+    height: 100px;
+    background: radial-gradient(circle at 50% 85%, rgba(222, 152, 78, 0.12) 0%, rgba(15, 23, 42, 0.5) 75%);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.club-member-card:hover .mini-chara-canvas-box {
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: translateY(-2px);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(56, 189, 248, 0.2);
+}
+
+.club-member-card.is-player .mini-chara-canvas-box {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: radial-gradient(circle at 50% 85%, rgba(245, 158, 11, 0.16) 0%, rgba(24, 17, 8, 0.6) 75%);
+}
+
+.member-mini-canvas {
+    width: 91px;
+    height: 100px;
+    display: block;
+}
+
+.mini-chara-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.mini-armor-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.mini-armor-name {
+    letter-spacing: 0.02em;
+}
+
+/* オーダー編成画面用 ミニキャラ */
+.order-mini-chara-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 91px;
+    flex-shrink: 0;
+}
+
+.order-mini-chara-wrap .member-mini-canvas {
+    border-radius: 6px;
+    background: radial-gradient(circle at 50% 85%, rgba(222, 152, 78, 0.12) 0%, rgba(15, 23, 42, 0.5) 75%);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
 /* 練習メニュー */
 .training-section-wrap {
     display: flex;
@@ -1797,6 +2200,10 @@ button.reset-btn:hover:not(:disabled) {
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 14px;
     padding: 16px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .training-section-wrap h3 {
@@ -1808,8 +2215,12 @@ button.reset-btn:hover:not(:disabled) {
 
 .practice-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
     gap: 12px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .btn-practice {
@@ -1833,6 +2244,42 @@ button.reset-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     border-color: #f59e0b;
     box-shadow: 0 6px 18px rgba(245, 158, 11, 0.25);
+}
+
+.btn-practice.is-selected {
+    border-color: #38bdf8;
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.35), rgba(15, 23, 42, 0.95));
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+}
+
+.selected-pill {
+    display: inline-block;
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    margin-left: 6px;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+}
+
+.btn-practice.is-executing,
+.btn-special-practice.is-executing {
+    pointer-events: none;
+    opacity: 0.75;
+    animation: pulsePracticeBtn 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes pulsePracticeBtn {
+    0% {
+        box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 22px rgba(56, 189, 248, 0.85);
+        border-color: #38bdf8;
+    }
 }
 
 .p-icon {
@@ -1870,6 +2317,10 @@ button.reset-btn:hover:not(:disabled) {
     border-radius: 12px;
     padding: 14px;
     text-align: left;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .special-header {
@@ -1893,6 +2344,8 @@ button.reset-btn:hover:not(:disabled) {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .sel-target-member {
@@ -1903,6 +2356,7 @@ button.reset-btn:hover:not(:disabled) {
     padding: 8px 12px;
     font-size: 0.86rem;
     font-weight: 700;
+    max-width: 100%;
 }
 
 .btn-special-practice {
@@ -1921,6 +2375,10 @@ button.reset-btn:hover:not(:disabled) {
     border-radius: 14px;
     padding: 14px 18px;
     text-align: left;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .club-log-box h4 {
@@ -1969,6 +2427,10 @@ button.reset-btn:hover:not(:disabled) {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .order-editor-header h3 {
@@ -1983,10 +2445,188 @@ button.reset-btn:hover:not(:disabled) {
     color: #94a3b8;
 }
 
+.order-section-title {
+    text-align: left;
+    margin: 4px 0 2px;
+}
+
+.order-section-title h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #94a3b8;
+    font-weight: 700;
+}
+
+.order-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.slot-select-wrap {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.slot-select-label {
+    font-size: 0.74rem;
+    color: #94a3b8;
+    font-weight: 700;
+}
+
+.order-slot-select {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: #f1f5f9;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+    max-width: 280px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.order-slot-select:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
+.order-bench-section {
+    margin-top: 18px;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: left;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.order-bench-header {
+    margin-bottom: 12px;
+}
+
+.order-bench-header h4 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.order-bench-header p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.order-bench-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.order-bench-card {
+    display: flex;
+    align-items: center;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    padding: 10px 16px;
+    gap: 14px;
+    text-align: left;
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.bench-card-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 180px;
+}
+
+.bench-member-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bench-member-info strong {
+    font-size: 0.95rem;
+    color: #f8fafc;
+}
+
+.bench-assign-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.assign-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 700;
+}
+
+.assign-btn-group {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.btn-assign-slot {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-assign-slot:hover {
+    background: #0284c7;
+    color: #fff;
+    border-color: #38bdf8;
+    transform: translateY(-1px);
+}
+
+.no-bench-notice {
+    padding: 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
 .order-list-wrap {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .order-slot-card {
@@ -1998,6 +2638,10 @@ button.reset-btn:hover:not(:disabled) {
     padding: 10px 16px;
     gap: 14px;
     text-align: left;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .order-pos-name {

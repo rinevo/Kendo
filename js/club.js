@@ -78,9 +78,18 @@
     const STAT_HARD_MAX = 99;   // 腕力・敏捷・気魄・面・小手・胴・突きの最大値
     const HEALTH_HARD_MAX = 8;  // 体力の最大値
 
-    // パラメータ成長ヘルパー（才能限界値以上は成長率1/2、上限99でカンスト）
+    // パラメータ成長ヘルパー（部員固有の隠し成長率を適用、才能限界値以上は成長率1/2、上限99でカンスト）
     function growStat(m, category, key, baseGain) {
         if (!baseGain || baseGain <= 0) return 0;
+
+        // 各部員の隠し成長率（通常部員: 80%〜120%、助っ人部員: 50%）
+        const gRate = (m && typeof m.growthRate === 'number') ? m.growthRate : 1.0;
+        const rawGain = baseGain * gRate;
+        const intGain = Math.floor(rawGain);
+        const fracGain = rawGain - intGain;
+        let effectiveGain = intGain + (Math.random() < fracGain ? 1 : 0);
+
+        if (effectiveGain <= 0) return 0;
 
         let curVal = 0;
         let capVal = 70; // デフォルト限界値
@@ -102,14 +111,15 @@
         const isOverCap = curVal >= capVal;
 
         // 才能限界値以上の場合は成長率1/2
-        let effectiveGain = baseGain;
         if (isOverCap) {
-            if (baseGain === 1) {
+            if (effectiveGain === 1) {
                 effectiveGain = Math.random() < 0.5 ? 1 : 0;
             } else {
-                effectiveGain = Math.max(1, Math.floor(baseGain / 2));
+                effectiveGain = Math.max(1, Math.floor(effectiveGain / 2));
             }
         }
+
+        if (effectiveGain <= 0) return 0;
 
         const maxLimit = (category === 'base' && key === 'maxHealth') ? HEALTH_HARD_MAX : STAT_HARD_MAX;
         const finalVal = Math.min(maxLimit, curVal + effectiveGain);
@@ -122,6 +132,102 @@
         }
 
         return actualGain;
+    }
+
+    // 大会試合後のパラメータ成長＆疲労度蓄積ヘルパー
+    const MOVE_KEY_MAP = {
+        '面': 'men',
+        '上段面': 'men',
+        '引き面': 'men',
+        '諸手引き面': 'men',
+        '小手': 'kote',
+        '引き小手': 'kote',
+        '胴': 'do',
+        '抜き胴': 'do',
+        '引き胴': 'do',
+        '突き': 'tsuki',
+        '離れ突き': 'tsuki',
+    };
+
+    function getMoveKey(moveName) {
+        if (!moveName) return 'men';
+        if (moveName.includes('小手')) return 'kote';
+        if (moveName.includes('胴')) return 'do';
+        if (moveName.includes('突き') || moveName.includes('突')) return 'tsuki';
+        return 'men';
+    }
+
+    function getMoveDisplayName(key) {
+        if (key === 'kote') return '小手';
+        if (key === 'do') return '胴';
+        if (key === 'tsuki') return '突き';
+        return '面';
+    }
+
+    function applyBoutGrowth(member, stats) {
+        if (!member || !stats) return null;
+        const gains = [];
+
+        // 1. 決まった技のパラメータをUP
+        const winningMoves = Array.isArray(stats.winningMoves) && stats.winningMoves.length > 0
+            ? stats.winningMoves
+            : (stats.winningMove ? [stats.winningMove] : []);
+
+        const skillGainCounts = {};
+        winningMoves.forEach((move) => {
+            const key = getMoveKey(move);
+            skillGainCounts[key] = (skillGainCounts[key] || 0) + 1;
+        });
+
+        Object.keys(skillGainCounts).forEach((key) => {
+            const baseGain = skillGainCounts[key];
+            const actual = growStat(member, 'skill', key, baseGain);
+            if (actual > 0) {
+                gains.push(`${getMoveDisplayName(key)}+${actual}`);
+            }
+        });
+
+        // 2. 技がヒットした回数に応じて敏捷性をUP
+        const hits = stats.hits || stats.playerHits || 0;
+        if (hits >= 2) {
+            const agiGain = hits >= 4 ? 2 : 1;
+            const actual = growStat(member, 'base', 'agi', agiGain);
+            if (actual > 0) gains.push(`敏捷+${actual}`);
+        } else if (hits >= 1 && Math.random() < 0.7) {
+            const actual = growStat(member, 'base', 'agi', 1);
+            if (actual > 0) gains.push(`敏捷+${actual}`);
+        }
+
+        // 3. 攻撃の防御に成功した回数に応じて気魄（気力）UP
+        const blocks = stats.blocks || stats.playerBlocks || 0;
+        if (blocks >= 2) {
+            const spiGain = blocks >= 4 ? 2 : 1;
+            const actual = growStat(member, 'base', 'spi', spiGain);
+            if (actual > 0) gains.push(`気魄+${actual}`);
+        } else if (blocks >= 1 && Math.random() < 0.75) {
+            const actual = growStat(member, 'base', 'spi', 1);
+            if (actual > 0) gains.push(`気魄+${actual}`);
+        }
+
+        // 4. 鍔迫り合い押し込み制覇ボーナス（腕力）
+        const pushWins = stats.pushWins || 0;
+        if (pushWins > 0 && Math.random() < 0.6) {
+            const actual = growStat(member, 'base', 'str', 1);
+            if (actual > 0) gains.push(`腕力+${actual}`);
+        }
+
+        // 5. 勝負の決着までにかかったターン数に応じて疲労度UP
+        const rounds = Math.max(1, stats.rounds || 3);
+        const baseFatigue = 8;
+        const turnFatigue = Math.min(15, Math.floor(rounds * 1.5));
+        const totalFatigue = baseFatigue + turnFatigue;
+        member.fatigue = Math.min(100, Math.max(0, (member.fatigue || 0) + totalFatigue));
+
+        return {
+            gainsText: gains.length > 0 ? gains.join(', ') : '成長なし',
+            fatigueAdded: totalFatigue,
+            summary: `【成長】${gains.length > 0 ? gains.join(', ') : '維持'} (疲労+${totalFatigue}%)`
+        };
     }
 
     // ───────────────────────────────────────────
@@ -402,6 +508,236 @@
         };
     }
 
+    // ───────────────────────────────────────────
+    // 部員固有の防具カラーテーマパレット
+    // ───────────────────────────────────────────
+    const ARMOR_THEMES = [
+        {
+            id: 'kuro',
+            name: '黒漆塗',
+            badgeBg: 'rgba(15, 23, 42, 0.85)',
+            badgeBorder: 'rgba(148, 163, 184, 0.45)',
+            dotColor: '#64748b',
+            armor: {
+                doStops: ['#0f172a', '#1e293b', '#334155', '#1e293b', '#0a0f1d'],
+                muneFill: '#0f172a',
+                muneStitch: 'rgba(226, 232, 240, 0.8)',
+                tareLine: 'rgba(148, 163, 184, 0.6)',
+            }
+        },
+        {
+            id: 'tame',
+            name: '溜塗',
+            badgeBg: 'rgba(59, 7, 7, 0.85)',
+            badgeBorder: 'rgba(239, 68, 68, 0.45)',
+            dotColor: '#dc2626',
+            armor: {
+                doStops: ['#3b0707', '#7f1d1d', '#b91c1c', '#601010', '#250505'],
+                muneFill: '#1a0606',
+                muneStitch: 'rgba(251, 191, 36, 0.85)',
+                tareLine: 'rgba(248, 113, 113, 0.65)',
+            }
+        },
+        {
+            id: 'konpi',
+            name: '紺ピ藍塗',
+            badgeBg: 'rgba(8, 47, 73, 0.85)',
+            badgeBorder: 'rgba(14, 165, 233, 0.45)',
+            dotColor: '#0284c7',
+            armor: {
+                doStops: ['#082f49', '#0369a1', '#0ea5e9', '#075985', '#0c4a6e'],
+                muneFill: '#0f172a',
+                muneStitch: 'rgba(56, 189, 248, 0.88)',
+                tareLine: 'rgba(56, 189, 248, 0.65)',
+            }
+        },
+        {
+            id: 'oribe',
+            name: '織部翠漆',
+            badgeBg: 'rgba(5, 46, 22, 0.85)',
+            badgeBorder: 'rgba(34, 197, 94, 0.45)',
+            dotColor: '#16a34a',
+            armor: {
+                doStops: ['#052e16', '#15803d', '#22c55e', '#166534', '#041e0e'],
+                muneFill: '#061a10',
+                muneStitch: 'rgba(134, 239, 172, 0.85)',
+                tareLine: 'rgba(74, 222, 128, 0.65)',
+            }
+        },
+        {
+            id: 'shikon',
+            name: '紫紺塗',
+            badgeBg: 'rgba(46, 16, 101, 0.85)',
+            badgeBorder: 'rgba(168, 85, 247, 0.45)',
+            dotColor: '#9333ea',
+            armor: {
+                doStops: ['#2e1065', '#581c87', '#9333ea', '#4c1d95', '#1e1b4b'],
+                muneFill: '#1a0b36',
+                muneStitch: 'rgba(216, 180, 254, 0.88)',
+                tareLine: 'rgba(192, 132, 252, 0.65)',
+            }
+        },
+        {
+            id: 'kohaku',
+            name: '琥珀飴色',
+            badgeBg: 'rgba(66, 32, 6, 0.85)',
+            badgeBorder: 'rgba(234, 179, 8, 0.45)',
+            dotColor: '#ca8a04',
+            armor: {
+                doStops: ['#422006', '#a16207', '#eab308', '#854d0e', '#271202'],
+                muneFill: '#1c1917',
+                muneStitch: 'rgba(253, 224, 71, 0.92)',
+                tareLine: 'rgba(250, 204, 21, 0.75)',
+            }
+        },
+        {
+            id: 'akebono',
+            name: '曙塗',
+            badgeBg: 'rgba(24, 24, 27, 0.85)',
+            badgeBorder: 'rgba(249, 115, 22, 0.45)',
+            dotColor: '#ea580c',
+            armor: {
+                doStops: ['#18181b', '#450a0a', '#dc2626', '#991b1b', '#09090b'],
+                muneFill: '#18181b',
+                muneStitch: 'rgba(251, 146, 60, 0.9)',
+                tareLine: 'rgba(249, 115, 22, 0.65)',
+            }
+        },
+        {
+            id: 'isushigin',
+            name: '燻し銀塗',
+            badgeBg: 'rgba(30, 41, 59, 0.85)',
+            badgeBorder: 'rgba(203, 213, 225, 0.45)',
+            dotColor: '#94a3b8',
+            armor: {
+                doStops: ['#1e293b', '#475569', '#94a3b8', '#334155', '#0f172a'],
+                muneFill: '#111827',
+                muneStitch: 'rgba(203, 213, 225, 0.9)',
+                tareLine: 'rgba(148, 163, 184, 0.7)',
+            }
+        },
+        {
+            id: 'shinshu',
+            name: '真朱漆',
+            badgeBg: 'rgba(76, 5, 25, 0.85)',
+            badgeBorder: 'rgba(244, 63, 94, 0.45)',
+            dotColor: '#e11d48',
+            armor: {
+                doStops: ['#4c0519', '#9f1239', '#e11d48', '#881337', '#2e020d'],
+                muneFill: '#1c040a',
+                muneStitch: 'rgba(254, 205, 211, 0.9)',
+                tareLine: 'rgba(251, 113, 133, 0.7)',
+            }
+        },
+        {
+            id: 'asagi',
+            name: '浅葱青磁',
+            badgeBg: 'rgba(4, 47, 46, 0.85)',
+            badgeBorder: 'rgba(20, 184, 166, 0.45)',
+            dotColor: '#0d9488',
+            armor: {
+                doStops: ['#042f2e', '#0f766e', '#14b8a6', '#115e59', '#021e1d'],
+                muneFill: '#041f1e',
+                muneStitch: 'rgba(153, 246, 228, 0.88)',
+                tareLine: 'rgba(45, 212, 191, 0.65)',
+            }
+        },
+        {
+            id: 'tetsukon',
+            name: '鉄紺塗',
+            badgeBg: 'rgba(15, 23, 42, 0.85)',
+            badgeBorder: 'rgba(99, 102, 241, 0.45)',
+            dotColor: '#4f46e5',
+            armor: {
+                doStops: ['#1e1b4b', '#312e81', '#4338ca', '#1e1b4b', '#0f172a'],
+                muneFill: '#111827',
+                muneStitch: 'rgba(199, 210, 254, 0.88)',
+                tareLine: 'rgba(129, 140, 248, 0.65)',
+            }
+        },
+        {
+            id: 'ogon',
+            name: '黄金梨地',
+            badgeBg: 'rgba(41, 37, 36, 0.85)',
+            badgeBorder: 'rgba(245, 158, 11, 0.45)',
+            dotColor: '#f59e0b',
+            armor: {
+                doStops: ['#292524', '#78350f', '#d97706', '#92400e', '#1c1917'],
+                muneFill: '#1c1917',
+                muneStitch: 'rgba(254, 240, 138, 0.95)',
+                tareLine: 'rgba(251, 191, 36, 0.78)',
+            }
+        }
+    ];
+
+    function assignMemberArmorTheme(member, existingThemes = []) {
+        if (member.armorTheme && member.armorTheme.themeName) {
+            return;
+        }
+
+        let pool = [...ARMOR_THEMES];
+        const unused = pool.filter(t => !existingThemes.includes(t.id));
+        if (unused.length > 0) pool = unused;
+
+        let selected = null;
+        if (member.isPlayer) {
+            selected = pool.find(t => ['ogon', 'kuro', 'konpi', 'tame'].includes(t.id)) || pool[0];
+        } else if (member.isClubDual) {
+            const clubMap = {
+                '陸上部': 'asagi',
+                '柔道部': 'kuro',
+                '野球部': 'shinshu',
+                '吹奏楽部': 'shikon',
+                '卓球部': 'konpi',
+                '将棋部': 'kohaku'
+            };
+            const prefId = clubMap[member.originalClub];
+            selected = pool.find(t => t.id === prefId) || pool[0];
+        } else if (member.archetypeId === 'power') {
+            selected = pool.find(t => ['tame', 'shinshu', 'akebono', 'kuro'].includes(t.id)) || pool[0];
+        } else if (member.archetypeId === 'speed') {
+            selected = pool.find(t => ['asagi', 'konpi', 'isushigin'].includes(t.id)) || pool[0];
+        } else if (member.archetypeId === 'spirit') {
+            selected = pool.find(t => ['shikon', 'tetsukon', 'oribe'].includes(t.id)) || pool[0];
+        } else if (member.archetypeId === 'tsuki') {
+            selected = pool.find(t => ['isushigin', 'asagi', 'kohaku'].includes(t.id)) || pool[0];
+        } else if (member.archetypeId === 'counter') {
+            selected = pool.find(t => ['tame', 'kohaku', 'shikon'].includes(t.id)) || pool[0];
+        } else {
+            const hash = (member.id || member.name || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            selected = pool[hash % pool.length];
+        }
+
+        if (!selected) selected = ARMOR_THEMES[0];
+
+        member.armorTheme = {
+            ...selected.armor,
+            themeId: selected.id,
+            themeName: selected.name,
+            badgeBg: selected.badgeBg,
+            badgeBorder: selected.badgeBorder,
+            dotColor: selected.dotColor,
+        };
+    }
+
+    // 部員の隠し成長率の生成（助っ人部員以外は80%〜120%の範囲で個性を付与）
+    function generateGrowthRate(archetype, isPlayer = false) {
+        let min = 0.82;
+        let max = 1.18;
+        if (archetype && archetype.id === 'talent') {
+            min = 1.05;
+            max = 1.20;
+        } else if (archetype && archetype.id === 'allround') {
+            min = 0.95;
+            max = 1.12;
+        } else if (isPlayer) {
+            min = 0.98;
+            max = 1.18;
+        }
+        const val = min + Math.random() * (max - min);
+        return Math.round(Math.min(1.20, Math.max(0.80, val)) * 100) / 100;
+    }
+
     function createMember(name, grade, isPlayer = false, chosenArchetype = null) {
         const archetype = chosenArchetype || (isPlayer
             ? MEMBER_ARCHETYPES.find(a => a.id === 'allround')
@@ -429,7 +765,7 @@
 
         const talentCaps = generateTalentCaps(archetype, isPlayer, false);
 
-        return {
+        const m = {
             id: `mem_${Date.now()}_${memberIdCounter++}`,
             name: name,
             grade: grade, // 1, 2, 3年
@@ -439,7 +775,7 @@
             talentCaps: talentCaps,
             isClubDual: false,
             originalClub: null,
-            growthRate: 1.0,
+            growthRate: generateGrowthRate(archetype, isPlayer), // 助っ人部員以外は80〜120%の隠しパラメータ
             maxHealth: Math.min(8, baseHp),
             str: baseStr,
             agi: baseAgi,
@@ -449,13 +785,12 @@
             condition: getRandomItem(['good', 'normal', 'normal', 'best']),
             fatigue: 0,
             desc: desc,
-            armorTheme: {
-                doStops: ['#0f172a', '#1e293b', '#334155', '#1e293b', '#0a0f1d'],
-                muneFill: '#0f172a',
-                muneStitch: 'rgba(255, 255, 255, 0.75)',
-                tareLine: 'rgba(255, 255, 255, 0.6)',
-            },
+            armorTheme: null,
         };
+
+        const existingThemes = (ClubState.members || []).map(item => item.armorTheme && item.armorTheme.themeId).filter(Boolean);
+        assignMemberArmorTheme(m, existingThemes);
+        return m;
     }
 
     // 他部からの掛け持ち助っ人部員生成
@@ -480,7 +815,7 @@
 
         const talentCaps = generateTalentCaps(null, false, true);
 
-        return {
+        const m = {
             id: `mem_dual_${Date.now()}_${memberIdCounter++}`,
             name: name,
             grade: grade,
@@ -490,7 +825,7 @@
             talentCaps: talentCaps,
             isClubDual: true,
             originalClub: tpl.club,
-            growthRate: 0.5, // 成長率は通常より控えめ（50%）
+            growthRate: 0.50, // 助っ人部員は成長率50%（隠しパラメータ）
             maxHealth: Math.min(8, baseHp),
             str: baseStr,
             agi: baseAgi,
@@ -500,13 +835,12 @@
             condition: getRandomItem(['good', 'normal', 'normal']),
             fatigue: 0,
             desc: tpl.desc,
-            armorTheme: {
-                doStops: ['#1e1b4b', '#312e81', '#4338ca', '#312e81', '#0f172a'],
-                muneFill: '#1e1b4b',
-                muneStitch: 'rgba(192, 132, 252, 0.75)',
-                tareLine: 'rgba(192, 132, 252, 0.6)',
-            },
+            armorTheme: null,
         };
+
+        const existingThemes = (ClubState.members || []).map(item => item.armorTheme && item.armorTheme.themeId).filter(Boolean);
+        assignMemberArmorTheme(m, existingThemes);
+        return m;
     }
 
     // 初期チーム生成（主将＝2年生、他に3年・2年・1年が在籍し個性多彩）
@@ -531,13 +865,20 @@
         members.push(createMember(generateRandomName(), 1, false, MEMBER_ARCHETYPES.find(a => a.id === 'tsuki')));
         members.push(createMember(generateRandomName(), 1, false, MEMBER_ARCHETYPES.find(a => a.id === 'talent')));
 
-        // 先鋒〜大将の初期オーダー（主将は大将または副将）
+        // 初期メンバー7名全員に重複のない防具テーマを確実に割り当て
+        members.forEach((m, idx) => {
+            m.armorTheme = null;
+            const used = members.slice(0, idx).map(other => other.armorTheme && other.armorTheme.themeId).filter(Boolean);
+            assignMemberArmorTheme(m, used);
+        });
+
+        // 先鋒〜大将の初期オーダー（新1年生は全員控え、2・3年生をレギュラー、主将を大将に配置）
         const order = [
-            members[5].id, // 1年（先鋒）
-            members[3].id, // 2年（次鋒）
+            members[3].id, // 2年（先鋒）
+            members[4].id, // 2年（次鋒）
             members[1].id, // 3年（中堅）
             members[2].id, // 3年（副将）
-            captain.id,    // 主将（大将）
+            captain.id,    // 2年主将（大将）
         ];
 
         return { members, order };
@@ -562,6 +903,14 @@
         viewPhase: 'dashboard',      // 'setup' | 'dashboard' | 'order_edit' | 'match_sim' | 'match_result' | 'history' | 'captain_select'
         currentMatchData: null,      // 進行中の大会試合
         selectedSpecialTargetId: null, // 前回選択した特別指導対象部員ID
+        selectedPracticeMenu: null,    // 現在選択中の練習メニュー (クリック後に 'basics' | 'suburi' | 'kakari' | 'zazen' | 'rest' | 'special')
+        isPracticeExecuting: false,     // 稽古演出中フラグ
+        executingPracticeMotion: null,  // 実行演出中の稽古モーション
+        practiceExecutionStartTime: 0,  // 稽古クリック時の開始時刻（得意構えからの始動用）
+        practiceCompleted1Cycle: false, // 座禅・休養の1回アニメーション完了フラグ
+        memberGridScrollLeft: -1,       // 部員カード一覧の横スクロール位置保持（初期値-1: ゲーム開始時右端の大将を表示）
+        isRestPosture: false,           // 休養後に納刀状態で待機するフラグ
+        specialPracticeAttacks: null,   // マンツーマン特別指導時の主将・指名部員のランダム攻撃情報
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
         history: [],                 // 歴代年表 [{ year, districtResult, nationalResult, captainName }]
         stats: {
@@ -591,6 +940,9 @@
                 viewPhase: ClubState.viewPhase,
                 currentMatchData: ClubState.currentMatchData,
                 selectedSpecialTargetId: ClubState.selectedSpecialTargetId,
+                selectedPracticeMenu: ClubState.selectedPracticeMenu,
+                memberGridScrollLeft: ClubState.memberGridScrollLeft,
+                isRestPosture: !!ClubState.isRestPosture,
                 history: ClubState.history,
                 stats: ClubState.stats,
             };
@@ -618,6 +970,18 @@
                         const arch = MEMBER_ARCHETYPES.find((a) => a.id === m.archetypeId);
                         m.talentCaps = generateTalentCaps(arch, m.isPlayer, m.isClubDual);
                     }
+                    if (!m.armorTheme || !m.armorTheme.themeName) {
+                        const existingThemes = ClubState.members.filter(other => other !== m && other.armorTheme && other.armorTheme.themeId).map(other => other.armorTheme.themeId);
+                        assignMemberArmorTheme(m, existingThemes);
+                    }
+                    if (!m.growthRate || (!m.isClubDual && (m.growthRate < 0.80 || m.growthRate > 1.20 || m.growthRate === 1.0))) {
+                        if (m.isClubDual) {
+                            m.growthRate = 0.50;
+                        } else {
+                            const arch = MEMBER_ARCHETYPES.find((a) => a.id === m.archetypeId);
+                            m.growthRate = generateGrowthRate(arch, m.isPlayer);
+                        }
+                    }
                 });
             }
             if (Array.isArray(data.order)) ClubState.order = data.order;
@@ -628,6 +992,9 @@
             ClubState.viewPhase = data.viewPhase || 'dashboard';
             ClubState.currentMatchData = data.currentMatchData || null;
             ClubState.selectedSpecialTargetId = data.selectedSpecialTargetId || null;
+            if (data.selectedPracticeMenu) ClubState.selectedPracticeMenu = data.selectedPracticeMenu;
+            ClubState.memberGridScrollLeft = typeof data.memberGridScrollLeft === 'number' ? data.memberGridScrollLeft : -1;
+            ClubState.isRestPosture = !!data.isRestPosture;
             if (Array.isArray(data.history)) ClubState.history = data.history;
             if (data.stats) ClubState.stats = data.stats;
             return true;
@@ -898,6 +1265,14 @@
         ClubState.viewPhase = 'setup';
         ClubState.currentMatchData = null;
         ClubState.selectedSpecialTargetId = null;
+        ClubState.selectedPracticeMenu = null;
+        ClubState.isPracticeExecuting = false;
+        ClubState.executingPracticeMotion = null;
+        ClubState.practiceExecutionStartTime = 0;
+        ClubState.practiceCompleted1Cycle = false;
+        ClubState.memberGridScrollLeft = -1;
+        ClubState.isRestPosture = false;
+        ClubState.specialPracticeAttacks = null;
         ClubState.history = [];
         ClubState.stats = {
             district: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
@@ -998,6 +1373,23 @@
         renderClubUI();
     }
 
+    // 直近の大会成績に応じた新1年生の入部数レンジ（下限・上限）を算出
+    function getFreshmenRecruitRange(districtRank, nationalRank) {
+        const isWin = (r) => r === '優勝' || r === 'win';
+        const isHigh = (r) => r === '準優勝' || r === 'runnerUp' || r === 'ベスト4' || r === 'best4';
+
+        // 1. 全国大会の成績（最優先）
+        if (isWin(nationalRank)) return { min: 3, max: 4 };
+        if (isHigh(nationalRank)) return { min: 3, max: 4 };
+
+        // 2. 地区大会の成績
+        if (isWin(districtRank)) return { min: 2, max: 3 }; // 地区優勝：最低2名保証、最大3名
+        if (isHigh(districtRank)) return { min: 1, max: 2 }; // 地区準優勝・ベスト4
+
+        // 3. その他（初戦〜2回戦敗退、不出場など）
+        return { min: 1, max: 2 };
+    }
+
     // 4月1週：新年度進級 ＆ 新1年生入部
     function executeNewSchoolYear() {
         // 進級
@@ -1005,24 +1397,22 @@
             m.grade += 1;
         });
 
-        // 成績に応じた新入生人数の決定（直近の成績が良いほど入部数増加）
-        let recruitCount = 2; // デフォルト
-        if (ClubState.lastNationalRank === 'win') recruitCount = 5;
-        else if (ClubState.lastNationalRank === 'runnerUp' || ClubState.lastNationalRank === 'best4') recruitCount = 4;
-        else if (ClubState.lastDistrictRank === 'win') recruitCount = 3 + (Math.random() < 0.5 ? 1 : 0);
-        else if (ClubState.lastDistrictRank === 'runnerUp') recruitCount = 2 + (Math.random() < 0.4 ? 1 : 0);
-        else recruitCount = 1 + (Math.random() < 0.5 ? 1 : 0);
+        // 成績に応じた新入生人数の決定（直近の成績が良いほど入部数増加、最低人数〜最大人数のランダム）
+        const range = getFreshmenRecruitRange(ClubState.lastDistrictRank, ClubState.lastNationalRank);
+        let recruitCount = range.min + Math.floor(Math.random() * (range.max - range.min + 1));
 
-        // 廃部防止セーフティ（最低2名は部員を確保）
+        // 廃部防止セーフティ（団体戦出陣に必要な最低5名を可能な限り確保）
         const curCount = ClubState.members.length;
-        if (curCount + recruitCount < 2) {
-            recruitCount = Math.max(recruitCount, 2 - curCount);
+        if (curCount + recruitCount < 5) {
+            recruitCount = Math.max(recruitCount, 5 - curCount);
         }
 
         const newRecruits = [];
+        const recruitMembers = [];
         for (let i = 0; i < recruitCount; i++) {
             const recruit = createMember(generateRandomName(), 1, false);
             ClubState.members.push(recruit);
+            recruitMembers.push(recruit);
             newRecruits.push(`${recruit.name}（${recruit.archetypeName || '一般'}）`);
         }
 
@@ -1032,7 +1422,7 @@
         const logMsg = `🌸【${ClubState.year}年目 4月1週】新年度が始まりました！部員が進級し、新1年生が${recruitCount}名（${newRecruits.join('・')}）入部しました！`;
         ClubState.activityLog.unshift(logMsg);
 
-        // オーダーの欠員・不正IDを補正
+        // 新1年生の初期値は全員控えにする（オーダーは上級生優先で維持・編成）
         sanitizeOrder();
 
         saveClubData();
@@ -1056,27 +1446,132 @@
         renderClubUI();
     }
 
-    // オーダー整合性チェック
+    // オーダー整合性チェック（新1年生および助っ人は初期値で控えとし、正規部員の上級生優先で埋める）
     function sanitizeOrder() {
         const validIds = new Set(ClubState.members.map((m) => m.id));
         const newOrder = ClubState.order.filter((id) => validIds.has(id));
 
-        // 足りない枠は未配置のメンバーで埋める
         const usedIds = new Set(newOrder);
-        ClubState.members.forEach((m) => {
-            if (newOrder.length < 5 && !usedIds.has(m.id)) {
+
+        // 1. 足りない枠は未配置の正規上級生（2年生・3年生、助っ人以外）から優先して埋める
+        const seniors = ClubState.members.filter((m) => m.grade >= 2 && !m.isClubDual && !usedIds.has(m.id));
+        seniors.forEach((m) => {
+            if (newOrder.length < 5) {
                 newOrder.push(m.id);
                 usedIds.add(m.id);
             }
         });
 
+        // 2. それでも部員不足で5枠に満たない場合のみ、正規の1年生（助っ人以外）を補填する
+        if (newOrder.length < 5) {
+            const freshmen = ClubState.members.filter((m) => m.grade === 1 && !m.isClubDual && !usedIds.has(m.id));
+            freshmen.forEach((m) => {
+                if (newOrder.length < 5) {
+                    newOrder.push(m.id);
+                    usedIds.add(m.id);
+                }
+            });
+        }
+
+        // ※ 助っ人（isClubDual）は初期値で必ず控え。ユーザーがオーダー編成で手動配置した場合のみ newOrder に入る。
         ClubState.order = newOrder;
+    }
+
+    // 新1年生が入部したときは、先鋒、次鋒、中堅の順で割り当てる
+    function assignFreshmenToOrder(recruitMembers) {
+        if (!recruitMembers || !recruitMembers.length) {
+            sanitizeOrder();
+            return;
+        }
+
+        const captain = ClubState.members.find((m) => m.isPlayer);
+        const captainId = captain ? captain.id : null;
+
+        // 新1年生以外の既存部員（上級生）
+        const seniorMembers = ClubState.members.filter((m) => !recruitMembers.some((r) => r.id === m.id) && m.id !== captainId);
+
+        // 既存オーダー順を可能な限り維持した上級生IDリスト
+        const remainingSeniorIds = [];
+        ClubState.order.forEach((id) => {
+            if (id !== captainId && seniorMembers.some((m) => m.id === id)) {
+                remainingSeniorIds.push(id);
+            }
+        });
+        seniorMembers.forEach((m) => {
+            if (!remainingSeniorIds.includes(m.id)) {
+                remainingSeniorIds.push(m.id);
+            }
+        });
+
+        // 5人枠のオーダー [先鋒, 次鋒, 中堅, 副将, 大将]
+        const newOrder = [null, null, null, null, null];
+
+        // 1. 新1年生を先鋒(0)、次鋒(1)、中堅(2)の順で割り当てる
+        const freshmanSlots = [0, 1, 2];
+        recruitMembers.forEach((recruit, idx) => {
+            if (idx < freshmanSlots.length) {
+                newOrder[freshmanSlots[idx]] = recruit.id;
+            }
+        });
+
+        // 2. 主将を大将(4)に割り当てる
+        if (captainId) {
+            newOrder[4] = captainId;
+        }
+
+        // 3. 空いているスロット（副将枠や新入生が3人未満の枠）を上級生で埋める
+        for (let slot = 0; slot < 5; slot++) {
+            if (!newOrder[slot] && remainingSeniorIds.length > 0) {
+                newOrder[slot] = remainingSeniorIds.shift();
+            }
+        }
+
+        // 4. それでも枠が空いていれば、4人目以降の新入生や未配置部員で埋める
+        ClubState.members.forEach((m) => {
+            const emptyIdx = newOrder.indexOf(null);
+            if (emptyIdx !== -1 && !newOrder.includes(m.id)) {
+                newOrder[emptyIdx] = m.id;
+            }
+        });
+
+        ClubState.order = newOrder.filter(Boolean);
+        sanitizeOrder();
+    }
+
+    // 新しい主将を任命したときは、主将を大将にする
+    function assignCaptainToTaisho(captainId) {
+        if (!captainId) return;
+
+        sanitizeOrder();
+        const curOrder = [...ClubState.order];
+        const currentCapIdx = curOrder.indexOf(captainId);
+
+        if (curOrder.length >= 5) {
+            if (currentCapIdx !== -1) {
+                // すでにオーダー内にいる場合、大将（インデックス4）と位置を入れ替える
+                const oldTaishoId = curOrder[4];
+                curOrder[4] = captainId;
+                curOrder[currentCapIdx] = oldTaishoId;
+            } else {
+                // 控えにいる場合、大将（インデックス4）に新主将を配置
+                curOrder[4] = captainId;
+            }
+        } else {
+            // 部員が5人未満の場合：末尾（大将枠）に新主将を配置
+            if (currentCapIdx !== -1) {
+                curOrder.splice(currentCapIdx, 1);
+            }
+            curOrder.push(captainId);
+        }
+
+        ClubState.order = curOrder;
+        sanitizeOrder();
     }
 
     // ───────────────────────────────────────────
     // 練習実行
     // ───────────────────────────────────────────
-    function executePractice(menuId, targetMemberId = null) {
+    function applyPracticeLogic(menuId, targetMemberId) {
         const menu = menuId === 'special' ? null : PRACTICE_MENUS.find((m) => m.id === menuId);
         if (!menu && menuId !== 'special') return;
 
@@ -1086,8 +1581,8 @@
             const player = ClubState.members.find((m) => m.isPlayer);
             if (target && player) {
                 ClubState.selectedSpecialTargetId = targetMemberId;
-                // 掛け持ち部員は成長が緩やか（各能力+1、通常は+2）。才能限界値以上はgrowStatで1/2に
-                const baseGain = target.isClubDual ? 1 : 2;
+                // 各部員の隠し成長率（通常: 80〜120%、助っ人: 50%）および才能限界値に応じてgrowStatで計算
+                const baseGain = 2;
                 growStat(target, 'base', 'str', baseGain);
                 growStat(target, 'base', 'agi', baseGain);
                 growStat(target, 'base', 'spi', baseGain);
@@ -1102,17 +1597,13 @@
                 growStat(player, 'base', 'spi', 2);
                 player.fatigue = Math.min(100, Math.max(0, player.fatigue + 16));
 
-                const dualText = target.isClubDual ? `（${target.originalClub}と掛け持ちのため成長は緩やか）` : '';
-                logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${target.name}へマンツーマン特別指導を実施！${target.name}の全能力が${baseGain === 1 ? '着実に' : '急伸'}向上！${dualText}`;
+                const dualText = target.isClubDual ? `（${target.originalClub}掛け持ち）` : '';
+                logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${target.name}へマンツーマン特別指導を実施！${target.name}の全能力が着実に向上！${dualText}`;
             }
         } else {
             ClubState.members.forEach((m) => {
-                // 他部との掛け持ち部員は練習頻度が限られるため成長確率50%
-                if (m.isClubDual) {
-                    if (Math.random() < 0.5) menu.apply(m);
-                } else {
-                    menu.apply(m);
-                }
+                // 部員ごとの隠し成長率（通常: 80〜120%、助っ人: 50%）に従って成長
+                menu.apply(m);
                 m.fatigue = Math.min(100, Math.max(0, m.fatigue + menu.fatigueCost));
                 if (m.fatigue >= 80 && Math.random() < 0.6) dropCondition(m);
                 else if (m.fatigue === 0 && Math.random() < 0.3) improveCondition(m);
@@ -1122,6 +1613,67 @@
 
         ClubState.activityLog.unshift(logEntry);
         advanceCalendarWeek();
+    }
+
+    function executePractice(menuId, targetMemberId = null, instant = false) {
+        if (ClubState.isPracticeExecuting) return;
+
+        if (instant) {
+            applyPracticeLogic(menuId, targetMemberId);
+            ClubState.isPracticeExecuting = false;
+            ClubState.executingPracticeMotion = null;
+            ClubState.selectedPracticeMenu = null;
+            ClubState.isRestPosture = (menuId === 'rest');
+            ClubState.specialPracticeAttacks = null;
+            updateAllMemberMotionBadges();
+            return;
+        }
+
+        ClubState.isPracticeExecuting = true;
+        ClubState.executingPracticeMotion = menuId;
+        ClubState.practiceExecutionStartTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        ClubState.practiceCompleted1Cycle = false;
+
+        // 休養以外の練習が実行されたら納刀待機を解除して得意構えからの稽古へ
+        if (menuId !== 'rest') {
+            ClubState.isRestPosture = false;
+        }
+
+        // 主将マンツーマン特別指導時：主将と指名部員のみにランダムで試合中と同等の攻撃アニメーション（面・小手・胴・突き）を選定
+        if (menuId === 'special') {
+            const sel = document.getElementById('selSpecialTarget');
+            const target = targetMemberId || (sel && sel.value) || ClubState.selectedSpecialTargetId;
+            ClubState.selectedSpecialTargetId = target;
+
+            const ATTACKS = ['men', 'kote', 'do', 'tsuki'];
+            const getRandomAtk = () => ATTACKS[Math.floor(Math.random() * ATTACKS.length)];
+            // 3秒間の間にダイナミックに打ち込む2段ランダム攻撃シーケンス（前半・後半）
+            ClubState.specialPracticeAttacks = {
+                captain: [getRandomAtk(), getRandomAtk()],
+                target: [getRandomAtk(), getRandomAtk()],
+            };
+        } else {
+            ClubState.specialPracticeAttacks = null;
+        }
+
+        // 部員カードのバッジを即座に更新
+        updateAllMemberMotionBadges();
+
+        // 実行中のボタン無効化・パルス演出
+        const btnGroup = document.querySelectorAll('.btn-practice, .btn-special-practice');
+        btnGroup.forEach((b) => b.classList.add('is-executing'));
+
+        // 3秒間（3000ms）、得意な構えから現在のアニメーションを動かし、その後各自の得意構え待機に戻す
+        setTimeout(() => {
+            ClubState.isPracticeExecuting = false;
+            ClubState.executingPracticeMotion = null;
+            ClubState.selectedPracticeMenu = null; // 未選択状態に戻す
+            ClubState.specialPracticeAttacks = null;
+            ClubState.isRestPosture = false;
+
+            applyPracticeLogic(menuId, targetMemberId);
+            updateAllMemberMotionBadges();
+        }, 3000);
     }
 
     // ───────────────────────────────────────────
@@ -1290,33 +1842,78 @@
         const techFullNames = { 'メ': '面', 'コ': '小手', 'ド': '胴', 'ツ': '突き' };
 
         const roll = Math.random();
+        let simStats = null;
+
         if (roll < myWinRate * 0.55) {
             const t1 = pickTech(myTechs);
             const t2 = pickTech(myTechs);
-            bout.myScore = [t1, t2];
+            bout.myScore = [t2];
             bout.winner = 'my';
             bout.log.push(`${my.name}が鋭い踏み込みから鮮やかな【${techFullNames[t1]}】を決めて先取！`);
-            bout.log.push(`相手の反撃をいなし、電光石火の【${techFullNames[t2]}】！二本勝ち！`);
+            bout.log.push(`相手の反撃をいなし、電光石火の【${techFullNames[t2]}】で勝負あり！二本勝ち！`);
+            simStats = {
+                winningMoves: [techFullNames[t1], techFullNames[t2]],
+                hits: 2,
+                blocks: 1,
+                rounds: 3,
+                pushWins: Math.random() < 0.4 ? 1 : 0,
+            };
         } else if (roll < myWinRate) {
             const t1 = pickTech(myTechs);
             bout.myScore = [t1];
             bout.winner = 'my';
             bout.log.push(`白熱の鍔迫り合いから、${my.name}が渾身の【${techFullNames[t1]}】！一本勝ち！`);
+            simStats = {
+                winningMoves: [techFullNames[t1]],
+                hits: 1,
+                blocks: 1,
+                rounds: 5,
+                pushWins: Math.random() < 0.3 ? 1 : 0,
+            };
         } else if (roll < myWinRate + (1 - myWinRate) * 0.25) {
             bout.winner = 'draw';
             bout.log.push(`互いに譲らぬ攻防の末、決定打なく【引き分け】！`);
+            simStats = {
+                winningMoves: [],
+                hits: 0,
+                blocks: 2,
+                rounds: 8,
+                pushWins: 0,
+            };
         } else if (roll < myWinRate + (1 - myWinRate) * 0.65) {
             const t1 = pickTech(oppTechs);
             bout.enemyScore = [t1];
             bout.winner = 'enemy';
             bout.log.push(`相手の鋭い出ばな【${techFullNames[t1]}】を奪われ惜敗…`);
+            simStats = {
+                winningMoves: [],
+                hits: 0,
+                blocks: 1,
+                rounds: 5,
+                pushWins: 0,
+            };
         } else {
             const t1 = pickTech(oppTechs);
             const t2 = pickTech(oppTechs);
-            bout.enemyScore = [t1, t2];
+            bout.enemyScore = [t2];
             bout.winner = 'enemy';
             bout.log.push(`相手の猛攻を受け、【${techFullNames[t1]}】【${techFullNames[t2]}】を奪われ敗北…`);
+            simStats = {
+                winningMoves: [],
+                hits: 0,
+                blocks: 0,
+                rounds: 4,
+                pushWins: 0,
+            };
         }
+
+        if (simStats) {
+            const growth = applyBoutGrowth(my, simStats);
+            if (growth) {
+                bout.log.push(growth.summary);
+            }
+        }
+
         saveClubData();
     }
 
@@ -1355,29 +1952,245 @@
         }
     }
 
+    let clubAnimationFrameId = null;
+    let clubAnimStartTime = 0;
+
+    // 各部員の得意な攻撃技（面・小手・胴・突き）の判定
+    function getMemberFavoriteAttack(member) {
+        if (!member) return 'men';
+        if (member.favStance === 'jodan') return 'men';
+        const s = member.skills || {};
+        const men = s.men || 0;
+        const kote = s.kote || 0;
+        const doSkill = s.do || 0;
+        const tsuki = s.tsuki || 0;
+        const maxVal = Math.max(men, kote, doSkill, tsuki);
+        if (tsuki === maxVal && tsuki > 0) return 'tsuki';
+        if (doSkill === maxVal && doSkill > 0) return 'do';
+        if (kote === maxVal && kote > 0) return 'kote';
+        return 'men';
+    }
+
+    function getAttackDisplayName(attackType) {
+        switch (attackType) {
+            case 'kote': return '小手打ち';
+            case 'do': return '胴打ち';
+            case 'tsuki': return '諸手突き';
+            default: return '面打ち';
+        }
+    }
+
+    // 各部員が現在実行すべきモーションの判定
+    // 主将マンツーマン特訓時は、主将と指名部員のみがランダムで試合中と同等の攻撃を行い、他の選手は得意構えで待機
+    // 座禅・休養は1回だけアニメーション（約2.0秒）し、その後は得意な構えを表示
+    function getMemberActiveMotion(member, timeNow) {
+        if (!member) return null;
+        if (!ClubState.isPracticeExecuting || !ClubState.executingPracticeMotion) {
+            // 通常待機時は null（各自の得意な構えで呼吸待機）
+            return null;
+        }
+
+        const menuId = ClubState.executingPracticeMotion;
+        if (menuId === 'special') {
+            const isCaptain = !!member.isPlayer;
+            const isSelectedTarget = member.id === ClubState.selectedSpecialTargetId;
+            if (isCaptain || isSelectedTarget) {
+                const attacksObj = ClubState.specialPracticeAttacks;
+                const atkList = isCaptain ? (attacksObj && attacksObj.captain) : (attacksObj && attacksObj.target);
+                if (atkList && atkList.length) {
+                    const now = (typeof timeNow === 'number') ? timeNow : ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+                    const elapsed = Math.max(0, (now - (ClubState.practiceExecutionStartTime || now)) / 1000);
+                    // 3秒間の間に前半（< 1.5s）と後半（>= 1.5s）でランダム技を連続して繰り出す
+                    const atkIndex = elapsed < 1.5 ? 0 : 1;
+                    const atk = atkList[atkIndex] || atkList[0];
+                    return `attack_${atk}`;
+                }
+                const fallbackAtk = ['men', 'kote', 'do', 'tsuki'][Math.floor(Math.random() * 4)];
+                return `attack_${fallbackAtk}`;
+            }
+            return null; // 他の選手は得意な構えで待機
+        }
+
+        // 座禅・休養：1回だけアニメーション（約2.0秒）し、その後は得意な構えを表示
+        if (menuId === 'zazen' || menuId === 'rest') {
+            const now = (typeof timeNow === 'number') ? timeNow : ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+            const elapsed = Math.max(0, (now - (ClubState.practiceExecutionStartTime || now)) / 1000);
+            if (elapsed >= 2.0) {
+                return null; // 1回のアニメーション完了後は得意な構えを表示
+            }
+        }
+
+        // 全体稽古（basics, suburi, kakari, zazen, rest）
+        return menuId;
+    }
+
+    // 各部員カードに表示する状態バッジ文字列
+    function getMemberMotionBadgeText(member) {
+        if (!member) return '⚡ 構え待機';
+        const motion = getMemberActiveMotion(member);
+        if (motion === 'idle_rest') {
+            return '🍵 納刀待機';
+        }
+        if (!motion) {
+            const stanceLabel = member.favStance === 'jodan' ? '上段' : member.favStance === 'waki' ? '脇' : '中段';
+            return `⚡ 構え待機 (${stanceLabel})`;
+        }
+        if (motion.startsWith('attack_')) {
+            const atk = motion.replace('attack_', '');
+            return `🥋 特訓打突 (${getAttackDisplayName(atk)})`;
+        }
+        switch (motion) {
+            case 'basics': return '🏃 すり足稽古';
+            case 'suburi': return '⚔️ 素振り打ち込み';
+            case 'kakari': return '🔥 掛かり稽古';
+            case 'zazen': return '🧘 蹲踞';
+            case 'rest': return '🍵 納刀休養';
+            default: return '⚡ 構え待機';
+        }
+    }
+
+    function getActivePracticeMotion() {
+        return ClubState.executingPracticeMotion || null;
+    }
+
+    function updateAllMemberMotionBadges() {
+        const badges = document.querySelectorAll('.mini-chara-motion-badge');
+        badges.forEach((b) => {
+            const memId = b.getAttribute('data-member-id');
+            const m = ClubState.members.find((item) => item.id === memId);
+            if (!m) return;
+            const textElem = b.querySelector('.motion-name');
+            if (textElem) {
+                textElem.textContent = getMemberMotionBadgeText(m);
+            }
+        });
+    }
+
+    function updateMotionBadges(_motionId) {
+        updateAllMemberMotionBadges();
+    }
+
+    function renderMiniCharaFrame(timeNow) {
+        if (!window.KendoGameEngine || !window.KendoGameEngine.renderMiniFighter) return;
+        const container = document.getElementById('clubModeView');
+        if (!container || container.style.display === 'none' || ClubState.viewPhase === 'match_sim') {
+            return;
+        }
+
+        const canvases = document.querySelectorAll('.member-mini-canvas');
+        if (!canvases || !canvases.length) return;
+
+        if (!clubAnimStartTime) clubAnimStartTime = timeNow || 0;
+        const totalElapsedSec = ((timeNow || 0) - clubAnimStartTime) / 1000;
+
+        const isExecuting = ClubState.isPracticeExecuting && ClubState.executingPracticeMotion;
+        const practiceElapsedSec = isExecuting
+            ? Math.max(0, ((timeNow || 0) - (ClubState.practiceExecutionStartTime || timeNow || 0)) / 1000)
+            : 0;
+
+        // 座禅・休養：1回のアニメーション（約2.0秒）が完了した瞬間にバッジも得意構え待機へ更新
+        if (isExecuting && (ClubState.executingPracticeMotion === 'zazen' || ClubState.executingPracticeMotion === 'rest')) {
+            if (practiceElapsedSec >= 2.0 && !ClubState.practiceCompleted1Cycle) {
+                ClubState.practiceCompleted1Cycle = true;
+                updateAllMemberMotionBadges();
+            }
+        }
+
+        canvases.forEach((canvas, index) => {
+            const memId = canvas.getAttribute('data-member-id');
+            const m = ClubState.members.find((item) => item.id === memId);
+            if (!m) return;
+
+            // 各部員のアクティブモーション（特別指導時は主将＆指名部員のみ攻撃、他は待機）
+            const memberMotion = getMemberActiveMotion(m, timeNow);
+
+            // 位相計算：
+            // 練習メニューをクリックしたときは、得意な構えを表示した状態 (t=0) からアニメーションを開始する
+            let memberPhase;
+            if (isExecuting && memberMotion) {
+                if (memberMotion.startsWith('attack_')) {
+                    // 各技1.5秒周期：前半 (0〜1.5s) は 0〜1.5s、後半 (1.5〜3.0s) も 0 から開始してダイナミックに打ち込む
+                    const subSec = practiceElapsedSec % 1.5;
+                    memberPhase = subSec * Math.PI * 2;
+                } else {
+                    memberPhase = practiceElapsedSec * Math.PI * 2;
+                }
+            } else {
+                // 待機中（得意構えでの呼吸・すり足待機）
+                memberPhase = totalElapsedSec * 3.5 + index * 0.85;
+            }
+
+            window.KendoGameEngine.renderMiniFighter(canvas, {
+                width: 91,
+                height: 100,
+                stance: m.favStance || 'chudan',
+                armorTheme: m.armorTheme,
+                practiceType: memberMotion,
+                practiceElapsedSec: practiceElapsedSec,
+                phase: memberPhase,
+            });
+        });
+    }
+
+    function startClubMiniCharaLoop() {
+        if (clubAnimationFrameId) return;
+        const loop = (timestamp) => {
+            renderMiniCharaFrame(timestamp);
+            clubAnimationFrameId = requestAnimationFrame(loop);
+        };
+        clubAnimationFrameId = requestAnimationFrame(loop);
+    }
+
+    function stopClubMiniCharaLoop() {
+        if (clubAnimationFrameId) {
+            cancelAnimationFrame(clubAnimationFrameId);
+            clubAnimationFrameId = null;
+        }
+    }
+
+    function drawAllMemberMiniCanvases() {
+        renderMiniCharaFrame(typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+    }
+
     function renderClubUI() {
         const container = document.getElementById('clubModeView');
         if (!container) return;
+
+        // 既存の部員一覧の横スクロール位置があれば退避保存
+        const existingGrid = container.querySelector('.club-members-grid');
+        if (existingGrid) {
+            ClubState.memberGridScrollLeft = existingGrid.scrollLeft;
+        }
 
         // 大会中（スコアボードまたは結果画面）は全体の背景（body）にも大会画像を反映
         const isTourney = (ClubState.viewPhase === 'match_sim' || ClubState.viewPhase === 'match_result') && ClubState.currentMatchData;
         updateGlobalTournamentBackground(isTourney ? ClubState.currentMatchData.type : null);
 
         if (!ClubState.isConfigured || ClubState.viewPhase === 'setup') {
+            stopClubMiniCharaLoop();
             renderSetupScreen(container);
         } else if (ClubState.viewPhase === 'captain_select') {
             renderCaptainSelectScreen(container);
+            startClubMiniCharaLoop();
         } else if (ClubState.viewPhase === 'order_edit') {
             renderOrderEditor(container);
+            startClubMiniCharaLoop();
         } else if (ClubState.viewPhase === 'history') {
+            stopClubMiniCharaLoop();
             renderHistoryScreen(container);
         } else if (ClubState.viewPhase === 'match_sim') {
+            stopClubMiniCharaLoop();
             renderMatchSimulator(container);
         } else if (ClubState.viewPhase === 'match_result') {
+            stopClubMiniCharaLoop();
             renderMatchResult(container);
         } else {
             renderDashboard(container);
+            startClubMiniCharaLoop();
         }
+
+        // ミニキャラCanvasを直ちに1フレーム描画
+        drawAllMemberMiniCanvases();
     }
 
     // 初期設定画面
@@ -1451,6 +2264,15 @@
                     <div class="member-stats-summary-row">
                         <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
                         <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
+                    </div>
+                    <div class="member-mini-chara-wrap">
+                        <div class="mini-chara-canvas-box">
+                            <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
+                        </div>
+                        <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
+                            <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
+                            <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
+                        </div>
                     </div>
                     <button type="button" class="btn-choose-captain">
                         👑 新主将に指名する
@@ -1575,30 +2397,46 @@
 
             return `
                 <div class="club-member-card ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
-                    <div class="member-header">
-                        <span class="member-pos-badge">${pos}</span>
-                        <span class="member-name">${escapeHtml(m.name)}</span>
-                        <span class="member-grade-badge">${m.grade}年</span>
-                        <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
-                    </div>
-                    ${m.isClubDual ? `
-                        <div class="member-dual-row">
-                            <span class="member-dual-badge" title="${escapeHtml(m.originalClub)}と掛け持ち（成長率50%）">${escapeHtml(m.originalClub)}（助っ人）</span>
+                    <div class="member-card-top">
+                        <div class="member-header">
+                            <span class="member-pos-badge">${pos}</span>
+                            <span class="member-name">${escapeHtml(m.name)}</span>
+                            <span class="member-grade-badge">${m.grade}年</span>
+                            <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
                         </div>
-                    ` : ''}
-                    <div class="member-desc">${escapeHtml(m.desc)}</div>
-                    <div class="member-radar-wrap">
-                        ${generateRadarChartSvg(m, 220, 200)}
+                        ${m.isClubDual ? `
+                            <div class="member-dual-row">
+                                <span class="member-dual-badge" title="${escapeHtml(m.originalClub)}と掛け持ちの助っ人部員">${escapeHtml(m.originalClub)}（助っ人）</span>
+                            </div>
+                        ` : ''}
+                        <div class="member-desc">${escapeHtml(m.desc)}</div>
                     </div>
-                    <div class="member-stats-summary-row">
-                        <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
-                        <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
-                        ${m.isClubDual ? '<span class="stat-summary-tag tag-dual">成長率: 50%</span>' : ''}
-                    </div>
-                    <div class="member-fatigue-row">
-                        <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
-                        <div class="fatigue-bar-wrap">
-                            <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
+                    <div class="member-card-bottom">
+                        <div class="member-radar-wrap">
+                            ${generateRadarChartSvg(m, 220, 200)}
+                        </div>
+                        <div class="member-stats-summary-row">
+                            <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                            <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
+                        </div>
+                        <div class="member-fatigue-row">
+                            <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
+                            <div class="fatigue-bar-wrap">
+                                <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
+                            </div>
+                        </div>
+                        <div class="member-mini-chara-wrap">
+                            <div class="mini-chara-motion-badge" data-member-id="${m.id}">
+                                <span class="motion-pulse-dot"></span>
+                                <span class="motion-name">${getMemberMotionBadgeText(m)}</span>
+                            </div>
+                            <div class="mini-chara-canvas-box">
+                                <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
+                            </div>
+                            <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
+                                <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
+                                <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1607,19 +2445,80 @@
 
         // 控え部員一覧
         const benchMembers = ClubState.members.filter((m) => !ClubState.order.includes(m.id));
-        const benchHtml = benchMembers.length ? `
-            <div class="bench-members-box">
-                <h4>👥 控え部員 (${benchMembers.length}名)</h4>
-                <div class="bench-list">
-                    ${benchMembers.map((m) => `<span class="bench-pill ${m.isClubDual ? 'dual-pill' : ''}">${m.name} (${m.grade}年${m.isClubDual ? '・' + m.originalClub : ''}・体${m.maxHealth}/腕${m.str}/敏${m.agi}/気${m.spi})</span>`).join('')}
+
+        // 控え部員カード（左側に表示）
+        const benchCardsHtml = benchMembers.map((m) => {
+            const cond = CONDITION_DATA[m.condition] || CONDITION_DATA.normal;
+            return `
+                <div class="club-member-card is-bench ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
+                    <div class="member-card-top">
+                        <div class="member-header">
+                            <span class="member-pos-badge bench">控え</span>
+                            <span class="member-name">${escapeHtml(m.name)}</span>
+                            <span class="member-grade-badge">${m.grade}年</span>
+                            <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
+                        </div>
+                        ${m.isClubDual ? `
+                            <div class="member-dual-row">
+                                <span class="member-dual-badge" title="${escapeHtml(m.originalClub)}と掛け持ちの助っ人部員">${escapeHtml(m.originalClub)}（助っ人）</span>
+                            </div>
+                        ` : ''}
+                        <div class="member-desc">${escapeHtml(m.desc)}</div>
+                    </div>
+                    <div class="member-card-bottom">
+                        <div class="member-radar-wrap">
+                            ${generateRadarChartSvg(m, 220, 200)}
+                        </div>
+                        <div class="member-stats-summary-row">
+                            <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                            <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
+                        </div>
+                        <div class="member-fatigue-row">
+                            <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
+                            <div class="fatigue-bar-wrap">
+                                <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
+                            </div>
+                        </div>
+                        <div class="member-mini-chara-wrap">
+                            <div class="mini-chara-motion-badge" data-member-id="${m.id}">
+                                <span class="motion-pulse-dot"></span>
+                                <span class="motion-name">${getMemberMotionBadgeText(m)}</span>
+                            </div>
+                            <div class="mini-chara-canvas-box">
+                                <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
+                            </div>
+                            <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
+                                <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
+                                <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const emptyBenchCardHtml = `
+            <div class="club-member-card is-bench empty-slot">
+                <div class="member-card-top">
+                    <div class="member-header">
+                        <span class="member-pos-badge bench">控え</span>
+                        <span class="member-name text-muted">控えなし</span>
+                    </div>
+                    <div class="member-desc text-muted">現在、控え部員はいません（全員がオーダー出場中）。</div>
+                </div>
+                <div class="empty-slot-body" style="padding: 24px 8px;">
+                    <span class="empty-icon">👥</span>
+                    <p>控え選手なし<br><span class="empty-sub">（全員がレギュラー）</span></p>
                 </div>
             </div>
-        ` : '';
+        `;
 
-        // 練習メニュー
+        // 練習メニュー（常に未選択表示。クリック時のみ3秒間アニメーションが実行されて未選択状態に戻る）
         const practiceButtonsHtml = PRACTICE_MENUS.map((menu) => {
             return `
-                <button type="button" class="btn-practice" onclick="window.KendoClub.onSelectPractice('${menu.id}')">
+                <button type="button" 
+                        class="btn-practice" 
+                        onclick="window.KendoClub.onSelectPractice('${menu.id}')">
                     <span class="p-icon">${menu.icon}</span>
                     <div class="p-info">
                         <strong class="p-name">${menu.name}</strong>
@@ -1646,22 +2545,24 @@
 
         container.innerHTML = `
             <div class="club-dashboard">
-                <div class="club-top-bar">
-                    <div class="club-title-group">
-                        <h2>🥋 ${ClubState.schoolName} 剣道部</h2>
-                        <span class="club-subtitle">${ClubState.prefecture}代表 / 主将：${captain ? captain.name : 'あなた'} (${captain ? captain.grade : 2}年)</span>
-                    </div>
-                    <div class="club-header-right">
-                        <div class="club-week-badge">
-                            <span class="week-num">${ClubState.year}年目 ${ClubState.month}月 ${ClubState.week}週</span>
+                <div class="club-sticky-header">
+                    <div class="club-top-bar">
+                        <div class="club-title-group">
+                            <h2>🥋 ${ClubState.schoolName} 剣道部</h2>
+                            <span class="club-subtitle">${ClubState.prefecture}代表 / 主将：${captain ? captain.name : 'あなた'} (${captain ? captain.grade : 2}年)</span>
                         </div>
-                        <button type="button" class="btn-view-history" onclick="window.KendoClub.openHistoryScreen()">
-                            🏆 歴代戦績
-                        </button>
+                        <div class="club-header-right">
+                            <div class="club-week-badge">
+                                <span class="week-num">${ClubState.year}年目 ${ClubState.month}月 ${ClubState.week}週</span>
+                            </div>
+                            <button type="button" class="btn-view-history" onclick="window.KendoClub.openHistoryScreen()">
+                                🏆 歴代戦績
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                ${bannerHtml}
+                    ${bannerHtml}
+                </div>
 
                 ${isShortage ? `
                     <div class="shortage-notice-banner">
@@ -1677,17 +2578,28 @@
                 ` : ''}
 
                 <div class="section-title-wrap">
-                    <h3>👥 出場オーダー（先鋒・次鋒・中堅・副将・大将）</h3>
+                    <div class="section-title-left">
+                        <h3>👥 出場オーダー ＆ 控え部員</h3>
+                        <span class="scroll-hint-pill">👈 横スクロールで全選手を表示 👉</span>
+                        <div class="order-scroll-controls">
+                            <button type="button" class="btn-scroll-nav" onclick="window.KendoClub.scrollOrderList(-280)" title="左へスクロール">◀</button>
+                            <button type="button" class="btn-scroll-nav" onclick="window.KendoClub.scrollOrderList(280)" title="右へスクロール">▶</button>
+                        </div>
+                    </div>
                     <button type="button" class="btn-edit-order" onclick="window.KendoClub.openOrderEditor()">
                         🔄 オーダー編成を変更する
                     </button>
                 </div>
 
                 <div class="club-members-grid">
+                    ${benchMembers.length ? benchCardsHtml : emptyBenchCardHtml}
+                    <div class="order-scroll-divider" title="ここから出場オーダー（先鋒〜大将）">
+                        <span class="divider-line"></span>
+                        <span class="divider-text">出場オーダー ➔</span>
+                        <span class="divider-line"></span>
+                    </div>
                     ${memberCardsHtml}
                 </div>
-
-                ${benchHtml}
 
                 <div class="training-section-wrap">
                     <h3>🎋 今週の練習メニューを選択（1週進行）</h3>
@@ -1700,12 +2612,14 @@
                             <span class="special-icon">🤝</span>
                             <strong>主将によるマンツーマン特別指導</strong>
                         </div>
-                        <p class="special-desc">あなたが直接仲間を指名して重点指導。対象部員の全能力と技が大幅に伸びます（掛け持ち部員は成長率が控えめになります）。</p>
+                        <p class="special-desc">あなたが直接仲間を指名して重点指導。対象部員の全能力と技が大幅に伸びます。</p>
                         <div class="special-actions">
                             <select id="selSpecialTarget" class="sel-target-member" onchange="window.KendoClub.onChangeSpecialTarget(this.value)">
                                 ${teammateOptions || '<option value="">指導対象の部員がいません</option>'}
                             </select>
-                            <button type="button" class="btn-special-practice" onclick="window.KendoClub.onSpecialPractice()">
+                            <button type="button" 
+                                    class="btn-special-practice" 
+                                    onclick="window.KendoClub.onSpecialPractice()">
                                 🥋 指名して特訓開始！
                             </button>
                         </div>
@@ -1725,13 +2639,64 @@
                 </div>
             </div>
         `;
+
+        // 部員一覧グリッドのスクロール位置を同期的に復元し、スクロールリスナーを登録
+        const memberGrid = container.querySelector('.club-members-grid');
+        if (memberGrid) {
+            // ゲーム開始時または初期値(-1)の場合は右端（大将が見える位置）を初期値にする
+            if (ClubState.memberGridScrollLeft === null || ClubState.memberGridScrollLeft === undefined || ClubState.memberGridScrollLeft < 0) {
+                memberGrid.scrollLeft = memberGrid.scrollWidth;
+                ClubState.memberGridScrollLeft = memberGrid.scrollLeft;
+            } else {
+                memberGrid.scrollLeft = ClubState.memberGridScrollLeft;
+            }
+
+            memberGrid.addEventListener('scroll', () => {
+                ClubState.memberGridScrollLeft = memberGrid.scrollLeft;
+            }, { passive: true });
+        }
     }
 
     // オーダー編成画面
     function renderOrderEditor(container) {
-        const orderHtml = POS_NAMES.map((pos, idx) => {
+        const currentOrderIds = ClubState.order.filter(Boolean);
+        const benchMembers = ClubState.members.filter((m) => !currentOrderIds.includes(m.id));
+
+        // 大将を一番上にする表示順 (大将: 4 -> 副将: 3 -> 中堅: 2 -> 次鋒: 1 -> 先鋒: 0)
+        const orderDisplayIndices = [4, 3, 2, 1, 0];
+
+        const orderHtml = orderDisplayIndices.map((idx) => {
+            const pos = POS_NAMES[idx];
             const memberId = ClubState.order[idx];
             const m = memberId ? ClubState.members.find((item) => item.id === memberId) : null;
+
+            // 選手選択メニュー（現在のオーダー選手＋控え部員から選べる）
+            let selectOptionsHtml = '';
+            if (!m) {
+                selectOptionsHtml += `<option value="" selected disabled>-- 選手を選択して配置 --</option>`;
+            }
+            selectOptionsHtml += `<optgroup label="── 現在のオーダー ──">`;
+            orderDisplayIndices.forEach((pIdx) => {
+                const pName = POS_NAMES[pIdx];
+                const oId = ClubState.order[pIdx];
+                const oMem = oId ? ClubState.members.find((item) => item.id === oId) : null;
+                if (oMem) {
+                    const isSelected = m && m.id === oMem.id;
+                    selectOptionsHtml += `<option value="${oMem.id}" ${isSelected ? 'selected' : ''}>${pName}: ${escapeHtml(oMem.name)} (${oMem.grade}年${oMem.isPlayer ? '・主将' : ''})</option>`;
+                }
+            });
+            selectOptionsHtml += `</optgroup>`;
+
+            if (benchMembers.length > 0) {
+                selectOptionsHtml += `<optgroup label="── 控え部員から交代 ──">`;
+                benchMembers.forEach((bMem) => {
+                    const isSelected = m && m.id === bMem.id;
+                    const dualStr = bMem.isClubDual ? `・${bMem.originalClub}助っ人` : '';
+                    selectOptionsHtml += `<option value="${bMem.id}" ${isSelected ? 'selected' : ''}>控え: ${escapeHtml(bMem.name)} (${bMem.grade}年${dualStr})</option>`;
+                });
+                selectOptionsHtml += `</optgroup>`;
+            }
+
             if (!m) {
                 return `
                     <div class="order-slot-card empty-order-slot">
@@ -1739,6 +2704,14 @@
                         <div class="order-member-info">
                             <strong class="text-muted">【欠員】選手不足</strong>
                             <span class="order-role-sub text-danger">※大会出場には選手が必要です</span>
+                            ${benchMembers.length > 0 ? `
+                                <div class="slot-select-wrap">
+                                    <label class="slot-select-label">控えから選手を配置:</label>
+                                    <select class="order-slot-select" onchange="window.KendoClub.setSlotMember(${idx}, this.value)">
+                                        ${selectOptionsHtml}
+                                    </select>
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="order-empty-action">
                             <button type="button" class="btn-slot-recruit" onclick="window.KendoClub.recruitDualClubMember()">
@@ -1749,39 +2722,109 @@
                 `;
             }
 
-            const typeLabel = m.isClubDual ? `${m.originalClub}助っ人` : (m.archetypeName || '一般剣士');
-
             return `
-                <div class="order-slot-card ${m.isClubDual ? 'is-dual-slot' : ''}">
+                <div class="order-slot-card ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-slot' : ''}">
                     <span class="order-pos-name">${pos}</span>
                     <div class="order-member-info">
-                        <strong>${escapeHtml(m.name)} ${m.isPlayer ? '(主将・あなた)' : ''}</strong>
-                        <div class="order-role-sub">
-                            <span>${m.grade}年生</span>
-                            ${m.isClubDual ? `<span class="member-dual-badge">${escapeHtml(m.originalClub)}（助っ人）</span>` : `<span>【${m.archetypeName || '一般剣士'}】</span>`}
-                            <span>構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                        <div class="order-name-row">
+                            <strong>${escapeHtml(m.name)} ${m.isPlayer ? '(主将・あなた)' : ''}</strong>
+                            <div class="order-role-sub">
+                                <span>${m.grade}年生</span>
+                                ${m.isClubDual ? `<span class="member-dual-badge">${escapeHtml(m.originalClub)}（助っ人）</span>` : `<span>【${m.archetypeName || '一般剣士'}】</span>`}
+                                <span>構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                            </div>
+                        </div>
+                        <div class="slot-select-wrap">
+                            <label class="slot-select-label">選手を変更:</label>
+                            <select class="order-slot-select" onchange="window.KendoClub.setSlotMember(${idx}, this.value)">
+                                ${selectOptionsHtml}
+                            </select>
                         </div>
                     </div>
                     <div class="order-radar-wrap">
                         ${generateRadarChartSvg(m, 180, 164)}
                     </div>
+                    <div class="order-mini-chara-wrap">
+                        <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
+                        <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
+                            <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
+                            <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
+                        </div>
+                    </div>
                     <div class="order-swap-btns">
-                        <button type="button" class="btn-swap" ${idx === 0 ? 'disabled' : ''} onclick="window.KendoClub.swapOrder(${idx}, ${idx - 1})">⬆️</button>
-                        <button type="button" class="btn-swap" ${idx === 4 ? 'disabled' : ''} onclick="window.KendoClub.swapOrder(${idx}, ${idx + 1})">⬇️</button>
+                        <button type="button" class="btn-swap" ${idx === 4 ? 'disabled' : ''} onclick="window.KendoClub.swapOrder(${idx}, ${idx + 1})" title="上のポジションと入れ替え">⬆️</button>
+                        <button type="button" class="btn-swap" ${idx === 0 ? 'disabled' : ''} onclick="window.KendoClub.swapOrder(${idx}, ${idx - 1})" title="下のポジションと入れ替え">⬇️</button>
                     </div>
                 </div>
             `;
         }).join('');
 
+        const benchCardsHtml = benchMembers.length ? benchMembers.map((b) => {
+            return `
+                <div class="order-bench-card ${b.isPlayer ? 'is-player' : ''} ${b.isClubDual ? 'is-dual-slot' : ''}">
+                    <div class="bench-card-left">
+                        <span class="order-pos-name bench">控え</span>
+                        <div class="bench-member-info">
+                            <strong>${escapeHtml(b.name)} ${b.isPlayer ? '(主将・あなた)' : ''}</strong>
+                            <div class="order-role-sub">
+                                <span>${b.grade}年生</span>
+                                ${b.isClubDual ? `<span class="member-dual-badge">${escapeHtml(b.originalClub)}（助っ人）</span>` : `<span>【${b.archetypeName || '一般剣士'}】</span>`}
+                                <span>構え: ${b.favStance === 'jodan' ? '上段' : b.favStance === 'waki' ? '脇' : '中段'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="order-radar-wrap">
+                        ${generateRadarChartSvg(b, 160, 146)}
+                    </div>
+                    <div class="order-mini-chara-wrap">
+                        <canvas class="member-mini-canvas" data-member-id="${b.id}" width="91" height="100"></canvas>
+                        <div class="mini-chara-badge" style="background: ${(b.armorTheme && b.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(b.armorTheme && b.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
+                            <span class="mini-armor-dot" style="background: ${(b.armorTheme && b.armorTheme.dotColor) || '#64748b'};"></span>
+                            <span class="mini-armor-name">胴: ${escapeHtml((b.armorTheme && b.armorTheme.themeName) || '黒漆塗')}</span>
+                        </div>
+                    </div>
+                    <div class="bench-assign-actions">
+                        <span class="assign-label">オーダー配置:</span>
+                        <div class="assign-btn-group">
+                            <button type="button" class="btn-assign-slot" onclick="window.KendoClub.setSlotMember(4, '${b.id}')">大将</button>
+                            <button type="button" class="btn-assign-slot" onclick="window.KendoClub.setSlotMember(3, '${b.id}')">副将</button>
+                            <button type="button" class="btn-assign-slot" onclick="window.KendoClub.setSlotMember(2, '${b.id}')">中堅</button>
+                            <button type="button" class="btn-assign-slot" onclick="window.KendoClub.setSlotMember(1, '${b.id}')">次鋒</button>
+                            <button type="button" class="btn-assign-slot" onclick="window.KendoClub.setSlotMember(0, '${b.id}')">先鋒</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('') : `
+            <div class="no-bench-notice">
+                <p>現在、控え部員はいません。部員が増えるとここに表示され、オーダーと交代できます。</p>
+            </div>
+        `;
+
         container.innerHTML = `
             <div class="order-editor-view">
                 <div class="order-editor-header">
-                    <h3>🔄 オーダー編成（打順の変更）</h3>
-                    <p>矢印ボタンで先鋒〜大将の配置を入れ替えることができます。</p>
+                    <h3>🔄 オーダー編成（打順の変更・控え部員の起用）</h3>
+                    <p>矢印ボタンで順序の入れ替え、または選択メニューや控え一覧からポジションへ選手を配置・交代できます。</p>
+                </div>
+
+                <div class="order-section-title">
+                    <h4>⚔️ 出場オーダー（先鋒〜大将）</h4>
                 </div>
                 <div class="order-list-wrap">
                     ${orderHtml}
                 </div>
+
+                <div class="order-bench-section">
+                    <div class="order-bench-header">
+                        <h4>👥 控え部員 (${benchMembers.length}名)</h4>
+                        <p>ボタンを押すと、そのポジションの選手と入れ替わってオーダーに入ります。</p>
+                    </div>
+                    <div class="order-bench-grid">
+                        ${benchCardsHtml}
+                    </div>
+                </div>
+
                 <div class="order-actions">
                     <button type="button" class="btn-order-done" onclick="window.KendoClub.closeOrderEditor()">
                         ✅ オーダー決定（ダッシュボードへ戻る）
@@ -2202,6 +3245,7 @@
             ClubState.members = initTeam.members;
             ClubState.order = initTeam.order;
             ClubState.activityLog = [`${ClubState.schoolName}剣道部（${ClubState.prefecture}）創立！2年生主将【${cName}】を中心に全国制覇へ始動！`];
+            ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
             ClubState.viewPhase = 'dashboard';
 
             saveClubData();
@@ -2216,13 +3260,43 @@
             if (newCap) {
                 ClubState.activityLog.unshift(`👑 新主将に【${newCap.name}】が就任！新チームの主将として部を牽引します！`);
             }
+            // 新主将を大将に配置
+            assignCaptainToTaisho(memberId);
             ClubState.viewPhase = 'dashboard';
             saveClubData();
             renderClubUI();
         },
 
-        onSelectPractice: function (menuId) {
-            executePractice(menuId);
+        previewPracticeMotion: function (_menuId) {
+            // マウスオーバーでのアニメーション切り替えは行わず、メニュークリック後に実行する
+        },
+
+        getActivePracticeMotion: function () {
+            return getActivePracticeMotion();
+        },
+
+        getMemberActiveMotion: function (member, timeNow) {
+            return getMemberActiveMotion(member, timeNow);
+        },
+
+        getMemberMotionBadgeText: function (member) {
+            return getMemberMotionBadgeText(member);
+        },
+
+        startClubMiniCharaLoop: function () {
+            startClubMiniCharaLoop();
+        },
+
+        stopClubMiniCharaLoop: function () {
+            stopClubMiniCharaLoop();
+        },
+
+        executePracticeImmediate: function (menuId, targetMemberId = null) {
+            executePractice(menuId, targetMemberId, true);
+        },
+
+        onSelectPractice: function (menuId, instant = false) {
+            executePractice(menuId, null, instant);
         },
 
         onChangeSpecialTarget: function (targetId) {
@@ -2234,12 +3308,12 @@
             saveClubData();
         },
 
-        onSpecialPractice: function () {
+        onSpecialPractice: function (instant = false) {
             const sel = document.getElementById('selSpecialTarget');
             const targetId = (sel && sel.value) ? sel.value : ClubState.selectedSpecialTargetId;
             if (targetId) {
                 ClubState.selectedSpecialTargetId = targetId;
-                executePractice('special', targetId);
+                executePractice('special', targetId, instant);
             }
         },
 
@@ -2251,9 +3325,25 @@
             const recruit = createDualClubMember();
             ClubState.members.push(recruit);
             sanitizeOrder();
-            ClubState.activityLog.unshift(`🤝【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】部員不足を補うため、${recruit.originalClub}から【${recruit.name}】を掛け持ちの助っ人として勧誘・入部させました！（成長率は通常より控えめ）`);
+            ClubState.activityLog.unshift(`🤝【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】部員不足を補うため、${recruit.originalClub}から【${recruit.name}】を掛け持ちの助っ人として勧誘・入部させました！（初期配置：控え）`);
             saveClubData();
             renderClubUI();
+        },
+
+        executeNewSchoolYear: function () {
+            executeNewSchoolYear();
+        },
+
+        getFreshmenRecruitRange: function (districtRank, nationalRank) {
+            return getFreshmenRecruitRange(districtRank, nationalRank);
+        },
+
+        renderClubUI: function () {
+            renderClubUI();
+        },
+
+        saveClubData: function () {
+            saveClubData();
         },
 
         openOrderEditor: function () {
@@ -2274,6 +3364,43 @@
             ClubState.order[idxB] = tmp;
             saveClubData();
             renderClubUI();
+        },
+
+        setSlotMember: function (slotIdx, newMemberId) {
+            if (slotIdx < 0 || slotIdx >= 5 || !newMemberId) return;
+
+            while (ClubState.order.length < 5) {
+                ClubState.order.push(null);
+            }
+
+            const oldMemberId = ClubState.order[slotIdx];
+            if (oldMemberId === newMemberId) return;
+
+            const existingSlotIdx = ClubState.order.indexOf(newMemberId);
+            if (existingSlotIdx !== -1) {
+                // スロット同士の入れ替え
+                ClubState.order[existingSlotIdx] = oldMemberId || null;
+                ClubState.order[slotIdx] = newMemberId;
+            } else {
+                // 控えからの配置（元いた選手は自動的に控えへ移行）
+                ClubState.order[slotIdx] = newMemberId;
+            }
+
+            saveClubData();
+            renderClubUI();
+        },
+
+        scrollOrderList: function (delta) {
+            const el = document.querySelector('.club-members-grid');
+            if (el) {
+                el.scrollBy({ left: delta, behavior: 'smooth' });
+                const maxS = Math.max(0, el.scrollWidth - el.clientWidth);
+                const target = Math.max(0, Math.min(maxS, el.scrollLeft + delta));
+                ClubState.memberGridScrollLeft = target;
+                setTimeout(() => {
+                    if (el) ClubState.memberGridScrollLeft = el.scrollLeft;
+                }, 350);
+            }
         },
 
         openHistoryScreen: function () {
@@ -2477,18 +3604,53 @@
                     },
                     onMatchEnd: function (result) {
                         curBout.played = true;
+                        const techFullNames = { 'メ': '面', 'コ': '小手', 'ド': '胴', 'ツ': '突き', '反': '反則' };
+
                         if (result.winner === 'player') {
                             curBout.winner = 'my';
-                            curBout.myScore = ['メ', 'コ'];
+                            const winKana = (result.myScore && result.myScore.length > 0)
+                                ? result.myScore[result.myScore.length - 1]
+                                : (result.winningKana || 'メ');
+                            curBout.myScore = [winKana];
+                            curBout.enemyScore = [];
+                            const moveName = techFullNames[winKana] || result.winningMove || '面';
                             curBout.log.push(isSpectating
-                                ? `【観戦】${playerMember.name}が鮮やかな二本勝ちを収めました！`
-                                : `【主将実戦】あなたが鮮やかな二本勝ちを収め、チームを鼓舞しました！`);
-                        } else {
+                                ? `【観戦】${playerMember.name}が勝負を決める鮮やかな【${moveName}】を放ち、見事に勝利を収めました！`
+                                : `【主将実戦】あなたが勝負を決める鮮やかな【${moveName}】を一閃！チームを勝利へ導きました！`);
+                        } else if (result.winner === 'enemy') {
                             curBout.winner = 'enemy';
-                            curBout.enemyScore = ['メ'];
+                            const winKana = (result.enemyScore && result.enemyScore.length > 0)
+                                ? result.enemyScore[result.enemyScore.length - 1]
+                                : (result.winningKana || 'メ');
+                            curBout.myScore = [];
+                            curBout.enemyScore = [winKana];
+                            const moveName = techFullNames[winKana] || result.winningMove || '面';
                             curBout.log.push(isSpectating
-                                ? `【観戦】${playerMember.name}は相手の鋭い打突に屈し惜敗…`
-                                : `【主将実戦】相手の鋭い打突に惜敗…！`);
+                                ? `【観戦】${playerMember.name}は相手の勝負を決める鋭い【${moveName}】に屈し惜敗…`
+                                : `【主将実戦】相手の勝負を決める鋭い【${moveName}】に屈し惜敗…！`);
+                        } else {
+                            curBout.winner = 'draw';
+                            curBout.myScore = [];
+                            curBout.enemyScore = [];
+                            curBout.log.push(isSpectating
+                                ? `【観戦】互いに譲らぬ攻防の末、決定打なく引き分け！`
+                                : `【主将実戦】互いに譲らぬ攻防の末、決定打なく引き分け！`);
+                        }
+
+                        // 試合結果に基づくパラメータ成長＆疲労度蓄積
+                        const stats = result.boutStats || {
+                            hits: result.winner === 'player' ? 1 : 0,
+                            blocks: 0,
+                            rounds: result.rounds || 3,
+                            winningMove: result.winner === 'player' ? (result.winningMove || '面') : null,
+                            pushWins: 0,
+                        };
+                        if (result.winner === 'player' && !stats.winningMove && result.winningMove) {
+                            stats.winningMove = result.winningMove;
+                        }
+                        const growth = applyBoutGrowth(playerMember, stats);
+                        if (growth) {
+                            curBout.log.push(growth.summary);
                         }
 
                         boutsData.currentBoutIndex++;
@@ -2602,6 +3764,18 @@
                 renderClubUI();
                 updateModeCardUI();
             }
+        },
+
+        getClubState: function () {
+            return ClubState;
+        },
+
+        simulateAIBout: function (bout) {
+            return simulateAIBout(bout);
+        },
+
+        applyBoutGrowth: function (member, stats) {
+            return applyBoutGrowth(member, stats);
         },
     };
 

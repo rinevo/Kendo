@@ -190,6 +190,31 @@ const ENEMY_ROSTER = [
     },
 ];
 
+const MOVE_TO_KANA = {
+    '面': 'メ',
+    '小手': 'コ',
+    '胴': 'ド',
+    '突き': 'ツ',
+};
+
+function convertToKana(action, moveName) {
+    const text = (action || '') + ' ' + (moveName || '');
+    if (text.includes('小手')) return 'コ';
+    if (text.includes('胴')) return 'ド';
+    if (text.includes('突き') || text.includes('突')) return 'ツ';
+    if (text.includes('面')) return 'メ';
+    return 'メ';
+}
+
+function getBaseMoveName(action, moveName) {
+    const text = (action || '') + ' ' + (moveName || '');
+    if (text.includes('小手')) return '小手';
+    if (text.includes('胴')) return '胴';
+    if (text.includes('突き') || text.includes('突')) return '突き';
+    if (text.includes('面')) return '面';
+    return '面';
+}
+
 const state = {
     stageIndex: 0,
     enemyMaxHealth: ENEMY_ROSTER[0].maxHealth,
@@ -215,7 +240,30 @@ const state = {
     animResetTimer: null,
     ceremonyTimers: [],
     customMatch: null,
+    scoringMoves: { player: [], enemy: [] },
+    lastWinningMove: null,
+    finalWinningMove: null,
+    finalWinningKana: null,
+    boutStats: {
+        playerHits: 0,
+        playerBlocks: 0,
+        enemyHits: 0,
+        enemyBlocks: 0,
+        rounds: 0,
+        pushWins: 0,
+    },
 };
+
+function resetBoutStats() {
+    state.boutStats = {
+        playerHits: 0,
+        playerBlocks: 0,
+        enemyHits: 0,
+        enemyBlocks: 0,
+        rounds: 0,
+        pushWins: 0,
+    };
+}
 
 function getPlayerMaxHealth() {
     if (state.customMatch && state.customMatch.active && state.customMatch.player && state.customMatch.player.maxHealth) {
@@ -721,6 +769,243 @@ function getContinuousStancePose(stanceType, phase) {
         swingBlur: 0,
         hitDebris: 0,
     };
+}
+
+// ───────────────────────────────────────────
+// 稽古メニュー別アニメーションポーズ生成
+// ───────────────────────────────────────────
+function samplePoseFrames(frames, progress) {
+    if (!frames || frames.length === 0) return createDefaultPose();
+    if (frames.length === 1) return { ...frames[0] };
+    const p = ((progress % 1) + 1) % 1;
+    const scaled = p * (frames.length - 1);
+    const idx0 = Math.floor(scaled);
+    const idx1 = Math.min(frames.length - 1, idx0 + 1);
+    const t = scaled - idx0;
+    return interpolatePose(frames[idx0], frames[idx1], t);
+}
+
+// 得意技に応じた攻撃アニメーションポーズ（面・小手・胴・突き）
+function getAttackPose(attackType, phase, baseStance = 'chudan') {
+    const atk = attackType || 'men';
+    const cycleDuration = 1.35; // 約1.35秒周期
+    const t = ((phase / (Math.PI * 2) / cycleDuration) % 1 + 1) % 1;
+    const base = getContinuousStancePose(baseStance, 0);
+
+    let frames;
+    if (atk === 'kote') {
+        frames = [
+            base,
+            POSE_ROWS.kote[1],
+            POSE_ROWS.kote[2],
+            POSE_ROWS.kote[4],
+            POSE_ROWS.kote[5],
+            POSE_ROWS.kote[6],
+            POSE_ROWS.kote[7],
+            base
+        ];
+    } else if (atk === 'do') {
+        frames = [
+            base,
+            POSE_ROWS.do[1],
+            POSE_ROWS.do[2],
+            POSE_ROWS.do[3],
+            POSE_ROWS.do[4],
+            base
+        ];
+    } else if (atk === 'tsuki') {
+        frames = [
+            base,
+            POSE_ROWS.tsuki[1],
+            POSE_ROWS.tsuki[2],
+            POSE_ROWS.tsuki[3],
+            POSE_ROWS.tsuki[4],
+            base
+        ];
+    } else {
+        // デフォルト: 面 (men)
+        frames = [
+            base,
+            POSE_ROWS.men[1],
+            POSE_ROWS.men[3],
+            POSE_ROWS.men[4],
+            POSE_ROWS.men[5],
+            POSE_ROWS.men[6],
+            POSE_ROWS.men[7],
+            base
+        ];
+    }
+    return samplePoseFrames(frames, t);
+}
+
+function getPracticePose(practiceType, phase, baseStance = 'chudan') {
+    if (!practiceType) {
+        return getContinuousStancePose(baseStance, phase);
+    }
+
+    // 休養後の納刀待機状態
+    if (practiceType === 'idle_rest' || practiceType === 'sageto_idle') {
+        return getContinuousStancePose('sageto', phase);
+    }
+
+    // 攻撃アニメーション（マンツーマン特別指導時：面・小手・胴・突き）
+    if (practiceType.startsWith('attack_')) {
+        const atk = practiceType.replace('attack_', '');
+        return getAttackPose(atk, phase, baseStance);
+    }
+    if (practiceType === 'men' || practiceType === 'kote' || practiceType === 'do' || practiceType === 'tsuki') {
+        return getAttackPose(practiceType, phase, baseStance);
+    }
+
+    // 1. 素振り・基本打ち込み (suburi)
+    if (practiceType === 'suburi') {
+        const cycleDuration = 1.35; // 約1.35秒周期
+        const t = ((phase / (Math.PI * 2) / cycleDuration) % 1 + 1) % 1;
+        const base = getContinuousStancePose(baseStance, 0);
+        // 構え(0.0) -> 振りかぶり(0.35) -> 振り下ろし面打突(0.6) -> 残心(0.8) -> 構え復帰(1.0)
+        const frames = [
+            base,
+            POSE_ROWS.men[1],
+            POSE_ROWS.men[3],
+            POSE_ROWS.men[4],
+            POSE_ROWS.men[5],
+            POSE_ROWS.men[6],
+            POSE_ROWS.men[7],
+            base
+        ];
+        return samplePoseFrames(frames, t);
+    }
+
+    // 2. 追い込み・掛かり稽古 (kakari)
+    if (practiceType === 'kakari') {
+        const cycleDuration = 1.0; // 高速連続打ちコンボ
+        const t = ((phase / (Math.PI * 2) / cycleDuration) % 1 + 1) % 1;
+        const base = getContinuousStancePose(baseStance, 0);
+        const frames = [
+            base,
+            POSE_ROWS.men[2],
+            POSE_ROWS.men[4],
+            POSE_ROWS.men[6],
+            POSE_ROWS.kote[2],
+            POSE_ROWS.kote[4],
+            POSE_ROWS.kote[6],
+            POSE_ROWS.do[2],
+            POSE_ROWS.do[4],
+            getContinuousStancePose('tsubazeriai', phase),
+            base
+        ];
+        return samplePoseFrames(frames, t);
+    }
+
+    // 3. すり足・基礎体力 (basics)
+    if (practiceType === 'basics') {
+        const s = Math.sin(phase * 2.2);
+        const c = Math.cos(phase * 2.2);
+        const bounce = Math.abs(Math.sin(phase * 2.2)) * 3;
+        const base = getContinuousStancePose(baseStance, phase);
+        const stepX = s * 9;
+        return {
+            ...base,
+            hipX: base.hipX + stepX,
+            hipY: base.hipY - bounce,
+            frontFootX: base.frontFootX + stepX + (s > 0 ? 3 : 0),
+            backFootX: base.backFootX + stepX - (s < 0 ? 3 : 0),
+            gripX: base.gripX + stepX,
+            gripY: base.gripY - bounce * 0.7,
+            breath: 0.6 + 0.4 * s,
+            hakamaSway: base.hakamaSway + c * 5,
+            tareSway: base.tareSway + c * 2,
+        };
+    }
+
+    // 4. 座禅・見取り稽古 (zazen) ➔ 1回だけ蹲踞（そんきょ）アニメーションし、その後は得意な構えを表示
+    if (practiceType === 'zazen' || practiceType === 'sonkyo') {
+        const animDuration = 2.0; // 1回のアニメーション時間（約2.0秒）
+        const elapsedSec = Math.max(0, phase / (Math.PI * 2));
+        // 1回のアニメーションが完了した後は、得意な構え（呼吸アニメーション）を表示
+        if (elapsedSec >= animDuration) {
+            return getContinuousStancePose(baseStance, phase);
+        }
+        const t = Math.min(1.0, Math.max(0, elapsedSec / animDuration));
+        const base = getContinuousStancePose(baseStance, 0);
+        const sonkyoDeep = {
+            ...CEREMONY_POSES.sonkyo_kamae,
+            hipY: CEREMONY_POSES.sonkyo_kamae.hipY + 2.0,
+            breath: 0.7,
+            headPitch: 0.0,
+        };
+        const sonkyoStable = {
+            ...CEREMONY_POSES.sonkyo_kamae,
+            breath: 0.35,
+            headPitch: 0.0,
+        };
+        // 構え(0.0) -> 蹲踞腰落とし -> 深呼吸 -> 立ち上がり -> 得意な構え復帰(1.0)
+        const frames = [
+            base,
+            CEREMONY_POSES.sonkyo_kamae,
+            sonkyoDeep,
+            sonkyoStable,
+            CEREMONY_POSES.sonkyo_kamae,
+            base
+        ];
+        return samplePoseFrames(frames, t);
+    }
+
+    // 5. 休養・道具手入れ (rest) ➔ 1回だけ納刀アニメーションし、その後は得意な構えを表示
+    if (practiceType === 'rest' || practiceType === 'osameto') {
+        const animDuration = 2.0; // 1回のアニメーション時間（約2.0秒）
+        const elapsedSec = Math.max(0, phase / (Math.PI * 2));
+        // 1回のアニメーションが完了した後は、得意な構え（呼吸アニメーション）を表示
+        if (elapsedSec >= animDuration) {
+            return getContinuousStancePose(baseStance, phase);
+        }
+        const t = Math.min(1.0, Math.max(0, elapsedSec / animDuration));
+        const base = getContinuousStancePose(baseStance, 0);
+        // 構えから左腰へ竹刀を引き寄せる納刀移行ポーズ
+        const drawIn = {
+            ...base,
+            gripX: 150,
+            gripY: 250,
+            shinaiAngle: -35,
+            torsoLean: 0.02,
+            oneHanded: 0,
+        };
+        // 左腰に竹刀を収めた納刀ポーズ
+        const osametoPose = {
+            ...CEREMONY_POSES.sageto,
+            hipX: base.hipX,
+            breath: 0.5,
+            shinaiAngle: -152,
+            oneHanded: 1,
+        };
+        // 納刀したまま静かに息を整える休養ポーズ
+        const restBreath = {
+            ...CEREMONY_POSES.sageto,
+            hipX: base.hipX,
+            hipY: CEREMONY_POSES.sageto.hipY + 1.2,
+            breath: 0.25,
+            shinaiAngle: -150,
+            oneHanded: 1,
+        };
+        // 構え(0.0) -> 引き寄せ -> 納刀 -> 息を整える -> 抜刀・引き寄せ -> 得意な構え復帰(1.0)
+        const frames = [
+            base,
+            drawIn,
+            osametoPose,
+            restBreath,
+            drawIn,
+            base
+        ];
+        return samplePoseFrames(frames, t);
+    }
+
+    // 6. 特別指導 (special - フォールバック)
+    if (practiceType === 'special') {
+        return getAttackPose('men', phase, baseStance);
+    }
+
+    // 通常時（得意構えでの待機）
+    return getContinuousStancePose(baseStance, phase);
 }
 
 // 2ボーン逆運動学（IK）ソルバー（肩→肘→手首・小手を連続計算）
@@ -3710,11 +3995,53 @@ function hideRefereeCallout() {
     }
 }
 
-function gainKiai(who, amount) {
+function getFighterStats(who) {
     if (who === 'player') {
-        state.playerKiai = Math.min(MAX_KIAI, state.playerKiai + amount);
+        if (state.customMatch && state.customMatch.player) {
+            const p = state.customMatch.player;
+            return {
+                str: p.str || 10,
+                agi: p.agi || 10,
+                spi: p.spi || 10,
+                skills: p.skills || { men: 8, kote: 8, do: 8, tsuki: 6 },
+            };
+        }
+        return { str: 12, agi: 12, spi: 12, skills: { men: 10, kote: 10, do: 10, tsuki: 8 } };
     } else {
-        state.enemyKiai = Math.min(MAX_KIAI, state.enemyKiai + amount);
+        if (state.customMatch && state.customMatch.enemy) {
+            const e = state.customMatch.enemy;
+            return {
+                str: e.str || 10,
+                agi: e.agi || 10,
+                spi: e.spi || 10,
+                skills: e.skills || { men: 8, kote: 8, do: 8, tsuki: 6 },
+            };
+        }
+        const enemyData = getCurrentEnemy();
+        return {
+            str: enemyData.str || 10,
+            agi: enemyData.agi || 10,
+            spi: enemyData.spi || 10,
+            skills: enemyData.skills || { men: 8, kote: 8, do: 8, tsuki: 6 },
+        };
+    }
+}
+
+function gainKiai(who, amount) {
+    let finalAmount = amount;
+    if (who === 'player') {
+        const pStats = getFighterStats('player');
+        // 気魄(spi)が高いと追加気合ボーナス（spi >= 14で確率）
+        if (amount > 0 && pStats.spi >= 14 && Math.random() < (pStats.spi - 10) * 0.05) {
+            finalAmount += 1;
+        }
+        state.playerKiai = Math.min(MAX_KIAI, state.playerKiai + finalAmount);
+    } else {
+        const eStats = getFighterStats('enemy');
+        if (amount > 0 && eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.05) {
+            finalAmount += 1;
+        }
+        state.enemyKiai = Math.min(MAX_KIAI, state.enemyKiai + finalAmount);
     }
 }
 
@@ -3755,11 +4082,11 @@ function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTs
     spriteBoxEl.classList.remove('counter-aura', 'broken-aura', 'tsubazeriai-aura', 'jodan-aura', 'waki-aura');
 
     if (state.matchPhase === 'pre_match') {
-        badgeEl.textContent = '🎋 提げ刀 (開始前)';
+        badgeEl.textContent = '🎋 提げ刀';
         return;
     }
     if (state.matchPhase === 'opening_ceremony') {
-        badgeEl.textContent = '🙇 礼・蹲踞 (開始礼法)';
+        badgeEl.textContent = '🙇 礼・蹲踞';
         return;
     }
     if (state.matchPhase === 'closing_ceremony') {
@@ -3767,7 +4094,7 @@ function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTs
         return;
     }
     if (state.matchPhase === 'post_match') {
-        badgeEl.textContent = '🙇 礼 (試合終了)';
+        badgeEl.textContent = '🙇 礼';
         return;
     }
     if (state.gameOver) {
@@ -3776,42 +4103,42 @@ function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTs
     }
 
     if (isTsubazeriai && !state.gameOver) {
-        badgeEl.textContent = '💥 鍔迫り合い (引き技2ダメ)';
+        badgeEl.textContent = '💥 鍔迫り合い';
         badgeEl.classList.add('tsubazeriai');
         spriteBoxEl.classList.add('tsubazeriai-aura');
     } else if (guardBroken) {
-        badgeEl.textContent = '💫 体勢崩れ (防御不可)';
+        badgeEl.textContent = '💫 体勢崩れ';
         badgeEl.classList.add('broken');
         spriteBoxEl.classList.add('broken-aura');
     } else if (counterReady) {
         if (stanceStyle === 'jodan') {
-            badgeEl.textContent = '🔥 上段・応じ構え (面3ダメ!)';
+            badgeEl.textContent = '🔥 上段・応じ構え';
             spriteBoxEl.classList.add('jodan-aura');
         } else if (stanceStyle === 'waki') {
-            badgeEl.textContent = '🌊 脇構え・応じ準備 (次打2倍)';
+            badgeEl.textContent = '🌊 脇構え・応じ準備';
             spriteBoxEl.classList.add('waki-aura');
         } else {
-            badgeEl.textContent = '🔥 応じ技構え (次打2倍)';
+            badgeEl.textContent = '🔥 応じ技構え';
         }
         badgeEl.classList.add('counter');
         spriteBoxEl.classList.add('counter-aura');
     } else if (kiai >= MAX_KIAI) {
         if (stanceStyle === 'jodan') {
-            badgeEl.textContent = '🔥 上段・気合最高潮 (突き可)';
+            badgeEl.textContent = '🔥 上段・気合最高潮';
             spriteBoxEl.classList.add('jodan-aura');
         } else if (stanceStyle === 'waki') {
-            badgeEl.textContent = '🌊 脇構え・気合最高潮 (突き可)';
+            badgeEl.textContent = '🌊 脇構え・気合最高潮';
             spriteBoxEl.classList.add('waki-aura');
         } else {
-            badgeEl.textContent = '⚡ 気合最高潮 (突き可)';
+            badgeEl.textContent = '⚡ 気合最高潮';
         }
         badgeEl.classList.add('max-kiai');
     } else if (stanceStyle === 'jodan') {
-        badgeEl.textContent = '🔥 上段の構え (面2ダメ/防不可)';
+        badgeEl.textContent = '🔥 上段の構え';
         badgeEl.classList.add('jodan');
         spriteBoxEl.classList.add('jodan-aura');
     } else if (stanceStyle === 'waki') {
-        badgeEl.textContent = '🌊 脇構え (防で気合+2/HP+1)';
+        badgeEl.textContent = '🌊 脇構え';
         badgeEl.classList.add('waki');
         spriteBoxEl.classList.add('waki-aura');
     } else {
@@ -4202,13 +4529,15 @@ function chooseEnemyAction() {
 function chooseFriendlyAIAction() {
     const pData = (state.customMatch && state.customMatch.player) || {};
     const skills = pData.skills || { men: 10, kote: 10, do: 10, tsuki: 8 };
+    const pStats = getFighterStats('player');
     const inTsuba = state.tsubazeriai;
     const isJodan = state.playerStanceStyle === 'jodan';
     const isBroken = state.playerGuardBroken;
     const kiai = state.playerKiai;
 
-    // 気合MAXかつ突き可能な場合
-    if (kiai >= MAX_KIAI && Math.random() < 0.65) {
+    // 気魄(spi)が高いと気合MAX時の突き選択率がさらに向上
+    const tsukiChance = 0.65 + (pStats.spi >= 14 ? 0.15 : 0);
+    if (kiai >= MAX_KIAI && Math.random() < tsukiChance) {
         return '突き';
     }
 
@@ -4218,11 +4547,23 @@ function chooseFriendlyAIAction() {
     let wDefend = isBroken || isJodan ? 0 : 8;
     let wBreak = 6;
 
-    if (state.enemyIntent && state.enemyIntent.weights && state.enemyIntent.weights['防御'] > 30) {
-        wBreak += 14;
+    // 敏捷(agi)が高いほど相手の意図・狙いを見切って有利な技を選択しやすい
+    const agiBonus = Math.max(0, (pStats.agi - 10) * 0.8);
+    if (state.enemyIntent && state.enemyIntent.weights) {
+        const eWeights = state.enemyIntent.weights;
+        if (eWeights['防御'] > 30) {
+            wBreak += 14 + agiBonus * 1.2;
+        }
+        if (eWeights['面'] > 30) {
+            wDo += 8 + agiBonus; // 面に対して抜き胴
+            if (!isBroken && !isJodan) wDefend += 6 + agiBonus;
+        }
+        if (eWeights['小手'] > 30) {
+            wMen += 8 + agiBonus; // 小手に対して面
+        }
     }
     if (state.enemyStanceStyle === 'jodan') {
-        wKote += 14;
+        wKote += 14 + agiBonus;
         wDo += 8;
     }
     if (isJodan) {
@@ -4411,11 +4752,36 @@ function startClosingCeremony() {
         updateUI();
 
         if (state.customMatch && state.customMatch.active) {
+            const winner = isPlayerLoser ? 'enemy' : 'player';
+            const winningKana = state.finalWinningKana
+                || (winner === 'player'
+                    ? ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
+                        ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
+                        : 'メ')
+                    : ((state.scoringMoves && state.scoringMoves.enemy && state.scoringMoves.enemy.length)
+                        ? state.scoringMoves.enemy[state.scoringMoves.enemy.length - 1]
+                        : 'メ'));
+            const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
+            const winningMove = getBaseMoveName(rawWinningMove, winningKana);
+
             const resultData = {
-                winner: isPlayerLoser ? 'enemy' : 'player',
+                winner: winner,
                 playerHp: state.playerHealth,
                 enemyHp: state.enemyHealth,
                 rounds: state.round,
+                myScore: winner === 'player' ? [winningKana] : [],
+                enemyScore: winner === 'enemy' ? [winningKana] : [],
+                winningMove: winningMove,
+                winningKana: winningKana,
+                boutStats: state.boutStats ? { ...state.boutStats, winningMove } : {
+                    playerHits: winner === 'player' ? 1 : 0,
+                    playerBlocks: 0,
+                    enemyHits: winner === 'enemy' ? 1 : 0,
+                    enemyBlocks: 0,
+                    rounds: state.round,
+                    pushWins: 0,
+                    winningMove: winningMove,
+                },
             };
             if (typeof state.customMatch.onComplete === 'function') {
                 const cb = state.customMatch.onComplete;
@@ -4523,6 +4889,9 @@ function playRound(playerAction) {
     const shakeTargets = [];
     let doArenaFlash = false;
     const popups = [];
+    let roundPlayerBlocked = false;
+    let roundEnemyBlocked = false;
+    let roundPushWin = false;
 
     const attackMap = {
         面: ['小手'],
@@ -4603,11 +4972,25 @@ function playRound(playerAction) {
             state.enemyHealth -= 1;
         }
         gainKiai('player', 1);
-        state.enemyGuardBroken = true;
+        const pStr = getFighterStats('player').str;
+        const eStr = getFighterStats('enemy').str;
+        const eSpi = getFighterStats('enemy').spi;
+        // 腕力(str)が高い場合、相手の気合も削る
+        if (pStr > eStr && state.enemyKiai > 0 && Math.random() < 0.6) {
+            state.enemyKiai -= 1;
+        }
+        // 敵の気魄(spi)による踏みとどまり判定
+        const eResistChance = eSpi >= 14 ? (eSpi - 10) * 0.06 : 0;
+        const eDidResist = Math.random() < eResistChance;
+        if (!eDidResist) {
+            state.enemyGuardBroken = true;
+        } else {
+            roundEnemyBlocked = true;
+        }
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
         if (canDealDmg) {
-            message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し1ダメージ＆相手は次ターン防御不可！`;
+            message += `💥 ${pMoveName}成功！腕力「${pStr}」の体当たりで相手の${eMoveName}を突き崩し1ダメージ＆相手は次ターン防御不可！`;
         } else {
             message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し防御崩壊！（※崩しではHP0にできず、相手HP1で耐える！）`;
         }
@@ -4617,7 +5000,7 @@ function playRound(playerAction) {
         shakeTargets.push({ el: enemySpriteBox, isHeavy: false });
         popups.push(
             ...(canDealDmg ? [{ who: 'enemy', text: '-1', styleClass: 'popup-dmg' }] : [{ who: 'enemy', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
-            { who: 'enemy', text: '💫 防御崩壊！', styleClass: 'popup-break' },
+            ...(eDidResist ? [{ who: 'enemy', text: '⚡ 踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'enemy', text: '💫 防御崩壊！', styleClass: 'popup-break' }]),
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
@@ -4626,15 +5009,27 @@ function playRound(playerAction) {
             subText: canDealDmg ? '💥 相手は次ターン防御不可' : '💥 相手HP1で耐える！次ターン打突で仕留めよ！'
         };
     } else if (playerAction === '防御' && enemyAction === '崩し') {
+        const pSpi = getFighterStats('player').spi;
+        // 精神力(spi)が高いと、泰然自若の体幹で体当たりを踏みとどまり防御崩壊を回避できる
+        const resistChance = pSpi >= 14 ? (pSpi - 10) * 0.06 : 0;
+        const didResist = Math.random() < resistChance;
+        if (didResist) {
+            roundPlayerBlocked = true;
+        }
+
         const canDealDmg = state.playerHealth > 1;
         if (canDealDmg) {
             state.playerHealth -= 1;
         }
         gainKiai('enemy', 1);
-        state.playerGuardBroken = true;
+        if (!didResist) {
+            state.playerGuardBroken = true;
+        }
         playerAnim = 'hit';
         playerOutcome = 'hit';
-        if (canDealDmg) {
+        if (didResist) {
+            message += `💥 相手の「${eMoveName}」を被弾したが、精神力「${pSpi}」の気迫で踏みとどまり防御崩壊を回避した！`;
+        } else if (canDealDmg) {
             message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！1ダメージ＆次ターン防御不可！`;
         } else {
             message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！防御崩壊！（※崩しではHP0にならず、HP1で耐えた！）`;
@@ -4645,17 +5040,18 @@ function playRound(playerAction) {
         shakeTargets.push({ el: playerSpriteBox, isHeavy: false });
         popups.push(
             ...(canDealDmg ? [{ who: 'player', text: '-1', styleClass: 'popup-dmg' }] : [{ who: 'player', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
-            { who: 'player', text: '💫 防御崩壊！', styleClass: 'popup-break' },
+            ...(didResist ? [{ who: 'player', text: '⚡ 踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'player', text: '💫 防御崩壊！', styleClass: 'popup-break' }]),
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
             winner: 'enemy',
-            mainText: '防御崩壊！',
-            subText: canDealDmg ? '💥 次ターン防御不可' : '💥 HP1で耐えた！次ターン反撃せよ！'
+            mainText: didResist ? '踏みとどまり！' : '防御崩壊！',
+            subText: didResist ? '⚡ 精神力で崩れを防いだ' : (canDealDmg ? '💥 次ターン防御不可' : '💥 HP1で耐えた！次ターン反撃せよ！')
         };
     }
     // 4. 防御 vs 基本打突（応じ技準備！）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
+        roundPlayerBlocked = true;
         const kiaiBonus = isWaki ? 2 : 1;
         gainKiai('player', kiaiBonus);
         let healed = 0;
@@ -4684,6 +5080,7 @@ function playRound(playerAction) {
             isGuard: true,
         };
     } else if (isBasic(playerAction) && enemyAction === '防御') {
+        roundEnemyBlocked = true;
         const eKiaiBonus = eWaki ? 2 : 1;
         gainKiai('enemy', eKiaiBonus);
         let eHealed = 0;
@@ -4915,42 +5312,125 @@ function playRound(playerAction) {
                 isCritical: true,
             };
         } else if (!inTsuba) {
-            // 通常間合いでの同技交錯 → 鍔迫り合いへ突入！
-            gainKiai('player', 1);
-            gainKiai('enemy', 1);
-            state.tsubazeriai = true;
-            playerOutcome = 'tsubazeriai_clash';
-            enemyOutcome = 'tsubazeriai_clash';
-            message += `💥 互いの「${pMoveName}」が激しく火花を散らし、そのまま「鍔迫り合い」に突入！（双方 気合+1・次ターン引き技2ダメージ！）`;
-            statusType = 'neutral';
-            impactSound = 'clash';
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
-            popups.push(
-                { who: 'player', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
-                { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
-            );
-            calloutData = {
-                winner: 'both',
-                mainText: '鍔迫り合い突入！',
-                subText: `💥 相${playerAction}から接近戦へ（次打・引き技2倍）`,
-            };
+            // 通常間合いでの同技交錯 → 「速 (agi)」による出ばな打突判定！
+            const pAgi = getFighterStats('player').agi;
+            const eAgi = getFighterStats('enemy').agi;
+            const agiDiff = pAgi - eAgi;
+
+            if (agiDiff >= 4 && Math.random() < 0.45) {
+                // プレイヤーの敏捷性で相手の起こりを捉えた出ばな打突！
+                state.enemyHealth -= 1;
+                gainKiai('player', 1);
+                enemyAnim = 'hit';
+                enemyOutcome = 'hit';
+                impactWeight = 'heavy';
+                message += `⚡ 電光石火の出ばな技！敏捷「${pAgi}」の速さで相手の「${eMoveName}」の起こりを捉え、紙一重で「${pMoveName}」が決まった！`;
+                statusType = 'victory';
+                impactSound = 'special';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+                popups.push(
+                    { who: 'enemy', text: `-1 出ばな！`, styleClass: 'popup-crit' },
+                    { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
+                );
+                calloutData = { winner: 'player', mainText: `${pMoveName}あり！`, subText: `⚡ 電光石火・出ばな一本！`, isCritical: true };
+            } else if (agiDiff <= -4 && Math.random() < 0.45) {
+                // 相手の敏捷性に出ばなを奪われた！
+                state.playerHealth -= 1;
+                gainKiai('enemy', 1);
+                playerAnim = 'hit';
+                playerOutcome = 'hit';
+                impactWeight = 'heavy';
+                message += `⚡ 相手の電光石火の出ばな技！相手の俊敏さに技の起こりを捉えられ、相手の「${eMoveName}」を許した！`;
+                statusType = 'defeat';
+                impactSound = 'hurt';
+                zoomTargets.push(enemySpriteBox);
+                shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+                popups.push(
+                    { who: 'player', text: `-1 被弾！`, styleClass: 'popup-crit' },
+                    { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+                );
+                calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `⚡ 相手の出ばな打突！`, isCritical: true };
+            } else {
+                // 互角のスピードで交錯 → 鍔迫り合いへ突入！
+                gainKiai('player', 1);
+                gainKiai('enemy', 1);
+                state.tsubazeriai = true;
+                playerOutcome = 'tsubazeriai_clash';
+                enemyOutcome = 'tsubazeriai_clash';
+                message += `💥 互いの「${pMoveName}」が激しく火花を散らし、そのまま「鍔迫り合い」に突入！（双方 気合+1・次ターン引き技2ダメージ！）`;
+                statusType = 'neutral';
+                impactSound = 'clash';
+                shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
+                popups.push(
+                    { who: 'player', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
+                    { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+                );
+                calloutData = {
+                    winner: 'both',
+                    mainText: '鍔迫り合い突入！',
+                    subText: `💥 相${playerAction}から接近戦へ（次打・引き技2倍）`,
+                };
+            }
         } else {
-            // 鍔迫り合い中の同技交錯 → 相打ち1ダメージ＆間合いが離れる
-            state.playerHealth -= 1;
-            state.enemyHealth -= 1;
-            gainKiai('player', 1);
-            gainKiai('enemy', 1);
-            playerOutcome = 'mutual_hit';
-            enemyOutcome = 'mutual_hit';
-            message += `⚔️ 引き技の相打ち！互いに「${pMoveName}」を打ち合い、双方に1ダメージ＆間合いが離れた！`;
-            statusType = 'defeat';
-            impactSound = 'clash';
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
-            popups.push(
-                { who: 'player', text: '-1 相打ち', styleClass: 'popup-dmg' },
-                { who: 'enemy', text: '-1 相打ち', styleClass: 'popup-dmg' }
-            );
-            calloutData = { winner: 'both', mainText: '相打ち！', subText: `互いに${pMoveName} (双方-1)` };
+            // 鍔迫り合い中の同技交錯 → 「力 (str)」の押し合い判定！
+            const pStr = getFighterStats('player').str;
+            const eStr = getFighterStats('enemy').str;
+            const strDiff = pStr - eStr;
+
+            if (strDiff >= 3 && Math.random() < 0.6) {
+                roundPushWin = true;
+                // プレイヤーが力で圧倒！相手の竹刀を跳ね除けて一方的な引き技有効打突！
+                state.enemyHealth -= 1;
+                gainKiai('player', 1);
+                enemyAnim = 'hit';
+                enemyOutcome = 'hit';
+                impactWeight = 'heavy';
+                message += `⚡ 力の差で制覇！腕力「${pStr}」で相手を押し込み、相手の「${eMoveName}」を弾いて「${pMoveName}」を叩き込んだ！`;
+                statusType = 'victory';
+                impactSound = 'special';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+                popups.push(
+                    { who: 'enemy', text: `-1 押し出し！`, styleClass: 'popup-crit' },
+                    { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
+                );
+                calloutData = { winner: 'player', mainText: `${pMoveName}あり！`, subText: `💪 力で押し込み制覇 (1点)`, isCritical: true };
+            } else if (strDiff <= -3 && Math.random() < 0.6) {
+                // 相手が力で圧倒！
+                state.playerHealth -= 1;
+                gainKiai('enemy', 1);
+                playerAnim = 'hit';
+                playerOutcome = 'hit';
+                impactWeight = 'heavy';
+                message += `⚡ 相手の凄まじい腕力に圧倒され、相手の「${eMoveName}」を被弾した！`;
+                statusType = 'defeat';
+                impactSound = 'hurt';
+                zoomTargets.push(enemySpriteBox);
+                shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+                popups.push(
+                    { who: 'player', text: `-1 押し負け！`, styleClass: 'popup-dmg' },
+                    { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+                );
+                calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `💪 相手の力押し込み (1点)`, isCritical: true };
+            } else {
+                // 鍔迫り合い中の互角交錯 → 相打ち1ダメージ＆間合いが離れる
+                state.playerHealth -= 1;
+                state.enemyHealth -= 1;
+                gainKiai('player', 1);
+                gainKiai('enemy', 1);
+                playerOutcome = 'mutual_hit';
+                enemyOutcome = 'mutual_hit';
+                message += `⚔️ 引き技の相打ち！互いに「${pMoveName}」を打ち合い、双方に1ダメージ＆間合いが離れた！`;
+                statusType = 'defeat';
+                impactSound = 'clash';
+                shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
+                popups.push(
+                    { who: 'player', text: '-1 相打ち', styleClass: 'popup-dmg' },
+                    { who: 'enemy', text: '-1 相打ち', styleClass: 'popup-dmg' }
+                );
+                calloutData = { winner: 'both', mainText: '相打ち！', subText: `互いに${pMoveName} (双方-1)` };
+            }
         }
     } else {
         const isValid = attackMap[playerAction].includes(enemyAction);
@@ -5042,6 +5522,20 @@ function playRound(playerAction) {
     state.playerAnimState = playerAnim;
     state.enemyAnimState = enemyAnim;
 
+    // 赤・白ごとの有効打突を一元記録（突き、応じ技、面、三すくみ打突すべてに対応）
+    if (calloutData && !calloutData.isGuard) {
+        if (!state.scoringMoves) state.scoringMoves = { player: [], enemy: [] };
+        if (calloutData.winner === 'player') {
+            const pKana = convertToKana(playerAction, pMoveName);
+            state.scoringMoves.player.push(pKana);
+            state.lastWinningMove = pMoveName;
+        } else if (calloutData.winner === 'enemy') {
+            const eKana = convertToKana(enemyAction, eMoveName);
+            state.scoringMoves.enemy.push(eKana);
+            state.lastWinningMove = eMoveName;
+        }
+    }
+
     const enemyData = getCurrentEnemy();
     let finalStatusMessage = message;
     let finalStatusType = statusType;
@@ -5052,6 +5546,8 @@ function playRound(playerAction) {
         state.enemyAnimState = 'hit';
         state.gameOver = true;
         state.lastOutcome = 'draw';
+        state.finalWinningMove = null;
+        state.finalWinningKana = null;
         impactWeight = 'heavy';
         endGameSound = 'lose';
         finalStatusMessage = `引き分け（相打ち決着）！第${state.round}合で双方が倒れました。`;
@@ -5062,6 +5558,8 @@ function playRound(playerAction) {
         state.enemyAnimState = 'victory';
         state.gameOver = true;
         state.lastOutcome = 'defeat';
+        state.finalWinningMove = eMoveName;
+        state.finalWinningKana = convertToKana(enemyAction, eMoveName);
         impactWeight = 'heavy';
         endGameSound = 'lose';
         finalStatusMessage = `敗北… ${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。（${message}）`;
@@ -5078,6 +5576,8 @@ function playRound(playerAction) {
         state.gameOver = true;
         state.lastOutcome = 'victory';
         state.clearedStages.add(state.stageIndex);
+        state.finalWinningMove = pMoveName;
+        state.finalWinningKana = convertToKana(playerAction, pMoveName);
         impactWeight = 'heavy';
         endGameSound = 'win';
 
@@ -5130,6 +5630,15 @@ function playRound(playerAction) {
                 };
             }
         }
+    }
+
+    if (state.boutStats) {
+        state.boutStats.rounds = state.round;
+        if (enemyOutcome === 'hit') state.boutStats.playerHits++;
+        if (playerOutcome === 'hit') state.boutStats.enemyHits++;
+        if (roundPlayerBlocked || playerOutcome === 'block_success') state.boutStats.playerBlocks++;
+        if (roundEnemyBlocked || enemyOutcome === 'block_success') state.boutStats.enemyBlocks++;
+        if (roundPushWin) state.boutStats.pushWins++;
     }
 
     if (state.gameOver) {
@@ -5326,6 +5835,14 @@ function animationLoop(timestamp) {
 // 外部公開インターフェース (window.KendoGameEngine)
 // ───────────────────────────────────────────
 window.KendoGameEngine = {
+    getState: function () {
+        return state;
+    },
+
+    playRound: function (action) {
+        return playRound(action);
+    },
+
     // 団体戦モード等からプレイヤー戦または観戦を呼び出す
     startCustomMatch: function (options) {
         state.customMatch = {
@@ -5369,12 +5886,35 @@ window.KendoGameEngine = {
         const isPlayerWin = (state.playerHealth > state.enemyHealth) || (pStr >= eStr ? Math.random() < 0.6 : Math.random() < 0.35);
 
         const cb = state.customMatch.onComplete;
+        const randomTech = () => {
+            const r = Math.random();
+            return r < 0.45 ? 'メ' : (r < 0.75 ? 'コ' : (r < 0.95 ? 'ド' : 'ツ'));
+        };
+        const winningKana = state.finalWinningKana || ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
+            ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
+            : randomTech());
+        const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
+        const winningMove = getBaseMoveName(rawWinningMove, winningKana);
+
         const res = {
             winner: isPlayerWin ? 'player' : 'enemy',
             playerHp: isPlayerWin ? 1 : 0,
             enemyHp: isPlayerWin ? 0 : 1,
             rounds: state.round + 1,
             skipped: true,
+            myScore: isPlayerWin ? [winningKana] : [],
+            enemyScore: isPlayerWin ? [] : [winningKana],
+            winningMove: winningMove,
+            winningKana: winningKana,
+            boutStats: state.boutStats ? { ...state.boutStats, winningMove } : {
+                playerHits: isPlayerWin ? 1 : 0,
+                playerBlocks: 0,
+                enemyHits: isPlayerWin ? 0 : 1,
+                enemyBlocks: 0,
+                rounds: state.round + 1,
+                pushWins: 0,
+                winningMove: winningMove,
+            },
         };
         state.customMatch.active = false;
         state.customMatch.isSpectating = false;
@@ -5404,11 +5944,36 @@ window.KendoGameEngine = {
     returnFromCombatToClub: function () {
         if (state.customMatch && typeof state.customMatch.onComplete === 'function') {
             const cb = state.customMatch.onComplete;
+            const winner = state.lastOutcome === 'victory' ? 'player' : 'enemy';
+            const winningKana = state.finalWinningKana
+                || (winner === 'player'
+                    ? ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
+                        ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
+                        : 'メ')
+                    : ((state.scoringMoves && state.scoringMoves.enemy && state.scoringMoves.enemy.length)
+                        ? state.scoringMoves.enemy[state.scoringMoves.enemy.length - 1]
+                        : 'メ'));
+            const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
+            const winningMove = getBaseMoveName(rawWinningMove, winningKana);
+
             const res = {
-                winner: state.lastOutcome === 'victory' ? 'player' : 'enemy',
+                winner: winner,
                 playerHp: state.playerHealth,
                 enemyHp: state.enemyHealth,
                 rounds: state.round,
+                myScore: winner === 'player' ? [winningKana] : [],
+                enemyScore: winner === 'enemy' ? [winningKana] : [],
+                winningMove: winningMove,
+                winningKana: winningKana,
+                boutStats: state.boutStats ? { ...state.boutStats, winningMove } : {
+                    playerHits: winner === 'player' ? 1 : 0,
+                    playerBlocks: 0,
+                    enemyHits: winner === 'enemy' ? 1 : 0,
+                    enemyBlocks: 0,
+                    rounds: state.round,
+                    pushWins: 0,
+                    winningMove: winningMove,
+                },
             };
             state.customMatch.active = false;
             cb(res);
@@ -5439,6 +6004,10 @@ window.KendoGameEngine = {
         if (clubView) clubView.style.display = 'none';
         if (combatArea) combatArea.style.display = 'none';
 
+        if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
+            window.KendoClub.stopClubMiniCharaLoop();
+        }
+
         if (window.KendoClub && window.KendoClub.updateModeCardUI) {
             window.KendoClub.updateModeCardUI();
         }
@@ -5466,6 +6035,10 @@ window.KendoGameEngine = {
             if (classicStageWrap) classicStageWrap.style.display = '';
             if (clubView) clubView.style.display = 'none';
             if (combatArea) combatArea.style.display = '';
+
+            if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
+                window.KendoClub.stopClubMiniCharaLoop();
+            }
 
             state.customMatch = null;
             resetGame();
@@ -5501,6 +6074,10 @@ window.KendoGameEngine = {
         if (classicStageWrap) classicStageWrap.style.display = 'none';
         if (clubView) clubView.style.display = '';
         if (combatArea) combatArea.style.display = 'none';
+
+        if (window.KendoClub && window.KendoClub.startClubMiniCharaLoop) {
+            window.KendoClub.startClubMiniCharaLoop();
+        }
     },
 
     showCombatScreen: function () {
@@ -5510,11 +6087,79 @@ window.KendoGameEngine = {
         const clubView = document.getElementById('clubModeView');
         const combatArea = document.getElementById('combatAreaWrap');
 
+        if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
+            window.KendoClub.stopClubMiniCharaLoop();
+        }
+
         if (modeSelectScreen) modeSelectScreen.style.display = 'none';
         if (headerModeBar) headerModeBar.style.display = 'none'; // 戦闘中は余計なUIを隠して集中
         if (classicStageWrap) classicStageWrap.style.display = 'none';
         if (clubView) clubView.style.display = 'none';
         if (combatArea) combatArea.style.display = '';
+    },
+
+    // 部員カード等のミニキャラ描画（試合中 Canvas 182x200 の半分のサイズ 91x100）
+    renderMiniFighter: function (canvas, options = {}) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+        const miniW = options.width || 91;
+        const miniH = options.height || 100;
+        if (canvas.width !== Math.round(miniW * dpr) || canvas.height !== Math.round(miniH * dpr)) {
+            canvas.width = Math.round(miniW * dpr);
+            canvas.height = Math.round(miniH * dpr);
+        }
+
+        ctx.save();
+        if (ctx.scale) ctx.scale(dpr, dpr);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        ctx.clearRect(0, 0, miniW, miniH);
+
+        // 試合中キャンバス（CANVAS_W=182, CANVAS_H=200）の半分のサイズへ縮小
+        const scale = miniW / CANVAS_W;
+        ctx.scale(scale, scale);
+
+        // ミニ道場床描画
+        drawDojoFloor(ctx);
+
+        // 構え/稽古ポーズ取得（部員の得意構え favStance: 'jodan', 'waki', 'chudan' 等 ＆ 練習モーション）
+        const stance = options.stance || 'chudan';
+        const motion = options.motion || options.practiceType || null;
+        const phase = options.phase || 0;
+        const pose = (motion && motion !== 'idle') ? getPracticePose(motion, phase, stance) : getContinuousStancePose(stance, phase);
+
+        // 基準位置（足裏接地ライン）
+        const baseFootX = CANVAS_W / 2 - 18;
+        const pivotX = baseFootX;
+        const pivotY = GROUND_Y;
+
+        // 接地シャドウ
+        const vScale = CANVAS_W / VIRTUAL_W;
+        const backFootScreenX = pivotX + (pose.backFootX - ANCHOR_FOOT_X) * vScale;
+        const frontFootScreenX = pivotX + (pose.frontFootX - ANCHOR_FOOT_X) * vScale;
+        const midFootScreenX = (backFootScreenX + frontFootScreenX) * 0.5;
+        const strideHalfSpan = Math.max(22, Math.abs(frontFootScreenX - backFootScreenX) * 0.62);
+
+        ctx.save();
+        ctx.translate(midFootScreenX, GROUND_Y);
+        ctx.scale(strideHalfSpan, 7);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 関節補間剣士の描画（部員固有の防具テーマ）
+        ctx.save();
+        ctx.translate(pivotX, pivotY);
+        drawArticulatedPoseOnCanvas(ctx, pose, 1.0, options.armorTheme || null);
+        ctx.restore();
+
+        ctx.restore();
     },
 };
 
