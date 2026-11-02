@@ -3389,8 +3389,10 @@
             renderMatchResult(container);
         } else if (ClubState.viewPhase === 'tournament_ceremony') {
             stopClubMiniCharaLoop();
-            // 大会終了・表彰状表示画面：bgm/The_Sunlit_Dojo.mp3 を1回のみ再生（ループなし）
-            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
+            // 大会終了・表彰状表示画面：優勝時は bgm/Gold_in_the_Dojo.mp3、それ以外は bgm/The_Sunlit_Dojo.mp3 を1回のみ再生（ループなし）
+            const isWinner = ClubState.ceremonyResultData && (ClubState.ceremonyResultData.rankKey === 'win' || ClubState.ceremonyResultData.rankLabel === '優勝');
+            const ceremonyScene = isWinner ? 'victory' : 'ceremony';
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
             renderTournamentCeremony(container);
         } else {
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');

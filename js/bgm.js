@@ -6,7 +6,8 @@
  * - 練習メニュー画面：bgm/Bare_Feet_on_Polished_Pine.mp3（ループ再生）
  * - 試合中：bgm/Stance_and_Steel.mp3（ループ再生）
  * - 試合結果画面：BGM完全停止（無音）
- * - 大会終了・表彰状表示画面：bgm/The_Sunlit_Dojo.mp3（1回のみ再生、ループなし）
+ * - 大会表彰状表示画面（優勝）：bgm/Gold_in_the_Dojo.mp3（1回のみ再生、ループなし）
+ * - 大会表彰状表示画面（準優勝等）：bgm/The_Sunlit_Dojo.mp3（1回のみ再生、ループなし）
  * - 音量調節（0〜100%）＆ ミュート機能（localStorageで永続化）
  * - ブラウザ自動再生制限（Autoplay Policy）対応
  */
@@ -33,11 +34,11 @@
         },
         ceremony: {
             url: 'bgm/The_Sunlit_Dojo.mp3',
-            loop: false, // 大会終了・表彰状表示画面は1回のみ再生（ループなし）
+            loop: false, // 大会終了・表彰状表示画面（準優勝・入賞等）は1回のみ再生（ループなし）
         },
         victory: {
-            url: 'bgm/The_Sunlit_Dojo.mp3',
-            loop: false, // 表彰・勝利画面は1回のみ再生（ループなし）
+            url: 'bgm/Gold_in_the_Dojo.mp3',
+            loop: false, // 大会優勝・表彰状表示画面は1回のみ再生（ループなし）
         },
         tournament: null,
         farewell: null,

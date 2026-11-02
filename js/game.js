@@ -6356,7 +6356,9 @@ window.KendoGameEngine = {
             if (window.KendoClub && window.KendoClub.getState) {
                 const cs = window.KendoClub.getState();
                 if (cs && cs.viewPhase === 'tournament_ceremony') {
-                    if (window.KendoBGM.play) window.KendoBGM.play('ceremony');
+                    const isWinner = cs.ceremonyResultData && (cs.ceremonyResultData.rankKey === 'win' || cs.ceremonyResultData.rankLabel === '優勝');
+                    const ceremonyScene = isWinner ? 'victory' : 'ceremony';
+                    if (window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
                 } else if (cs && ['tournament_opening', 'match_sim', 'match_result'].includes(cs.viewPhase)) {
                     if (window.KendoBGM.stop) window.KendoBGM.stop();
                 } else {
