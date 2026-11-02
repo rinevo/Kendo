@@ -953,9 +953,9 @@ function getPracticePose(practiceType, phase, baseStance = 'chudan') {
         return samplePoseFrames(frames, t);
     }
 
-    // 5. 休養・道具手入れ (rest) ➔ 1回だけ納刀アニメーションし、その後は得意な構えを表示
+    // 5. 休養・道具手入れ (rest) ➔ 1回だけ蹲踞して納刀するアニメーションし、その後は得意な構えを表示
     if (practiceType === 'rest' || practiceType === 'osameto') {
-        const animDuration = 2.0; // 1回のアニメーション時間（約2.0秒）
+        const animDuration = 2.4; // 1回のアニメーション時間（約2.4秒）
         const elapsedSec = Math.max(0, phase / (Math.PI * 2));
         // 1回のアニメーションが完了した後は、得意な構え（呼吸アニメーション）を表示
         if (elapsedSec >= animDuration) {
@@ -963,39 +963,56 @@ function getPracticePose(practiceType, phase, baseStance = 'chudan') {
         }
         const t = Math.min(1.0, Math.max(0, elapsedSec / animDuration));
         const base = getContinuousStancePose(baseStance, 0);
-        // 構えから左腰へ竹刀を引き寄せる納刀移行ポーズ
-        const drawIn = {
-            ...base,
-            gripX: 150,
-            gripY: 250,
+
+        // 蹲踞して中段に構えた姿勢
+        const sonkyoKamae = {
+            ...CEREMONY_POSES.sonkyo_kamae,
+            hipX: base.hipX,
+            breath: 0.45,
+        };
+        // 蹲踞したまま竹刀を左腰へと引き寄せる納刀移行ポーズ
+        const sonkyoDrawing = {
+            ...CEREMONY_POSES.sonkyo_kamae,
+            hipX: base.hipX,
+            gripX: base.hipX + 20,
+            gripY: 286,
             shinaiAngle: -35,
-            torsoLean: 0.02,
+            torsoLean: 0.03,
             oneHanded: 0,
         };
-        // 左腰に竹刀を収めた納刀ポーズ
-        const osametoPose = {
-            ...CEREMONY_POSES.sageto,
+        // 蹲踞したまま左腰に竹刀を収めた納刀ポーズ
+        const sonkyoOsameto = {
+            ...CEREMONY_POSES.sonkyo_osameto,
             hipX: base.hipX,
-            breath: 0.5,
-            shinaiAngle: -152,
+            gripX: base.hipX + 14,
+            gripY: 292,
+            shinaiAngle: -146,
             oneHanded: 1,
+            breath: 0.4,
         };
-        // 納刀したまま静かに息を整える休養ポーズ
-        const restBreath = {
-            ...CEREMONY_POSES.sageto,
+        // 蹲踞納刀したまま静かに深く息を整える休養ポーズ
+        const sonkyoRest = {
+            ...CEREMONY_POSES.sonkyo_osameto,
             hipX: base.hipX,
-            hipY: CEREMONY_POSES.sageto.hipY + 1.2,
-            breath: 0.25,
-            shinaiAngle: -150,
+            hipY: CEREMONY_POSES.sonkyo_osameto.hipY + 1.5,
+            gripX: base.hipX + 14,
+            gripY: 293,
+            shinaiAngle: -145,
             oneHanded: 1,
+            breath: 0.15,
+            torsoLean: 0.02,
         };
-        // 構え(0.0) -> 引き寄せ -> 納刀 -> 息を整える -> 抜刀・引き寄せ -> 得意な構え復帰(1.0)
+
+        // 立ち構え(0.0) -> 蹲踞構え -> 納刀引き寄せ -> 蹲踞納刀 -> 静かに呼吸・休養 -> 蹲踞納刀 -> 抜刀引き寄せ -> 蹲踞構え -> 立ち構え復帰(1.0)
         const frames = [
             base,
-            drawIn,
-            osametoPose,
-            restBreath,
-            drawIn,
+            sonkyoKamae,
+            sonkyoDrawing,
+            sonkyoOsameto,
+            sonkyoRest,
+            sonkyoOsameto,
+            sonkyoDrawing,
+            sonkyoKamae,
             base
         ];
         return samplePoseFrames(frames, t);
