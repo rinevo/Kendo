@@ -75,11 +75,11 @@
                     </button>
                 </div>
 
-                <!-- 団体戦・全国制覇モードカード -->
+                <!-- 全国制覇モードカード -->
                 <div class="mode-card card-club" onclick="window.KendoClub.onCardClick()">
-                    <div class="mode-card-badge">5対5 チーム育成</div>
+                    <div class="mode-card-badge">部活動・チーム育成</div>
                     <div class="mode-card-icon">🥋</div>
-                    <h2 class="mode-card-title">団体戦・全国制覇モード</h2>
+                    <h2 class="mode-card-title">全国制覇モード</h2>
                     <p class="mode-card-tagline">世代を紡ぎ仲間と共に目指す日本一！</p>
                     <p class="mode-card-desc">高校剣道部の2年生主将として仲間を鍛え上げ、オーダーを編成して12月地区予選・3月全国高校選抜大会での全国制覇を目指す育成シミュレーション。</p>
                     <div class="mode-card-features">
@@ -98,7 +98,7 @@
             </div>
         </div>
 
-        <!-- 🥋 団体戦・全国制覇モード (Club / Career Mode) コンテナ -->
+        <!-- 🥋 全国制覇モード (Club / Career Mode) コンテナ -->
         <div id="clubModeView" class="club-mode-container" style="display: none;"></div>
 
         <!-- ⚔️ 共通実戦戦闘エリア (五人掛け ＆ 団体戦プレイヤー出番時に表示) -->
@@ -180,7 +180,7 @@
                         🔥 上段の構え <span class="stance-sub">面2ダメ・防御不可</span>
                     </button>
                     <button type="button" class="stance-tab waki" data-stance="waki" onclick="selectStanceStyle('waki')">
-                        🌊 脇構え <span class="stance-sub">防御で気合+2＆HP+1</span>
+                        🌊 下段の構え <span class="stance-sub">防御で気合+2＆HP+1</span>
                     </button>
                 </div>
                 <div class="stance-desc" id="stanceDescText">⚖️【中段の構え】攻守のバランスが取れた王道の構え。すべての技を標準性能で繰り出せます。</div>
@@ -210,7 +210,7 @@
                 <button id="btnBreak" class="tactical" onclick="playRound('崩し')" style="display: none;">💥 崩し</button>
                 <button id="btnTsuki" class="special" onclick="playRound('突き')" style="display: none;" disabled>⚡ 突き (気合3)</button>
                 <button id="btnNextStage" class="next-btn" onclick="advanceStage()" style="display: none;">⏭️ 次の相手へ進む</button>
-                <button id="btnReturnToClub" class="next-btn club-return-btn" onclick="window.KendoGameEngine.returnFromCombatToClub()" style="display: none;">🥋 団体戦スコアボードへ戻る</button>
+                <button id="btnReturnToClub" class="next-btn club-return-btn" onclick="window.KendoGameEngine.returnFromCombatToClub()" style="display: none;">🥋 大会画面へ戻る</button>
                 <button id="btnReset" class="reset-btn" onclick="resetGame()" style="display: none;">🔄 もう一度</button>
             </div>
             <div class="footer-guide">
@@ -220,7 +220,7 @@
                     <span class="rule-pill">🛡️ 防御：打突を防ぎ次ターン「応じ技(2ダメ)」</span>
                     <span class="rule-pill">💥 崩し：防御を破る（打突には負ける）</span>
                     <span class="rule-pill">🔥 鍔迫り合い：同技・崩し交錯で突入 ➔ 引き技(2ダメ)</span>
-                    <span class="rule-pill">🎋 構え切替：中段(万能) / 上段(面2ダメ・防不可) / 脇構え(防で気合+2＆HP回復)</span>
+                    <span class="rule-pill">🎋 構え切替：中段(万能) / 上段(面2ダメ・防不可) / 下段の構え(防で気合+2＆HP回復)</span>
                     <span class="rule-pill">⚡ 突き：気合3で防御貫通2ダメージ（鍔迫り合い時は3ダメ）</span>
                 </div>
             </div>

@@ -78,18 +78,42 @@
     const STAT_HARD_MAX = 99;   // 腕力・敏捷・気魄・面・小手・胴・突きの最大値
     const HEALTH_HARD_MAX = 8;  // 体力の最大値
 
-    // パラメータ成長ヘルパー（部員固有の隠し成長率を適用、才能限界値以上は成長率1/2、上限99でカンスト）
+    // 疲労度による成長係数ヘルパー
+    // 疲労度0%で 1.0 (100%)、疲労度90%で 0.0 (0%)、疲労度100%で -0.10 (-10%)
+    function getFatigueGrowthMultiplier(fatigue) {
+        const f = Math.max(0, Math.min(100, typeof fatigue === 'number' ? fatigue : 0));
+        if (f <= 90) {
+            return 1.0 - (f / 90);
+        } else {
+            return -0.10 * ((f - 90) / 10);
+        }
+    }
+
+    // パラメータ成長ヘルパー（部員固有の隠し成長率および疲労度を適用、才能限界値以上は成長率1/2、上限99でカンスト、疲労度100%時は能力低下ペナルティ）
     function growStat(m, category, key, baseGain) {
         if (!baseGain || baseGain <= 0) return 0;
 
         // 各部員の隠し成長率（通常部員: 80%〜120%、助っ人部員: 50%）
         const gRate = (m && typeof m.growthRate === 'number') ? m.growthRate : 1.0;
-        const rawGain = baseGain * gRate;
-        const intGain = Math.floor(rawGain);
-        const fracGain = rawGain - intGain;
-        let effectiveGain = intGain + (Math.random() < fracGain ? 1 : 0);
+        // 疲労度による成長率補正（0%で100%、90%で0%、100%で-10%）
+        const fMultiplier = getFatigueGrowthMultiplier(m ? m.fatigue : 0);
+        const effectiveRate = gRate * fMultiplier;
+        const rawGain = baseGain * effectiveRate;
 
-        if (effectiveGain <= 0) return 0;
+        let effectiveGain = 0;
+        if (rawGain > 0) {
+            const intGain = Math.floor(rawGain);
+            const fracGain = rawGain - intGain;
+            effectiveGain = intGain + (Math.random() < fracGain ? 1 : 0);
+        } else if (rawGain < 0) {
+            const absGain = Math.abs(rawGain);
+            const intLoss = Math.floor(absGain);
+            const fracLoss = absGain - intLoss;
+            const loss = intLoss + (Math.random() < fracLoss ? 1 : 0);
+            effectiveGain = -loss;
+        }
+
+        if (effectiveGain === 0) return 0;
 
         let curVal = 0;
         let capVal = 70; // デフォルト限界値
@@ -107,11 +131,9 @@
             }
         }
 
-        // 才能限界値に達しているか
+        // 才能限界値に達しているか（能力上昇の場合のみ1/2半減）
         const isOverCap = curVal >= capVal;
-
-        // 才能限界値以上の場合は成長率1/2
-        if (isOverCap) {
+        if (effectiveGain > 0 && isOverCap) {
             if (effectiveGain === 1) {
                 effectiveGain = Math.random() < 0.5 ? 1 : 0;
             } else {
@@ -119,11 +141,14 @@
             }
         }
 
-        if (effectiveGain <= 0) return 0;
+        if (effectiveGain === 0) return 0;
 
         const maxLimit = (category === 'base' && key === 'maxHealth') ? HEALTH_HARD_MAX : STAT_HARD_MAX;
-        const finalVal = Math.min(maxLimit, curVal + effectiveGain);
+        const minLimit = 1; // パラメータ下限値
+        const finalVal = Math.min(maxLimit, Math.max(minLimit, curVal + effectiveGain));
         const actualGain = finalVal - curVal;
+
+        if (actualGain === 0) return 0;
 
         if (category === 'base') {
             m[key] = finalVal;
@@ -184,6 +209,8 @@
             const actual = growStat(member, 'skill', key, baseGain);
             if (actual > 0) {
                 gains.push(`${getMoveDisplayName(key)}+${actual}`);
+            } else if (actual < 0) {
+                gains.push(`${getMoveDisplayName(key)}${actual}`);
             }
         });
 
@@ -193,9 +220,11 @@
             const agiGain = hits >= 4 ? 2 : 1;
             const actual = growStat(member, 'base', 'agi', agiGain);
             if (actual > 0) gains.push(`敏捷+${actual}`);
+            else if (actual < 0) gains.push(`敏捷${actual}`);
         } else if (hits >= 1 && Math.random() < 0.7) {
             const actual = growStat(member, 'base', 'agi', 1);
             if (actual > 0) gains.push(`敏捷+${actual}`);
+            else if (actual < 0) gains.push(`敏捷${actual}`);
         }
 
         // 3. 攻撃の防御に成功した回数に応じて気魄（気力）UP
@@ -204,9 +233,11 @@
             const spiGain = blocks >= 4 ? 2 : 1;
             const actual = growStat(member, 'base', 'spi', spiGain);
             if (actual > 0) gains.push(`気魄+${actual}`);
+            else if (actual < 0) gains.push(`気魄${actual}`);
         } else if (blocks >= 1 && Math.random() < 0.75) {
             const actual = growStat(member, 'base', 'spi', 1);
             if (actual > 0) gains.push(`気魄+${actual}`);
+            else if (actual < 0) gains.push(`気魄${actual}`);
         }
 
         // 4. 鍔迫り合い押し込み制覇ボーナス（腕力）
@@ -214,6 +245,7 @@
         if (pushWins > 0 && Math.random() < 0.6) {
             const actual = growStat(member, 'base', 'str', 1);
             if (actual > 0) gains.push(`腕力+${actual}`);
+            else if (actual < 0) gains.push(`腕力${actual}`);
         }
 
         // 5. 勝負の決着までにかかったターン数に応じて疲労度UP
@@ -351,7 +383,7 @@
             stance: 'waki',
             statMod: { hp: 0, str: 0, agi: 2, spi: 5 },
             skillMod: { men: -1, kote: 2, do: 7, tsuki: 1 },
-            desc: '刀を低く隠す脇構えから相手の打ち気を誘い、電撃の返し胴を炸裂させる職人肌。'
+            desc: '刀を低く構える下段の構えから相手の打ち気を誘い、電撃の返し胴を炸裂させる職人肌。'
         },
         {
             id: 'allround',
@@ -897,8 +929,12 @@
         members: [],
         order: [],    // 5人のメンバーID
         qualifiedForNational: false, // 12月3週地区優勝でtrueに
+        qualifiedForInterhigh: false, // 6月1週地区準優勝以上でtrueに
+        interhighQualifiedMemberIds: [], // 全国大会出場権を獲得した部員ID
         lastDistrictRank: null,      // 直近の成績 ('win', 'runnerUp', 'best4', etc.)
         lastNationalRank: null,
+        lastInterhighDistrictRank: null,
+        lastInterhighNationalRank: null,
         activityLog: [],
         viewPhase: 'dashboard',      // 'setup' | 'dashboard' | 'order_edit' | 'match_sim' | 'match_result' | 'history' | 'captain_select'
         currentMatchData: null,      // 進行中の大会試合
@@ -912,10 +948,12 @@
         isRestPosture: false,           // 休養後に納刀状態で待機するフラグ
         specialPracticeAttacks: null,   // マンツーマン特別指導時の主将・指名部員のランダム攻撃情報
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
-        history: [],                 // 歴代年表 [{ year, districtResult, nationalResult, captainName }]
+        history: [],                 // 歴代年表 [{ year, captainName, districtResult, nationalResult, interhighDistrictResult, interhighNationalResult }]
         stats: {
             district: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
             national: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
+            interhighDistrict: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
+            interhighNational: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
         },
     };
 
@@ -934,8 +972,12 @@
                 members: ClubState.members,
                 order: ClubState.order,
                 qualifiedForNational: ClubState.qualifiedForNational,
+                qualifiedForInterhigh: ClubState.qualifiedForInterhigh,
+                interhighQualifiedMemberIds: ClubState.interhighQualifiedMemberIds,
                 lastDistrictRank: ClubState.lastDistrictRank,
                 lastNationalRank: ClubState.lastNationalRank,
+                lastInterhighDistrictRank: ClubState.lastInterhighDistrictRank,
+                lastInterhighNationalRank: ClubState.lastInterhighNationalRank,
                 activityLog: ClubState.activityLog.slice(0, 30),
                 viewPhase: ClubState.viewPhase,
                 currentMatchData: ClubState.currentMatchData,
@@ -986,17 +1028,30 @@
             }
             if (Array.isArray(data.order)) ClubState.order = data.order;
             ClubState.qualifiedForNational = !!data.qualifiedForNational;
+            ClubState.qualifiedForInterhigh = !!data.qualifiedForInterhigh;
+            ClubState.interhighQualifiedMemberIds = Array.isArray(data.interhighQualifiedMemberIds) ? data.interhighQualifiedMemberIds : [];
             ClubState.lastDistrictRank = data.lastDistrictRank || null;
             ClubState.lastNationalRank = data.lastNationalRank || null;
+            ClubState.lastInterhighDistrictRank = data.lastInterhighDistrictRank || null;
+            ClubState.lastInterhighNationalRank = data.lastInterhighNationalRank || null;
             if (Array.isArray(data.activityLog)) ClubState.activityLog = data.activityLog;
             ClubState.viewPhase = data.viewPhase || 'dashboard';
             ClubState.currentMatchData = data.currentMatchData || null;
+            if (ClubState.currentMatchData && ClubState.currentMatchData.bracket) {
+                reconcileBracketData(ClubState.currentMatchData.bracket);
+            }
             ClubState.selectedSpecialTargetId = data.selectedSpecialTargetId || null;
             if (data.selectedPracticeMenu) ClubState.selectedPracticeMenu = data.selectedPracticeMenu;
             ClubState.memberGridScrollLeft = typeof data.memberGridScrollLeft === 'number' ? data.memberGridScrollLeft : -1;
             ClubState.isRestPosture = !!data.isRestPosture;
             if (Array.isArray(data.history)) ClubState.history = data.history;
-            if (data.stats) ClubState.stats = data.stats;
+            if (data.stats) {
+                ClubState.stats = data.stats;
+                if (!ClubState.stats.district) ClubState.stats.district = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+                if (!ClubState.stats.national) ClubState.stats.national = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+                if (!ClubState.stats.interhighDistrict) ClubState.stats.interhighDistrict = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+                if (!ClubState.stats.interhighNational) ClubState.stats.interhighNational = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+            }
             return true;
         } catch (e) {
             console.error('Failed to load club data', e);
@@ -1259,8 +1314,12 @@
         ClubState.members = [];
         ClubState.order = [];
         ClubState.qualifiedForNational = false;
+        ClubState.qualifiedForInterhigh = false;
+        ClubState.interhighQualifiedMemberIds = [];
         ClubState.lastDistrictRank = null;
         ClubState.lastNationalRank = null;
+        ClubState.lastInterhighDistrictRank = null;
+        ClubState.lastInterhighNationalRank = null;
         ClubState.activityLog = [];
         ClubState.viewPhase = 'setup';
         ClubState.currentMatchData = null;
@@ -1277,6 +1336,8 @@
         ClubState.stats = {
             district: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
             national: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
+            interhighDistrict: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
+            interhighNational: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
         };
         saveClubData();
     }
@@ -1314,13 +1375,40 @@
             return;
         }
 
-        // 2. 9月1週：3年生引退 ＆ 新主将指名
+        // 2. 6月1週：インターハイ（全国高校総体）都道府県個人予選！
+        if (ClubState.month === 6 && ClubState.week === 1) {
+            if (ClubState.members.length === 0) {
+                ClubState.qualifiedForInterhigh = false;
+                ClubState.lastInterhighDistrictRank = '部員不出場';
+                ClubState.activityLog.unshift(`⚠️【${ClubState.year}年目 6月1週】部員不在のため、インターハイ都道府県個人予選への出場を見送りました。`);
+            } else {
+                triggerInterhighDistrictTournament();
+                return;
+            }
+        }
+
+        // 3. 8月1週：インターハイ（全国高校総体）個人戦！
+        if (ClubState.month === 8 && ClubState.week === 1) {
+            if (ClubState.qualifiedForInterhigh && ClubState.interhighQualifiedMemberIds && ClubState.interhighQualifiedMemberIds.length > 0) {
+                const activeQualified = ClubState.members.filter((m) => ClubState.interhighQualifiedMemberIds.includes(m.id));
+                if (activeQualified.length > 0) {
+                    triggerInterhighNationalTournament();
+                    return;
+                } else {
+                    ClubState.activityLog.unshift(`⚠️【${ClubState.year}年目 8月1週】インターハイ出場権保持者の不在により、全国高校総体個人戦を辞退しました。`);
+                }
+            } else {
+                ClubState.activityLog.unshift(`【${ClubState.year}年目 8月1週】インターハイ（全国高校総体）個人戦が開催されていますが、本校は地区予選敗退のため不出場。秋の稽古に励みます。`);
+            }
+        }
+
+        // 4. 9月1週：3年生引退 ＆ 新主将指名
         if (ClubState.month === 9 && ClubState.week === 1) {
             triggerRetireAndCaptainSelection();
             return;
         }
 
-        // 3. 12月3週：地区大会（都道府県予選）強制開催！
+        // 5. 12月3週：地区大会（都道府県予選・選抜団体）強制開催！
         if (ClubState.month === 12 && ClubState.week === 3) {
             if (ClubState.members.length < 5) {
                 const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
@@ -1340,7 +1428,7 @@
             }
         }
 
-        // 4. 3月4週：全国選抜大会（地区優勝時のみ強制開催）
+        // 6. 3月4週：全国選抜大会（地区優勝時のみ強制開催）
         if (ClubState.month === 3 && ClubState.week === 4) {
             if (ClubState.qualifiedForNational) {
                 if (ClubState.members.length < 5) {
@@ -1374,17 +1462,17 @@
     }
 
     // 直近の大会成績に応じた新1年生の入部数レンジ（下限・上限）を算出
-    function getFreshmenRecruitRange(districtRank, nationalRank) {
+    function getFreshmenRecruitRange(districtRank, nationalRank, ihDistrictRank, ihNationalRank) {
         const isWin = (r) => r === '優勝' || r === 'win';
         const isHigh = (r) => r === '準優勝' || r === 'runnerUp' || r === 'ベスト4' || r === 'best4';
 
-        // 1. 全国大会の成績（最優先）
-        if (isWin(nationalRank)) return { min: 3, max: 4 };
-        if (isHigh(nationalRank)) return { min: 3, max: 4 };
+        // 1. 全国大会の成績（選抜またはインターハイの全国制覇・上位）
+        if (isWin(nationalRank) || isWin(ihNationalRank)) return { min: 3, max: 4 };
+        if (isHigh(nationalRank) || isHigh(ihNationalRank)) return { min: 3, max: 4 };
 
-        // 2. 地区大会の成績
-        if (isWin(districtRank)) return { min: 2, max: 3 }; // 地区優勝：最低2名保証、最大3名
-        if (isHigh(districtRank)) return { min: 1, max: 2 }; // 地区準優勝・ベスト4
+        // 2. 地区予選の成績（選抜またはインターハイ予選優勝・上位）
+        if (isWin(districtRank) || isWin(ihDistrictRank)) return { min: 2, max: 3 }; // 地区優勝：最低2名保証、最大3名
+        if (isHigh(districtRank) || isHigh(ihDistrictRank)) return { min: 1, max: 2 }; // 地区準優勝・ベスト4
 
         // 3. その他（初戦〜2回戦敗退、不出場など）
         return { min: 1, max: 2 };
@@ -1398,7 +1486,12 @@
         });
 
         // 成績に応じた新入生人数の決定（直近の成績が良いほど入部数増加、最低人数〜最大人数のランダム）
-        const range = getFreshmenRecruitRange(ClubState.lastDistrictRank, ClubState.lastNationalRank);
+        const range = getFreshmenRecruitRange(
+            ClubState.lastDistrictRank,
+            ClubState.lastNationalRank,
+            ClubState.lastInterhighDistrictRank,
+            ClubState.lastInterhighNationalRank
+        );
         let recruitCount = range.min + Math.floor(Math.random() * (range.max - range.min + 1));
 
         // 廃部防止セーフティ（団体戦出陣に必要な最低5名を可能な限り確保）
@@ -1418,6 +1511,8 @@
 
         // 権利リセット
         ClubState.qualifiedForNational = false;
+        ClubState.qualifiedForInterhigh = false;
+        ClubState.interhighQualifiedMemberIds = [];
 
         const logMsg = `🌸【${ClubState.year}年目 4月1週】新年度が始まりました！部員が進級し、新1年生が${recruitCount}名（${newRecruits.join('・')}）入部しました！`;
         ClubState.activityLog.unshift(logMsg);
@@ -1538,35 +1633,101 @@
         sanitizeOrder();
     }
 
-    // 新しい主将を任命したときは、主将を大将にする
-    function assignCaptainToTaisho(captainId) {
-        if (!captainId) return;
+    // 部員の総合戦力を算出（カードの表示戦力と一致）
+    function getMemberCombatPower(m) {
+        if (!m) return 0;
+        const skillSum = ((m.skills && m.skills.men) || 0) +
+                         ((m.skills && m.skills.kote) || 0) +
+                         ((m.skills && m.skills.do) || 0) +
+                         ((m.skills && m.skills.tsuki) || 0);
+        return (m.str || 0) + (m.agi || 0) + (m.spi || 0) + skillSum * 0.4;
+    }
 
-        sanitizeOrder();
-        const curOrder = [...ClubState.order];
-        const currentCapIdx = curOrder.indexOf(captainId);
+    // 控え部員一覧を戦力順（降順）で取得
+    function getBenchMembers() {
+        const orderIdSet = new Set(ClubState.order.filter(Boolean));
+        return ClubState.members
+            .filter((m) => !orderIdSet.has(m.id))
+            .sort((a, b) => {
+                const diff = getMemberCombatPower(b) - getMemberCombatPower(a);
+                if (Math.abs(diff) > 0.001) return diff;
+                if (b.grade !== a.grade) return b.grade - a.grade;
+                return (a.id || '').localeCompare(b.id || '');
+            });
+    }
 
-        if (curOrder.length >= 5) {
-            if (currentCapIdx !== -1) {
-                // すでにオーダー内にいる場合、大将（インデックス4）と位置を入れ替える
-                const oldTaishoId = curOrder[4];
-                curOrder[4] = captainId;
-                curOrder[currentCapIdx] = oldTaishoId;
-            } else {
-                // 控えにいる場合、大将（インデックス4）に新主将を配置
-                curOrder[4] = captainId;
-            }
+    // 主将交代時：大将〜先鋒の割り当てを戦力順で自動設定
+    function assignOrderByCombatPower(captainId) {
+        if (!ClubState.members || ClubState.members.length === 0) return;
+
+        // 正規部員と助っ人部員
+        const regularMembers = ClubState.members.filter((m) => !m.isClubDual);
+        const dualMembers = ClubState.members.filter((m) => m.isClubDual);
+
+        // 戦力降順ソート関数（同点時は学年、IDで安定化）
+        const sortByPowerDesc = (list) => {
+            return [...list].sort((a, b) => {
+                const diff = getMemberCombatPower(b) - getMemberCombatPower(a);
+                if (Math.abs(diff) > 0.001) return diff;
+                if (b.grade !== a.grade) return b.grade - a.grade;
+                return (a.id || '').localeCompare(b.id || '');
+            });
+        };
+
+        const sortedRegulars = sortByPowerDesc(regularMembers);
+        const sortedDuals = sortByPowerDesc(dualMembers);
+
+        // 新主将
+        const captain = ClubState.members.find((m) => m.id === captainId) || ClubState.members.find((m) => m.isPlayer);
+
+        // オーダー候補（最大5名）の選出：正規部員優先、部員不足時は助っ人から補充
+        let selected = [];
+        if (sortedRegulars.length >= 5) {
+            selected = sortedRegulars.slice(0, 5);
         } else {
-            // 部員が5人未満の場合：末尾（大将枠）に新主将を配置
-            if (currentCapIdx !== -1) {
-                curOrder.splice(currentCapIdx, 1);
-            }
-            curOrder.push(captainId);
+            selected = [...sortedRegulars];
+            const needed = 5 - selected.length;
+            selected.push(...sortedDuals.slice(0, needed));
         }
 
-        ClubState.order = curOrder;
+        // 新主将は必ずオーダーに含める（プレイヤーとして試合出場を保証）
+        if (captain && !selected.some((m) => m.id === captain.id)) {
+            if (selected.length < 5) {
+                selected.push(captain);
+            } else {
+                selected[selected.length - 1] = captain;
+            }
+        }
+
+        // 選出メンバーを戦力順（降順：1位〜5位）にソート
+        const sortedSelected = sortByPowerDesc(selected);
+
+        // 大将〜先鋒の割り当て（POS_NAMES: ['先鋒', '次鋒', '中堅', '副将', '大将']）
+        // 大将（インデックス4）：戦力1位（最強）
+        // 副将（インデックス3）：戦力2位
+        // 中堅（インデックス2）：戦力3位
+        // 次鋒（インデックス1）：戦力4位
+        // 先鋒（インデックス0）：戦力5位
+        const newOrder = [];
+        if (sortedSelected.length >= 5) {
+            newOrder[4] = sortedSelected[0].id; // 大将 (1位)
+            newOrder[3] = sortedSelected[1].id; // 副将 (2位)
+            newOrder[2] = sortedSelected[2].id; // 中堅 (3位)
+            newOrder[1] = sortedSelected[3].id; // 次鋒 (4位)
+            newOrder[0] = sortedSelected[4].id; // 先鋒 (5位)
+        } else {
+            // 部員が5人未満の場合も戦力上位が大将側になるように配置
+            for (let i = 0; i < sortedSelected.length; i++) {
+                newOrder.unshift(sortedSelected[i].id);
+            }
+        }
+
+        ClubState.order = newOrder;
         sanitizeOrder();
     }
+
+    // 互換性保持用エイリアス
+    const assignCaptainToTaisho = assignOrderByCombatPower;
 
     // ───────────────────────────────────────────
     // 練習実行
@@ -1581,7 +1742,10 @@
             const player = ClubState.members.find((m) => m.isPlayer);
             if (target && player) {
                 ClubState.selectedSpecialTargetId = targetMemberId;
-                // 各部員の隠し成長率（通常: 80〜120%、助っ人: 50%）および才能限界値に応じてgrowStatで計算
+                const isTargetExhausted = (target.fatigue || 0) >= 100;
+                const isPlayerExhausted = (player.fatigue || 0) >= 100;
+
+                // 各部員の隠し成長率（通常: 80〜120%、助っ人: 50%）および才能限界値・疲労度に応じてgrowStatで計算
                 const baseGain = 2;
                 growStat(target, 'base', 'str', baseGain);
                 growStat(target, 'base', 'agi', baseGain);
@@ -1590,25 +1754,31 @@
                 growStat(target, 'skill', 'kote', baseGain);
                 growStat(target, 'skill', 'do', baseGain);
                 growStat(target, 'skill', 'tsuki', baseGain);
-                target.fatigue = Math.min(100, Math.max(0, target.fatigue + 18));
+                target.fatigue = Math.min(100, Math.max(0, (target.fatigue || 0) + 18));
                 improveCondition(target);
 
                 growStat(player, 'base', 'str', 1);
                 growStat(player, 'base', 'spi', 2);
-                player.fatigue = Math.min(100, Math.max(0, player.fatigue + 16));
+                player.fatigue = Math.min(100, Math.max(0, (player.fatigue || 0) + 16));
 
                 const dualText = target.isClubDual ? `（${target.originalClub}掛け持ち）` : '';
-                logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${target.name}へマンツーマン特別指導を実施！${target.name}の全能力が着実に向上！${dualText}`;
+                const exhaustWarn = (isTargetExhausted || isPlayerExhausted) ? ' ⚠️過度の疲労により能力が低下する過酷な稽古となりました！' : '';
+                logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${target.name}へマンツーマン特別指導を実施！${target.name}の全能力を鍛え上げました！${dualText}${exhaustWarn}`;
             }
         } else {
+            let hadExhaustedMember = false;
             ClubState.members.forEach((m) => {
-                // 部員ごとの隠し成長率（通常: 80〜120%、助っ人: 50%）に従って成長
+                if ((m.fatigue || 0) >= 100 && menu.fatigueCost > 0) {
+                    hadExhaustedMember = true;
+                }
+                // 部員ごとの隠し成長率（通常: 80〜120%、助っ人: 50%）および疲労度に従って成長
                 menu.apply(m);
-                m.fatigue = Math.min(100, Math.max(0, m.fatigue + menu.fatigueCost));
+                m.fatigue = Math.min(100, Math.max(0, (m.fatigue || 0) + menu.fatigueCost));
                 if (m.fatigue >= 80 && Math.random() < 0.6) dropCondition(m);
                 else if (m.fatigue === 0 && Math.random() < 0.3) improveCondition(m);
             });
-            logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】全体稽古【${menu.name}】を実施！心技体を鍛えました。`;
+            const exhaustWarn = hadExhaustedMember ? ' ⚠️過度の疲労（100%）を抱えた部員の能力が低下しました！' : '';
+            logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】全体稽古【${menu.name}】を実施！心技体を鍛えました。${exhaustWarn}`;
         }
 
         ClubState.activityLog.unshift(logEntry);
@@ -1679,6 +1849,407 @@
     // ───────────────────────────────────────────
     // トーナメント生成エンジン
     // ───────────────────────────────────────────
+    // 個人戦用 対戦相手剣士の生成
+    const FIGHTER_TITLES = [
+        '疾風の小手使い', '剛腕の上段', '冷静沈着な間合いの鬼', '名門の切り札',
+        '電光石火の飛び込み面', '不抜の守護神', '変幻自在の技巧派', '無心の剣客',
+        '熱血のポイントゲッター', '重厚なる中段', '後の先を極めし者', '名門校の主将'
+    ];
+
+    function generateOpponentIndividual(schoolName, pref, powerGrade = 2, roundIdx = 0) {
+        const stances = ['chudan', 'chudan', 'jodan', 'waki'];
+        const stance = getRandomItem(stances);
+        const gradeBonus = Math.floor(roundIdx * 0.8);
+        const baseHp = 4 + (powerGrade >= 3 ? 1 : 0) + (Math.random() < 0.5 ? 1 : 0);
+        const str = 10 + (powerGrade + gradeBonus) * 2 + Math.floor(Math.random() * 4);
+        const agi = 10 + (powerGrade + gradeBonus) * 2 + Math.floor(Math.random() * 4);
+        const spi = 10 + (powerGrade + gradeBonus) * 2 + Math.floor(Math.random() * 4);
+
+        const surname = getRandomItem(SURNAMES);
+        const title = getRandomItem(FIGHTER_TITLES);
+
+        return {
+            name: surname,
+            fullName: `${surname}`,
+            schoolName: schoolName,
+            pref: pref,
+            role: '個人代表',
+            title: title,
+            shortDesc: `${pref}・${schoolName}代表。「${title}」の異名をとる強豪剣士。`,
+            hp: Math.min(8, baseHp),
+            str: str,
+            agi: agi,
+            spi: spi,
+            skills: {
+                men: 10 + (powerGrade + gradeBonus) * 2,
+                kote: 10 + (powerGrade + gradeBonus) * 2,
+                do: 9 + (powerGrade + gradeBonus) * 2,
+                tsuki: 8 + (powerGrade + gradeBonus) * 2,
+            },
+            stance: stance,
+        };
+    }
+
+    // ───────────────────────────────────────────
+    // 個人戦トーナメント（ブラケット）エンジン
+    // ───────────────────────────────────────────
+    // 自校から個人戦へエントリーする代表選手を選定（最大2名：主将＋部内実力最上位者）
+    function selectIndividualParticipants() {
+        const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+        if (!captain) return [];
+
+        const otherMembers = ClubState.members.filter((m) => m.id !== captain.id);
+        if (otherMembers.length === 0) {
+            return [{
+                memberId: captain.id,
+                name: captain.name,
+                isPlayer: true,
+                isAlive: true,
+                achievedRank: null,
+            }];
+        }
+
+        // 実力値スコア順にソート
+        const calcPower = (m) => (m.str * 1.2 + m.agi * 1.3 + m.spi * 1.1 + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4);
+        const sortedOthers = [...otherMembers].sort((a, b) => calcPower(b) - calcPower(a));
+        const secondAce = sortedOthers[0];
+
+        return [
+            {
+                memberId: captain.id,
+                name: captain.name,
+                isPlayer: true,
+                isAlive: true,
+                achievedRank: null,
+            },
+            {
+                memberId: secondAce.id,
+                name: secondAce.name,
+                isPlayer: false,
+                isAlive: true,
+                achievedRank: null,
+            },
+        ];
+    }
+
+    // 部員オブジェクトから個人戦用ファイター情報を構築
+    function createMyClubFighter(part) {
+        const m = ClubState.members.find((item) => item.id === part.memberId);
+        if (!m) return null;
+        return {
+            id: m.id,
+            name: m.name,
+            schoolName: ClubState.schoolName,
+            pref: ClubState.prefecture,
+            isMyClub: true,
+            isPlayer: !!part.isPlayer,
+            title: part.isPlayer ? '主将・あなた' : '自校代表',
+            memberRef: m,
+            participantRef: part,
+            hp: m.maxHealth,
+            str: m.str,
+            agi: m.agi,
+            spi: m.spi,
+            skills: m.skills,
+            favStance: m.favStance || 'chudan',
+            stance: m.favStance || 'chudan',
+            condition: m.condition || 'normal',
+            fatigue: m.fatigue || 0,
+            armorTheme: m.armorTheme,
+        };
+    }
+
+    // 16名（予選）または32名（全国）の本格トーナメントブラケットを生成
+    function createIndividualTournamentBracket(type, pref, participants) {
+        const isNational = type === 'interhigh_national';
+        const totalRounds = isNational ? 5 : 4;
+        const totalFighters = Math.pow(2, totalRounds); // 32名 または 16名
+        const firstRoundMatches = totalFighters / 2; // 16試合 または 8試合
+
+        const roundNames = isNational
+            ? ['1回戦', '2回戦', '準々決勝', '準決勝', '決勝戦']
+            : ['1回戦', '2回戦', '準決勝', '決勝戦'];
+
+        // 空の全ラウンドマッチ構造を作成
+        const rounds = [];
+        for (let r = 0; r < totalRounds; r++) {
+            const matchesCount = totalFighters / Math.pow(2, r + 1);
+            const matches = [];
+            for (let m = 0; m < matchesCount; m++) {
+                matches.push({
+                    matchId: `r${r}_m${m}`,
+                    roundIdx: r,
+                    roundName: roundNames[r],
+                    matchIdx: m,
+                    playerA: null,
+                    playerB: null,
+                    winner: null, // 'playerA' | 'playerB'
+                    played: false,
+                    scoreA: [],
+                    scoreB: [],
+                    log: [],
+                });
+            }
+            rounds.push({
+                roundIdx: r,
+                roundName: roundNames[r],
+                matches: matches,
+            });
+        }
+
+        // 第1回戦（Round 0）への選手初期配置（シード配置）
+        const otherPrefs = PREFECTURES.filter((p) => p !== pref);
+
+        // 自校選手のシード配置位置
+        // 選手1（主将）：Match 0 の playerA（左上/先頭ブロック）
+        // 選手2（仲間部員）：Match (firstRoundMatches / 2) の playerA（右下/別ブロック）
+        const myFighters = participants.map((p) => createMyClubFighter(p)).filter(Boolean);
+        const p1 = myFighters[0];
+        const p2 = myFighters[1];
+
+        if (p1) {
+            rounds[0].matches[0].playerA = p1;
+        }
+        if (p2) {
+            const seed2MatchIdx = Math.floor(firstRoundMatches / 2);
+            rounds[0].matches[seed2MatchIdx].playerA = p2;
+        }
+
+        // 残りの枠にライバル選手を配置
+        for (let m = 0; m < firstRoundMatches; m++) {
+            const matchNode = rounds[0].matches[m];
+
+            if (!matchNode.playerA) {
+                const oppPref = isNational ? getRandomItem(otherPrefs) : pref;
+                const oppSchool = `${getRandomItem(SCHOOL_PREFIXES)}高校`;
+                const fighter = generateOpponentIndividual(oppSchool, oppPref, isNational ? 3 : 2, 0);
+                matchNode.playerA = {
+                    id: `opp_${oppSchool}_${fighter.name}_${m}a`,
+                    name: fighter.name,
+                    schoolName: fighter.schoolName,
+                    pref: fighter.pref,
+                    isMyClub: false,
+                    isPlayer: false,
+                    title: fighter.title,
+                    hp: fighter.hp,
+                    str: fighter.str,
+                    agi: fighter.agi,
+                    spi: fighter.spi,
+                    skills: fighter.skills,
+                    stance: fighter.stance,
+                    favStance: fighter.stance,
+                    armorTheme: null,
+                };
+            }
+
+            if (!matchNode.playerB) {
+                const oppPref = isNational ? getRandomItem(otherPrefs) : pref;
+                const oppSchool = `${getRandomItem(SCHOOL_PREFIXES)}高校`;
+                const fighter = generateOpponentIndividual(oppSchool, oppPref, isNational ? 3 : 2, 0);
+                matchNode.playerB = {
+                    id: `opp_${oppSchool}_${fighter.name}_${m}b`,
+                    name: fighter.name,
+                    schoolName: fighter.schoolName,
+                    pref: fighter.pref,
+                    isMyClub: false,
+                    isPlayer: false,
+                    title: fighter.title,
+                    hp: fighter.hp,
+                    str: fighter.str,
+                    agi: fighter.agi,
+                    spi: fighter.spi,
+                    skills: fighter.skills,
+                    stance: fighter.stance,
+                    favStance: fighter.stance,
+                    armorTheme: null,
+                };
+            }
+        }
+
+        return {
+            type: type,
+            pref: pref,
+            totalRounds: totalRounds,
+            roundNames: roundNames,
+            rounds: rounds,
+            currentRoundIdx: 0,
+        };
+    }
+
+    // ポジション名や回戦名から「（〇〇の試合）」などの冗長サフィックスを安全に除去
+    function sanitizePosName(str) {
+        if (!str) return '';
+        return String(str).replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
+    }
+
+    // ブラケットデータの整合性自動修復（過去のセーブデータや未完了マッチの自己修復）
+    function reconcileBracketData(bracket) {
+        if (!bracket || !bracket.rounds) return;
+
+        if (Array.isArray(bracket.roundNames)) {
+            bracket.roundNames = bracket.roundNames.map(sanitizePosName);
+        }
+        if (Array.isArray(bracket.rounds)) {
+            bracket.rounds.forEach((r) => {
+                if (r.roundName) r.roundName = sanitizePosName(r.roundName);
+            });
+        }
+        if (ClubState.currentMatchData && ClubState.currentMatchData.activeBouts) {
+            const ab = ClubState.currentMatchData.activeBouts;
+            if (ab.roundName) ab.roundName = sanitizePosName(ab.roundName);
+            if (Array.isArray(ab.bouts)) {
+                ab.bouts.forEach((b) => {
+                    if (b.posName) b.posName = sanitizePosName(b.posName);
+                });
+            }
+        }
+
+        for (let r = 0; r < bracket.rounds.length - 1; r++) {
+            const curRound = bracket.rounds[r];
+            const nextRound = bracket.rounds[r + 1];
+            if (!curRound || !nextRound || !curRound.matches || !nextRound.matches) continue;
+
+            curRound.matches.forEach((m, mIdx) => {
+                const nextMatchIdx = Math.floor(mIdx / 2);
+                const isSlotA = (mIdx % 2 === 0);
+                const nextMatch = nextRound.matches[nextMatchIdx];
+                if (!nextMatch) return;
+
+                const advFighter = isSlotA ? nextMatch.playerA : nextMatch.playerB;
+                // 次の回戦の該当枠にすでに進出している選手が存在する場合
+                if (advFighter) {
+                    const isWinnerA = (m.playerA && (m.playerA === advFighter || m.playerA.id === advFighter.id || m.playerA.name === advFighter.name));
+
+                    if (!m.played || !m.winner) {
+                        m.played = true;
+                        m.winner = isWinnerA ? 'playerA' : 'playerB';
+                    }
+
+                    // スコアが空の場合、勝者に「勝」、敗者に「0」を補完
+                    if (!m.scoreA || m.scoreA.length === 0) {
+                        m.scoreA = isWinnerA ? ['勝'] : ['0'];
+                    }
+                    if (!m.scoreB || m.scoreB.length === 0) {
+                        m.scoreB = isWinnerA ? ['0'] : ['勝'];
+                    }
+                }
+            });
+        }
+    }
+
+    // 他校同士のマッチをAI自動シミュレーションして次枠へ勝者を進出させる
+    function autoSimulateOtherMatches(bracket, roundIdx) {
+        if (!bracket || !bracket.rounds[roundIdx]) return;
+        const currentRound = bracket.rounds[roundIdx];
+        const nextRound = bracket.rounds[roundIdx + 1];
+
+        currentRound.matches.forEach((m) => {
+            if (m.played) return;
+            // 自校選手が関わる試合はここではスキップ
+            const hasMyClub = (m.playerA && m.playerA.isMyClub) || (m.playerB && m.playerB.isMyClub);
+            if (hasMyClub) return;
+
+            // 他校同士の自動シミュレーション
+            const pA = m.playerA;
+            const pB = m.playerB;
+            if (!pA || !pB) return;
+
+            const powerA = (pA.str * 1.2 + pA.agi * 1.3 + pA.spi * 1.1);
+            const powerB = (pB.str * 1.2 + pB.agi * 1.3 + pB.spi * 1.1);
+            const winRateA = powerA / (powerA + powerB);
+
+            const roll = Math.random();
+            const techList = ['メ', 'コ', 'ド'];
+            const pick = () => techList[Math.floor(Math.random() * techList.length)];
+
+            if (roll < winRateA) {
+                m.winner = 'playerA';
+                m.scoreA = [pick()];
+                m.scoreB = [];
+                m.played = true;
+            } else {
+                m.winner = 'playerB';
+                m.scoreA = [];
+                m.scoreB = [pick()];
+                m.played = true;
+            }
+
+            // 勝者を次のラウンドへ進出
+            if (nextRound) {
+                const nextMatchIdx = Math.floor(m.matchIdx / 2);
+                const isSlotA = (m.matchIdx % 2 === 0);
+                const winnerFighter = (m.winner === 'playerA') ? pA : pB;
+                if (isSlotA) {
+                    nextRound.matches[nextMatchIdx].playerA = winnerFighter;
+                } else {
+                    nextRound.matches[nextMatchIdx].playerB = winnerFighter;
+                }
+            }
+        });
+    }
+
+    // 6月1週：インターハイ（全国高校総体）都道府県個人予選
+    function triggerInterhighDistrictTournament() {
+        const pref = ClubState.prefecture;
+        const participants = selectIndividualParticipants();
+        if (participants.length === 0) return;
+
+        const bracket = createIndividualTournamentBracket('interhigh_district', pref, participants);
+
+        ClubState.currentMatchData = {
+            type: 'interhigh_district',
+            isIndividual: true,
+            title: `第${ClubState.year}期 インターハイ ${pref}個人予選`,
+            bracket: bracket,
+            rounds: bracket.rounds,
+            currentRoundIdx: 0,
+            participants: participants,
+            activeBouts: null,
+            isTournamentOver: false,
+            rankAchieved: null,
+        };
+
+        ClubState.viewPhase = 'match_sim';
+        setupCurrentBouts();
+        saveClubData();
+        renderClubUI();
+    }
+
+    // 8月1週：インターハイ（全国高校総体）個人戦
+    function triggerInterhighNationalTournament() {
+        const pref = ClubState.prefecture;
+        const qualifiedMembers = ClubState.members.filter((m) => (ClubState.interhighQualifiedMemberIds || []).includes(m.id));
+        if (qualifiedMembers.length === 0) return;
+
+        const participants = qualifiedMembers.map((m) => ({
+            memberId: m.id,
+            name: m.name,
+            isPlayer: !!m.isPlayer,
+            isAlive: true,
+            achievedRank: null,
+        }));
+
+        const bracket = createIndividualTournamentBracket('interhigh_national', pref, participants);
+
+        ClubState.currentMatchData = {
+            type: 'interhigh_national',
+            isIndividual: true,
+            title: `第${ClubState.year}回 全国高等学校総合体育大会（インターハイ） 剣道個人戦`,
+            bracket: bracket,
+            rounds: bracket.rounds,
+            currentRoundIdx: 0,
+            participants: participants,
+            activeBouts: null,
+            isTournamentOver: false,
+            rankAchieved: null,
+        };
+
+        ClubState.viewPhase = 'match_sim';
+        setupCurrentBouts();
+        saveClubData();
+        renderClubUI();
+    }
+
     function generateOpponentTeam(schoolName, pref, powerGrade = 2) {
         const members = [];
         for (let i = 0; i < 5; i++) {
@@ -1779,6 +2350,94 @@
 
         const round = match.rounds[match.currentRoundIdx];
         const bouts = [];
+
+        // 個人戦トーナメント（ブラケット方式）のマッチング処理
+        if (match.isIndividual && match.bracket) {
+            // データの自己修復と他校同士の自動シミュレート
+            reconcileBracketData(match.bracket);
+            autoSimulateOtherMatches(match.bracket, match.currentRoundIdx);
+
+            const rIdx = match.currentRoundIdx;
+            const bracketRound = match.bracket.rounds[rIdx];
+            if (!bracketRound) return;
+
+            // 現在のラウンドで自校選手が出場するマッチを抽出
+            const clubMatches = bracketRound.matches.filter((m) => {
+                return (m.playerA && m.playerA.isMyClub) || (m.playerB && m.playerB.isMyClub);
+            });
+
+            clubMatches.forEach((m, idx) => {
+                const isIntra = !!(m.playerA && m.playerA.isMyClub && m.playerB && m.playerB.isMyClub);
+                let myFighter, enemyFighter;
+
+                if (isIntra) {
+                    // 同門対決：主将を myFighter、仲間を enemyFighter
+                    if (m.playerA.isPlayer) {
+                        myFighter = m.playerA;
+                        enemyFighter = m.playerB;
+                    } else {
+                        myFighter = m.playerB;
+                        enemyFighter = m.playerA;
+                    }
+                } else if (m.playerA && m.playerA.isMyClub) {
+                    myFighter = m.playerA;
+                    enemyFighter = m.playerB;
+                } else {
+                    myFighter = m.playerB;
+                    enemyFighter = m.playerA;
+                }
+
+                const myMemberObj = myFighter.memberRef || ClubState.members.find((item) => item.id === myFighter.id) || ClubState.members[0];
+                const enemyMemberObj = enemyFighter ? (enemyFighter.memberRef || enemyFighter) : { name: '不戦勝', schoolName: '', hp: 6, str: 10, agi: 10, spi: 10, stance: 'chudan' };
+
+                bouts.push({
+                    posIndex: idx,
+                    posName: isIntra ? '決勝戦（同門対決）' : round.roundName,
+                    matchNodeRef: m,
+                    myFighter: myFighter,
+                    enemyFighter: enemyFighter,
+                    myMember: myMemberObj,
+                    enemyMember: enemyMemberObj,
+                    isPlayerBout: !!myFighter.isPlayer,
+                    isIntraClub: isIntra,
+                    played: !!m.played,
+                    winner: m.winner ? (m.winner === (m.playerA === myFighter ? 'playerA' : 'playerB') ? 'my' : 'enemy') : null,
+                    myScore: m.playerA === myFighter ? (m.scoreA || []) : (m.scoreB || []),
+                    enemyScore: m.playerA === myFighter ? (m.scoreB || []) : (m.scoreA || []),
+                    log: m.log || [],
+                    schoolName: enemyFighter ? enemyFighter.schoolName : '',
+                    pref: enemyFighter ? enemyFighter.pref : '',
+                    participantRef: myFighter.participantRef,
+                    enemyParticipantRef: enemyFighter ? enemyFighter.participantRef : null,
+                });
+            });
+
+            const firstUnplayedIdx = bouts.findIndex((b) => !b.played);
+            const curIdx = firstUnplayedIdx !== -1 ? firstUnplayedIdx : (bouts.length > 0 ? bouts.length - 1 : 0);
+
+            match.activeBouts = {
+                isIndividual: true,
+                roundName: round.roundName,
+                schoolName: bouts.length > 0 ? bouts[0].schoolName : '',
+                pref: bouts.length > 0 ? bouts[0].pref : '',
+                shortDesc: bouts.length > 0 ? (bouts[0].enemyFighter?.title || '') : '',
+                bouts: bouts,
+                currentBoutIndex: curIdx,
+                isFinished: bouts.length === 0 || bouts.every((b) => b.played),
+                finalResult: null,
+            };
+
+            // 自校選手の試合が0件（全員以前に敗退）の場合
+            if (bouts.length === 0) {
+                match.activeBouts.isFinished = true;
+                match.activeBouts.finalResult = 'lose';
+            }
+
+            saveClubData();
+            return;
+        }
+
+        // 団体戦（5人制）
         for (let i = 0; i < 5; i++) {
             const memberId = ClubState.order[i];
             const myMember = ClubState.members.find((m) => m.id === memberId) || ClubState.members[0];
@@ -1799,6 +2458,7 @@
         }
 
         match.activeBouts = {
+            isIndividual: false,
             roundName: round.roundName,
             schoolName: round.oppTeam.schoolName,
             pref: round.oppTeam.pref,
@@ -1812,6 +2472,237 @@
             finalResult: null,
         };
         saveClubData();
+    }
+
+    // 個人戦マッチの勝敗確定・ブラケット反映処理
+    function applyIndividualMatchOutcome(bout, winnerSide, myScoreArr, enemyScoreArr, logArr) {
+        const match = ClubState.currentMatchData;
+        if (!match) return;
+
+        bout.played = true;
+        bout.winner = winnerSide;
+        bout.myScore = myScoreArr || [];
+        bout.enemyScore = enemyScoreArr || [];
+        bout.log = logArr || [];
+
+        const m = bout.matchNodeRef;
+        const curRoundMatches = match.bracket ? match.bracket.rounds[match.currentRoundIdx]?.matches : null;
+        const actualNode = curRoundMatches ? (curRoundMatches.find((item) => item.matchId === m?.matchId) || curRoundMatches[m?.matchIdx] || m) : m;
+
+        if (actualNode && match.bracket) {
+            actualNode.played = true;
+            if (m && m !== actualNode) m.played = true;
+
+            const isMyPlayerA = (actualNode.playerA === bout.myFighter || (actualNode.playerA && bout.myFighter && actualNode.playerA.id === bout.myFighter.id));
+            const mySlot = isMyPlayerA ? 'playerA' : 'playerB';
+            const enemySlot = isMyPlayerA ? 'playerB' : 'playerA';
+
+            actualNode.winner = (winnerSide === 'my') ? mySlot : enemySlot;
+            if (m && m !== actualNode) m.winner = actualNode.winner;
+
+            actualNode.scoreA = isMyPlayerA ? (myScoreArr || []) : (enemyScoreArr || []);
+            actualNode.scoreB = isMyPlayerA ? (enemyScoreArr || []) : (myScoreArr || []);
+            actualNode.log = logArr || [];
+
+            const winnerFighter = (winnerSide === 'my') ? bout.myFighter : bout.enemyFighter;
+            const loserFighter = (winnerSide === 'my') ? bout.enemyFighter : bout.myFighter;
+
+            // 勝者を次のラウンド枠へ進出
+            const nextRound = match.bracket.rounds[match.currentRoundIdx + 1];
+            if (nextRound && winnerFighter) {
+                const nextMatchIdx = Math.floor(actualNode.matchIdx / 2);
+                const isNextSlotA = (actualNode.matchIdx % 2 === 0);
+                if (isNextSlotA) {
+                    nextRound.matches[nextMatchIdx].playerA = winnerFighter;
+                } else {
+                    nextRound.matches[nextMatchIdx].playerB = winnerFighter;
+                }
+            }
+
+            // 敗者の敗退処理（自校選手の場合）
+            if (loserFighter && loserFighter.isMyClub) {
+                const loserId = loserFighter.id || (loserFighter.memberRef ? loserFighter.memberRef.id : null);
+                const rankLabel = getIndividualRankLabel(match.currentRoundIdx, match.bracket.totalRounds);
+                if (loserFighter.participantRef) {
+                    loserFighter.participantRef.isAlive = false;
+                    loserFighter.participantRef.achievedRank = rankLabel;
+                }
+                // match.participants内の対象も確実に更新
+                if (match.participants) {
+                    const target = match.participants.find((p) => p.memberId === loserId || p.name === loserFighter.name);
+                    if (target) {
+                        target.isAlive = false;
+                        target.achievedRank = rankLabel;
+                    }
+                }
+            }
+
+            // 勝者の生存処理（自校選手の場合）
+            if (winnerFighter && winnerFighter.isMyClub) {
+                const winnerId = winnerFighter.id || (winnerFighter.memberRef ? winnerFighter.memberRef.id : null);
+                if (winnerFighter.participantRef) {
+                    winnerFighter.participantRef.isAlive = true;
+                }
+                if (match.participants) {
+                    const target = match.participants.find((p) => p.memberId === winnerId || p.name === winnerFighter.name);
+                    if (target) {
+                        target.isAlive = true;
+                    }
+                }
+            }
+
+            // 自校の試合終了直後、同ラウンドの他校同士の試合も即時シミュレートしてラインと次戦相手を同期
+            autoSimulateOtherMatches(match.bracket, match.currentRoundIdx);
+        }
+    }
+
+    // トーナメント表（ブラケットUI）のHTML生成
+    function renderTournamentBracketHtml(bracket, currentRoundIdx, activeMatchId) {
+        if (!bracket || !bracket.rounds) return '';
+
+        // 過去セーブデータや未完了ノードの整合性を自動修復
+        reconcileBracketData(bracket);
+
+        const elements = [];
+        bracket.rounds.forEach((round, rIdx) => {
+            const isCurrentRound = (rIdx === currentRoundIdx);
+            const matchesHtml = round.matches.map((m) => {
+                const isActiveMatch = (m.matchId === activeMatchId);
+                const pA = m.playerA;
+                const pB = m.playerB;
+
+                const renderSlot = (fighter, isSlotA) => {
+                    if (!fighter) {
+                        return `<div class="bracket-slot empty-slot"><span class="fighter-name-text text-muted">未定</span></div>`;
+                    }
+                    const isWinner = m.played && ((isSlotA && m.winner === 'playerA') || (!isSlotA && m.winner === 'playerB'));
+                    const isLoser = m.played && !isWinner;
+                    const isMy = fighter.isMyClub;
+                    const isYou = fighter.isPlayer;
+
+                    let badgeClass = '';
+                    let badgeLabel = '';
+                    if (isYou) {
+                        badgeClass = 'tag-you';
+                        badgeLabel = '主将';
+                    } else if (isMy) {
+                        badgeClass = 'tag-myclub';
+                        badgeLabel = '仲間';
+                    }
+
+                    const score = isSlotA ? (m.scoreA || []) : (m.scoreB || []);
+                    const scoreText = m.played ? (score.length ? score.join('') : '0') : '';
+
+                    return `
+                        <div class="bracket-slot ${isMy ? 'is-my-fighter' : ''} ${isWinner ? 'is-winner' : ''} ${isLoser ? 'is-loser' : ''}">
+                            <div class="bracket-slot-fighter">
+                                ${badgeLabel ? `<span class="bracket-tag ${badgeClass}">${badgeLabel}</span>` : ''}
+                                <span class="fighter-name-text" title="${fighter.schoolName} (${fighter.pref})">${escapeHtml(fighter.name)}</span>
+                                <span class="fighter-school-text">${escapeHtml(fighter.schoolName)}</span>
+                            </div>
+                            <div class="bracket-slot-score">${scoreText}</div>
+                        </div>
+                    `;
+                };
+
+                return `
+                    <div class="bracket-match-node ${isActiveMatch ? 'active-match-node pulse-border' : ''} ${m.played ? 'played-match' : ''}">
+                        ${renderSlot(pA, true)}
+                        ${renderSlot(pB, false)}
+                    </div>
+                `;
+            }).join('');
+
+            // ラウンド列HTML
+            elements.push(`
+                <div class="bracket-round-column ${isCurrentRound ? 'active-round-column' : ''}">
+                    <div class="bracket-round-header">
+                        <span class="round-header-name">${round.roundName}</span>
+                    </div>
+                    <div class="bracket-matches-list">
+                        ${matchesHtml}
+                    </div>
+                </div>
+            `);
+
+            // 次ラウンドへの接続線（コネクタ列）
+            const nextRound = bracket.rounds[rIdx + 1];
+            if (nextRound && nextRound.matches) {
+                const connectorNodesHtml = nextRound.matches.map((nextM, mIdx) => {
+                    const topMatch = round.matches[mIdx * 2];
+                    const bottomMatch = round.matches[mIdx * 2 + 1];
+
+                    // 勝者判定（どのような保存形式・タイミングでも確実に判定）
+                    const getFighterWinner = (m) => {
+                        if (!m || !m.played) return null;
+                        if (m.winner === 'playerA') return m.playerA;
+                        if (m.winner === 'playerB') return m.playerB;
+                        if (m.winner === 'my') return (m.playerA && m.playerA.isMyClub) ? m.playerA : m.playerB;
+                        if (m.winner === 'enemy') return (m.playerA && !m.playerA.isMyClub) ? m.playerA : m.playerB;
+                        if (Array.isArray(m.scoreA) && m.scoreA.length > 0) return m.playerA;
+                        if (Array.isArray(m.scoreB) && m.scoreB.length > 0) return m.playerB;
+                        return m.playerA || m.playerB;
+                    };
+
+                    const topWinner = getFighterWinner(topMatch);
+                    const bottomWinner = getFighterWinner(bottomMatch);
+
+                    const isTopMy = topWinner && !!topWinner.isMyClub;
+                    const isBottomMy = bottomWinner && !!bottomWinner.isMyClub;
+
+                    const topWireClass = topMatch && topMatch.played
+                        ? (isTopMy ? 'wire-my' : 'wire-win')
+                        : 'wire-default';
+                    const bottomWireClass = bottomMatch && bottomMatch.played
+                        ? (isBottomMy ? 'wire-my' : 'wire-win')
+                        : 'wire-default';
+
+                    // 次ラウンドへの合流線判定
+                    let exitWireClass = 'wire-default';
+                    const nextSlotFighter = (mIdx % 2 === 0) ? nextM?.playerA : nextM?.playerB;
+                    const activeAdvancingFighter = nextSlotFighter || topWinner || bottomWinner;
+                    if (activeAdvancingFighter) {
+                        exitWireClass = activeAdvancingFighter.isMyClub ? 'wire-my' : 'wire-win';
+                    }
+
+                    return `
+                        <div class="bracket-connector-node">
+                            <svg class="bracket-wire-svg" viewBox="0 0 28 100" preserveAspectRatio="none">
+                                <path class="wire-path ${topWireClass}" d="M 0,25 L 14,25 L 14,50" vector-effect="non-scaling-stroke" />
+                                <path class="wire-path ${bottomWireClass}" d="M 0,75 L 14,75 L 14,50" vector-effect="non-scaling-stroke" />
+                                <path class="wire-path ${exitWireClass}" d="M 14,50 L 28,50" vector-effect="non-scaling-stroke" />
+                            </svg>
+                        </div>
+                    `;
+                }).join('');
+
+                elements.push(`
+                    <div class="bracket-connector-column">
+                        <div class="bracket-connector-header-spacer"></div>
+                        <div class="bracket-connectors-list">
+                            ${connectorNodesHtml}
+                        </div>
+                    </div>
+                `);
+            }
+        });
+
+        const columnsHtml = elements.join('');
+
+        return `
+            <div class="tournament-bracket-card">
+                <div class="bracket-card-top">
+                    <span class="bracket-icon">📜</span>
+                    <h3>トーナメント表（ブラケット）</h3>
+                    <span class="bracket-sub">※勝者のみが次の回戦へ進出します</span>
+                </div>
+                <div class="bracket-scroll-wrap">
+                    <div class="tournament-bracket-grid">
+                        ${columnsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     // ───────────────────────────────────────────
@@ -1841,10 +2732,45 @@
         const pickTech = (arr) => arr[Math.floor(Math.random() * arr.length)];
         const techFullNames = { 'メ': '面', 'コ': '小手', 'ド': '胴', 'ツ': '突き' };
 
+        const isIndividual = ClubState.currentMatchData && ClubState.currentMatchData.isIndividual;
         const roll = Math.random();
         let simStats = null;
 
-        if (roll < myWinRate * 0.55) {
+        if (isIndividual) {
+            // 個人戦：引き分けなし（延長一本勝負で必ず決着）
+            let winKana = 'メ';
+            let winnerSide = 'my';
+            if (roll < myWinRate) {
+                winKana = pickTech(myTechs);
+                bout.myScore = [winKana];
+                bout.enemyScore = [];
+                bout.winner = 'my';
+                winnerSide = 'my';
+                bout.log.push(`【延長戦】息詰まる攻防の末、${my.name}が電光石火の【${techFullNames[winKana]}】を決めて勝負あり！`);
+                simStats = {
+                    winningMoves: [techFullNames[winKana]],
+                    hits: 1,
+                    blocks: 1,
+                    rounds: 4,
+                    pushWins: Math.random() < 0.5 ? 1 : 0,
+                };
+            } else {
+                winKana = pickTech(oppTechs);
+                bout.myScore = [];
+                bout.enemyScore = [winKana];
+                bout.winner = 'enemy';
+                winnerSide = 'enemy';
+                bout.log.push(`【延長戦】相手の起死回生の出ばな【${techFullNames[winKana]}】に屈し惜敗…！`);
+                simStats = {
+                    winningMoves: [],
+                    hits: 0,
+                    blocks: 1,
+                    rounds: 4,
+                    pushWins: 0,
+                };
+            }
+            applyIndividualMatchOutcome(bout, winnerSide, bout.myScore, bout.enemyScore, bout.log);
+        } else if (roll < myWinRate * 0.55) {
             const t1 = pickTech(myTechs);
             const t2 = pickTech(myTechs);
             bout.myScore = [t2];
@@ -1917,6 +2843,60 @@
         saveClubData();
     }
 
+    function getIndividualRankLabel(roundIdx, totalRounds) {
+        if (totalRounds <= 4) {
+            // 4回戦制（地区予選）
+            if (roundIdx === 0) return '初戦敗退';
+            if (roundIdx === 1) return '2回戦敗退';
+            if (roundIdx === 2) return 'ベスト4';
+            return '準優勝';
+        } else {
+            // 5回戦制（全国大会）
+            if (roundIdx === 0) return '初戦敗退';
+            if (roundIdx === 1) return '2回戦敗退';
+            if (roundIdx === 2) return 'ベスト8';
+            if (roundIdx === 3) return 'ベスト4';
+            return '準優勝';
+        }
+    }
+
+    function evaluateIndividualRound(boutsData) {
+        const match = ClubState.currentMatchData;
+        if (!match) return;
+
+        // ブラケットが存在する場合、他校同士の試合を自動判定して次枠へ勝者を進出させる
+        if (match.bracket) {
+            autoSimulateOtherMatches(match.bracket, match.currentRoundIdx);
+        }
+
+        // boutsData内の試合結果に基づき、自校選手の生存・敗退状態を確実に同期
+        if (boutsData && boutsData.bouts) {
+            boutsData.bouts.forEach((b) => {
+                const fighterName = b.myMember ? b.myMember.name : (b.myFighter ? b.myFighter.name : null);
+                const fighterId = b.myMember ? b.myMember.id : (b.myFighter ? b.myFighter.id : null);
+                const p = (match.participants || []).find((item) => item.memberId === fighterId || item.name === fighterName);
+                if (p) {
+                    if (b.winner === 'my') {
+                        p.isAlive = true;
+                    } else if (b.winner === 'enemy') {
+                        p.isAlive = false;
+                        if (!p.achievedRank) {
+                            p.achievedRank = getIndividualRankLabel(match.currentRoundIdx, match.bracket ? match.bracket.totalRounds : 4);
+                        }
+                    }
+                }
+            });
+        }
+
+        const alive = (match.participants || []).filter((p) => p.isAlive);
+        if (alive.length > 0) {
+            boutsData.finalResult = 'win';
+        } else {
+            boutsData.finalResult = 'lose';
+        }
+        saveClubData();
+    }
+
     function evaluateTeamMatch(boutsData) {
         let myW = 0, oppW = 0, d = 0, myPts = 0, oppPts = 0;
         boutsData.bouts.forEach((b) => {
@@ -1947,8 +2927,10 @@
     function updateGlobalTournamentBackground(tourneyType) {
         if (!document.body) return;
         document.body.classList.remove('bg-national', 'bg-district');
-        if (tourneyType === 'national' || tourneyType === 'district') {
-            document.body.classList.add(`bg-${tourneyType}`);
+        if (tourneyType === 'national' || tourneyType === 'interhigh_national') {
+            document.body.classList.add('bg-national');
+        } else if (tourneyType === 'district' || tourneyType === 'interhigh_district') {
+            document.body.classList.add('bg-district');
         }
     }
 
@@ -2231,10 +3213,12 @@
                         <div class="setup-rules-info">
                             <h4>📜 大会ルールと部活の歩み</h4>
                             <ul>
-                                <li><strong>12月3週</strong>：地区予選（都道府県トーナメント）。優勝校のみ全国選抜へ！</li>
-                                <li><strong>3月4週</strong>：全国高校剣道選抜大会（47都道府県代表トーナメント）！</li>
-                                <li><strong>4月1週</strong>：進級＆成績に応じた新入部員が入部。</li>
+                                <li><strong>6月1週</strong>：インターハイ都道府県個人予選！上位2名が全国大会へ！</li>
+                                <li><strong>8月1週</strong>：インターハイ（全国高校総体）個人戦！全国の猛者と勝負！</li>
                                 <li><strong>9月1週</strong>：3年生引退。2年生から次期主将を指名して歴史を紡ぐ！</li>
+                                <li><strong>12月3週</strong>：選抜地区予選（団体戦）。優勝校のみ全国選抜へ！</li>
+                                <li><strong>3月4週</strong>：全国高校剣道選抜大会（47都道府県代表団体戦）！</li>
+                                <li><strong>4月1週</strong>：進級＆大会実績に応じた新入部員が入部。</li>
                                 <li><strong>オートセーブ完備</strong>：試合の勝敗状況も保存されやり直し不可。</li>
                             </ul>
                         </div>
@@ -2263,7 +3247,7 @@
                     </div>
                     <div class="member-stats-summary-row">
                         <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
-                        <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
+                        <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                     </div>
                     <div class="member-mini-chara-wrap">
                         <div class="mini-chara-canvas-box">
@@ -2304,7 +3288,59 @@
         const memberCount = ClubState.members.length;
         const isShortage = memberCount < 5;
 
-        if (ClubState.month === 12 && ClubState.week === 3) {
+        if (ClubState.month === 6 && ClubState.week === 1) {
+            // 6月1週：インターハイ個人予選（部員1名以上で出場可能）
+            if (memberCount === 0) {
+                bannerHtml = `
+                    <div class="tourney-alert shortage">
+                        <span class="shortage-icon">⚠️</span>
+                        <div class="alert-body">
+                            <strong class="text-danger">【6月1週 インターハイ個人予選】部員不在のため不出場</strong>
+                            <p>大会に出場できる部員が不在のため、今回は出場を見送ります。</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                bannerHtml = `
+                    <div class="tourney-alert ready ih-theme">
+                        <span class="pulse-icon">🔥</span>
+                        <div class="alert-body">
+                            <strong>【6月1週 インターハイ都道府県個人予選】開幕！</strong>
+                            <p>上位2名（準優勝以上）が8月のインターハイ（全国高校総体）への切符を掴みます！</p>
+                        </div>
+                        <button type="button" class="btn-battle-launch ih-btn" onclick="window.KendoClub.startTournamentMatch()">
+                            ⚔️ 個人予選に出陣する！
+                        </button>
+                    </div>
+                `;
+            }
+        } else if (ClubState.month === 8 && ClubState.week === 1) {
+            // 8月1週：インターハイ全国個人戦
+            if (ClubState.qualifiedForInterhigh && ClubState.interhighQualifiedMemberIds && ClubState.interhighQualifiedMemberIds.length > 0) {
+                bannerHtml = `
+                    <div class="tourney-alert ready gold">
+                        <span class="pulse-icon">👑</span>
+                        <div class="alert-body">
+                            <strong>【8月1週 全国高校総体（インターハイ）個人戦】開幕！</strong>
+                            <p>全国の強豪剣士が集う夢の舞台！個人の頂点・日本一を目指せ！</p>
+                        </div>
+                        <button type="button" class="btn-battle-launch gold-btn" onclick="window.KendoClub.startTournamentMatch()">
+                            🏆 インターハイに出陣する！
+                        </button>
+                    </div>
+                `;
+            } else {
+                bannerHtml = `
+                    <div class="tourney-alert pending">
+                        <span class="calendar-icon">🥋</span>
+                        <div class="alert-body">
+                            <strong>【8月1週 全国高校総体（インターハイ）】開催中</strong>
+                            <p>予選敗退のため不出場。秋の稽古に励み、来期の躍進を期します。</p>
+                        </div>
+                    </div>
+                `;
+            }
+        } else if (ClubState.month === 12 && ClubState.week === 3) {
             if (isShortage) {
                 bannerHtml = `
                     <div class="tourney-alert shortage">
@@ -2356,17 +3392,26 @@
             }
         } else {
             let nextEventText = '';
-            if (ClubState.month < 9) nextEventText = '9月1週：3年生引退 ＆ 新主将指名';
-            else if (ClubState.month < 12 || (ClubState.month === 12 && ClubState.week < 3)) nextEventText = '12月3週：地区予選（都道府県トーナメント）';
-            else if (ClubState.qualifiedForNational) nextEventText = '3月4週：全国高校選抜大会（47都道府県代表）';
-            else nextEventText = '4月1週：新年度進級 ＆ 新入部員入部';
+            if (ClubState.month < 6 || (ClubState.month === 6 && ClubState.week < 1)) {
+                nextEventText = '6月1週：インターハイ都道府県個人予選';
+            } else if (ClubState.month < 8 && ClubState.qualifiedForInterhigh) {
+                nextEventText = '8月1週：インターハイ（全国高校総体）個人戦';
+            } else if (ClubState.month < 9) {
+                nextEventText = '9月1週：3年生引退 ＆ 新主将指名';
+            } else if (ClubState.month < 12 || (ClubState.month === 12 && ClubState.week < 3)) {
+                nextEventText = '12月3週：選抜地区予選（団体戦 8校トーナメント）';
+            } else if (ClubState.qualifiedForNational) {
+                nextEventText = '3月4週：全国高校選抜大会（団体戦 47代表）';
+            } else {
+                nextEventText = '4月1週：新年度進級 ＆ 新入部員入部';
+            }
 
             bannerHtml = `
                 <div class="tourney-alert pending">
                     <span class="calendar-icon">📅</span>
                     <div class="alert-body">
                         <strong>次の重要日程：${nextEventText}</strong>
-                        <p>${ClubState.qualifiedForNational ? '🎖️ 全国選抜大会出場権 獲得中！' : '日々の稽古で心技体を練磨せよ！'}</p>
+                        <p>${ClubState.qualifiedForInterhigh ? '🎖️ インターハイ個人戦出場権 獲得中！' : (ClubState.qualifiedForNational ? '🎖️ 全国選抜大会出場権 獲得中！' : '日々の稽古で心技体を練磨せよ！')}</p>
                     </div>
                 </div>
             `;
@@ -2417,7 +3462,7 @@
                         </div>
                         <div class="member-stats-summary-row">
                             <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
-                            <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
+                            <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                         </div>
                         <div class="member-fatigue-row">
                             <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
@@ -2443,11 +3488,11 @@
             `;
         }).join('');
 
-        // 控え部員一覧
-        const benchMembers = ClubState.members.filter((m) => !ClubState.order.includes(m.id));
+        // 控え部員一覧（戦力降順）
+        const benchMembers = getBenchMembers();
 
-        // 控え部員カード（左側に表示）
-        const benchCardsHtml = benchMembers.map((m) => {
+        // 控え部員カード（右から左へ戦力順になるよう、仕切り・オーダー側（右）に戦力上位を配置）
+        const benchCardsHtml = [...benchMembers].reverse().map((m) => {
             const cond = CONDITION_DATA[m.condition] || CONDITION_DATA.normal;
             return `
                 <div class="club-member-card is-bench ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
@@ -2471,7 +3516,7 @@
                         </div>
                         <div class="member-stats-summary-row">
                             <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
-                            <span class="stat-summary-tag">戦力: ${Math.round(m.str + m.agi + m.spi + (m.skills.men + m.skills.kote + m.skills.do + m.skills.tsuki) * 0.4)}</span>
+                            <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                         </div>
                         <div class="member-fatigue-row">
                             <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
@@ -2659,8 +3704,8 @@
 
     // オーダー編成画面
     function renderOrderEditor(container) {
-        const currentOrderIds = ClubState.order.filter(Boolean);
-        const benchMembers = ClubState.members.filter((m) => !currentOrderIds.includes(m.id));
+        // 控え部員一覧（戦力順に降順ソート）
+        const benchMembers = getBenchMembers();
 
         // 大将を一番上にする表示順 (大将: 4 -> 副将: 3 -> 中堅: 2 -> 次鋒: 1 -> 先鋒: 0)
         const orderDisplayIndices = [4, 3, 2, 1, 0];
@@ -2836,16 +3881,25 @@
 
     // 歴代戦績画面（トロフィールーム）
     function renderHistoryScreen(container) {
-        const dStats = ClubState.stats.district;
-        const nStats = ClubState.stats.national;
+        const dStats = ClubState.stats.district || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+        const nStats = ClubState.stats.national || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+        const ihDStats = ClubState.stats.interhighDistrict || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+        const ihNStats = ClubState.stats.interhighNational || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
 
         const historyRows = ClubState.history.map((h) => {
+            const ihDist = h.interhighDistrictResult || '不出場';
+            const ihNat = h.interhighNationalResult || '不出場';
+            const dist = h.districtResult || '不出場';
+            const nat = h.nationalResult || '不出場';
+
             return `
                 <tr>
                     <td>${h.year}年目</td>
                     <td>${h.captainName}</td>
-                    <td class="${h.districtResult === '優勝' ? 'text-gold' : ''}">${h.districtResult}</td>
-                    <td class="${h.nationalResult === '優勝' ? 'text-crown' : ''}">${h.nationalResult}</td>
+                    <td class="${ihDist === '優勝' ? 'text-gold' : (ihDist === '準優勝' ? 'text-blue' : '')}">${ihDist}</td>
+                    <td class="${ihNat === '優勝' ? 'text-crown' : (ihNat === '準優勝' ? 'text-gold' : '')}">${ihNat}</td>
+                    <td class="${dist === '優勝' ? 'text-gold' : ''}">${dist}</td>
+                    <td class="${nat === '優勝' ? 'text-crown' : ''}">${nat}</td>
                 </tr>
             `;
         }).join('');
@@ -2858,41 +3912,59 @@
                 </div>
 
                 <div class="stats-summary-grid">
+                    <div class="stat-card ih-theme">
+                        <h3>🥋 総体予選(個人) 通算</h3>
+                        <div class="stat-values">
+                            <div><span>優勝:</span> <strong class="text-gold">${ihDStats.win}回</strong></div>
+                            <div><span>準優勝:</span> <strong>${ihDStats.runnerUp}回</strong></div>
+                            <div><span>ベスト4:</span> <strong>${ihDStats.best4}回</strong></div>
+                            <div><span>出場回数:</span> <strong>${ihDStats.total}回</strong></div>
+                        </div>
+                    </div>
+                    <div class="stat-card gold-border">
+                        <h3>👑 総体全国(個人) 通算</h3>
+                        <div class="stat-values">
+                            <div><span>全国制覇:</span> <strong class="text-crown">${ihNStats.win}回</strong></div>
+                            <div><span>準優勝:</span> <strong>${ihNStats.runnerUp}回</strong></div>
+                            <div><span>ベスト4:</span> <strong>${ihNStats.best4}回</strong></div>
+                            <div><span>全国出場:</span> <strong>${ihNStats.total}回</strong></div>
+                        </div>
+                    </div>
                     <div class="stat-card">
-                        <h3>🗾 地区予選（都道府県）通算</h3>
+                        <h3>🗾 選抜予選(団体) 通算</h3>
                         <div class="stat-values">
                             <div><span>優勝:</span> <strong>${dStats.win}回</strong></div>
                             <div><span>準優勝:</span> <strong>${dStats.runnerUp}回</strong></div>
                             <div><span>ベスト4:</span> <strong>${dStats.best4}回</strong></div>
-                            <div><span>ベスト8:</span> <strong>${dStats.best8}回</strong></div>
                             <div><span>出場回数:</span> <strong>${dStats.total}回</strong></div>
                         </div>
                     </div>
                     <div class="stat-card gold-border">
-                        <h3>👑 全国選抜大会 通算</h3>
+                        <h3>🏆 全国選抜(団体) 通算</h3>
                         <div class="stat-values">
                             <div><span>全国制覇:</span> <strong class="text-crown">${nStats.win}回</strong></div>
                             <div><span>準優勝:</span> <strong>${nStats.runnerUp}回</strong></div>
                             <div><span>ベスト4:</span> <strong>${nStats.best4}回</strong></div>
-                            <div><span>ベスト8:</span> <strong>${nStats.best8}回</strong></div>
                             <div><span>全国出場:</span> <strong>${nStats.total}回</strong></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="history-table-wrap">
-                    <h3>📜 年度別 成績年表</h3>
+                    <h3>📜 年度別 大会成績年表</h3>
                     <table class="history-table">
                         <thead>
                             <tr>
                                 <th>年度</th>
                                 <th>主将</th>
-                                <th>地区大会</th>
-                                <th>全国選抜大会</th>
+                                <th>総体予選(個)</th>
+                                <th>総体全国(個)</th>
+                                <th>選抜予選(団)</th>
+                                <th>全国選抜(団)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${historyRows.length ? historyRows : '<tr><td colspan="4">まだ公式大会の記録はありません。12月の地区予選を目指しましょう！</td></tr>'}
+                            ${historyRows.length ? historyRows : '<tr><td colspan="6">まだ公式大会の記録はありません。6月の個人予選、12月の選抜予選を目指しましょう！</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -2963,61 +4035,46 @@
         if (!match || !match.activeBouts) return;
 
         const boutsData = match.activeBouts;
-
-        const rowsHtml = boutsData.bouts.map((bout, idx) => {
-            const isCurrent = idx === boutsData.currentBoutIndex && !boutsData.isFinished;
-            const isMyWin = bout.winner === 'my';
-            const isEnemyWin = bout.winner === 'enemy';
-
-            let statusBadge = '<span class="status-pending">対戦前</span>';
-            if (bout.played) {
-                if (isMyWin) statusBadge = '<span class="badge-win">○ 勝</span>';
-                else if (isEnemyWin) statusBadge = '<span class="badge-lose">× 敗</span>';
-                else statusBadge = '<span class="badge-draw">▲ 引分</span>';
-            } else if (isCurrent) {
-                statusBadge = '<span class="status-fighting pulse">⚔️ 試合中</span>';
-            }
-
-            const myPts = bout.myScore.length ? bout.myScore.join('・') : '-';
-            const oppPts = bout.enemyScore.length ? bout.enemyScore.join('・') : '-';
-
-            return `
-                <div class="match-row ${isCurrent ? 'current-bout' : ''} ${bout.played ? 'played' : ''}">
-                    <span class="col-pos">${bout.posName}</span>
-                    <div class="col-fighter red">
-                        <span class="fighter-tag red-tag">赤</span>
-                        <strong>${bout.myMember.name}</strong>
-                        ${bout.isPlayerBout ? '<span class="tag-you">主将・あなた</span>' : ''}
-                    </div>
-                    <div class="col-pts red-pts">${myPts}</div>
-                    <div class="col-vs">${statusBadge}</div>
-                    <div class="col-pts white-pts">${oppPts}</div>
-                    <div class="col-fighter white">
-                        <strong>${bout.enemyMember.name}</strong>
-                        <span class="fighter-tag white-tag">白</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
+        const isIndividual = !!match.isIndividual;
         const curBout = boutsData.bouts[boutsData.currentBoutIndex];
 
+        // 個人戦用ブラケットHTML
+        let bracketHtml = '';
+        if (isIndividual && match.bracket) {
+            bracketHtml = renderTournamentBracketHtml(match.bracket, match.currentRoundIdx, curBout?.matchNodeRef?.matchId);
+        }
+
+        // コントロールボタン・プロンプト生成
         let actionControlHtml = '';
+        const captainPart = isIndividual ? (match.participants || []).find((p) => p.isPlayer) : null;
+        const isCaptainEliminated = isIndividual && captainPart && !captainPart.isAlive;
+
         if (!boutsData.isFinished && curBout) {
             if (curBout.isPlayerBout && !curBout.played) {
                 actionControlHtml = `
                     <div class="bout-control-box highlight">
-                        <span class="bout-prompt">【${curBout.posName}戦】あなたの出番です！主将の気迫で勝利を掴み取れ！</span>
-                        <button type="button" class="btn-enter-player-bout" onclick="window.KendoClub.launchPlayerBout()">
-                            ⚔️ 立ち合い開始
-                        </button>
+                        <span class="bout-prompt">【${curBout.posName}】あなたの出番です！気迫を込めて立ち合え！</span>
+                        <div class="sim-btn-group">
+                            <button type="button" class="btn-enter-player-bout" onclick="window.KendoClub.launchPlayerBout()">
+                                ⚔️ 立ち合い開始
+                            </button>
+                            <button type="button" class="btn-sim-next" onclick="window.KendoClub.stepSimBout()">
+                                ⚡ 結果を即時判定
+                            </button>
+                        </div>
                     </div>
                 `;
             } else if (!curBout.played) {
+                // 仲間部員の試合：自動操作（観戦有無を選択可能）
+                let promptMsg = `【${curBout.posName}】仲間部員【${curBout.myMember.name}】の立ち合い（自動操作）`;
+                if (isCaptainEliminated) {
+                    promptMsg = `⚠️ あなた（主将）は敗退しましたが、仲間部員【${curBout.myMember.name}】が勝ち残っています！立ち合いを見守りましょう。`;
+                }
+
                 if (ClubState.isAutoSpectating) {
                     actionControlHtml = `
                         <div class="bout-control-box auto-spectate-box">
-                            <span class="bout-prompt">👀【${curBout.posName}戦】${curBout.myMember.name} vs ${curBout.enemyMember.name} — <strong id="autoSpectateCountdown">3秒後</strong>に自動で立ち合いを開始します…</span>
+                            <span class="bout-prompt">👀【${curBout.posName}】${curBout.myMember.name} vs ${curBout.enemyMember.name} — <strong id="autoSpectateCountdown">3秒後</strong>に自動で観戦を開始します…</span>
                             <div class="sim-btn-group">
                                 <button type="button" class="btn-sim-spectate pulse-btn" onclick="window.KendoClub.launchSpectateBoutImmediate()">
                                     ▶️ 今すぐ観戦開始
@@ -3025,25 +4082,22 @@
                                 <button type="button" class="btn-sim-pause" onclick="window.KendoClub.pauseAutoSpectating()">
                                     ⏸️ 観戦を一時停止
                                 </button>
-                                <button type="button" class="btn-sim-skip" onclick="window.KendoClub.stopAutoSpectateAndSkipToPlayer()">
-                                    ⏩ 主将の出番までスキップ
+                                <button type="button" class="btn-sim-skip" onclick="window.KendoClub.stepSimBout()">
+                                    ⚡ 結果を即時判定
                                 </button>
                             </div>
                         </div>
                     `;
                 } else {
                     actionControlHtml = `
-                        <div class="bout-control-box">
-                            <span class="bout-prompt">【${curBout.posName}戦】${curBout.myMember.name} vs ${curBout.enemyMember.name}</span>
+                        <div class="bout-control-box ${isCaptainEliminated ? 'cheer-mate-box' : ''}">
+                            <span class="bout-prompt">${promptMsg}</span>
                             <div class="sim-btn-group">
-                                <button type="button" class="btn-sim-spectate" onclick="window.KendoClub.launchSpectateBout()">
-                                    👀 リアルタイム観戦
+                                <button type="button" class="btn-sim-spectate pulse-btn" onclick="window.KendoClub.launchSpectateBout()">
+                                    👀 仲間を観戦する
                                 </button>
                                 <button type="button" class="btn-sim-next" onclick="window.KendoClub.stepSimBout()">
                                     ⚡ 結果を即時判定
-                                </button>
-                                <button type="button" class="btn-sim-skip" onclick="window.KendoClub.skipToPlayerOrEnd()">
-                                    ⏩ 主将の出番までスキップ
                                 </button>
                             </div>
                         </div>
@@ -3053,7 +4107,7 @@
         } else {
             actionControlHtml = `
                 <div class="bout-control-box finish">
-                    <span class="bout-prompt">全5試合終了！試合結果を確認します。</span>
+                    <span class="bout-prompt">${isIndividual ? '本回戦の全対戦が終了しました！' : '全5試合終了！試合結果を確認します。'}</span>
                     <button type="button" class="btn-finish-match" onclick="window.KendoClub.showRoundResult()">
                         🏆 勝敗結果を見る
                     </button>
@@ -3061,31 +4115,126 @@
             `;
         }
 
-        const boutLogs = boutsData.bouts
-            .filter((b) => b.played && b.log.length)
-            .map((b) => `<div class="bout-log-item"><strong>【${b.posName}戦: ${b.myMember.name} vs ${b.enemyMember.name}】</strong><br>${b.log.join('<br>')}</div>`)
-            .join('');
+        let mainContentHtml = '';
+        if (isIndividual) {
+            // 個人戦：現在進行中の1試合の迫力あるVS対決カード
+            if (curBout) {
+                const myPts = curBout.myScore.length ? curBout.myScore.join('・') : '-';
+                const oppPts = curBout.enemyScore.length ? curBout.enemyScore.join('・') : '-';
+                const isMyWin = curBout.winner === 'my';
+                const isEnemyWin = curBout.winner === 'enemy';
 
-        const tourneyType = match.type || 'district';
-        container.innerHTML = `
-            <div class="match-simulator-view bg-${tourneyType}">
-                <div class="match-sim-header">
-                    <div class="match-round-title">${match.title} — ${boutsData.roundName}</div>
-                    <div class="match-teams-title">
-                        <span class="team-red">${ClubState.schoolName} (${ClubState.prefecture})</span>
-                        <span class="vs-label">VS</span>
-                        <span class="team-white">${boutsData.schoolName} (${boutsData.pref})</span>
+                let statusBadge = '<span class="status-fighting pulse">⚔️ 立ち合い前</span>';
+                if (curBout.played) {
+                    if (isMyWin) statusBadge = '<span class="badge-win">○ 勝者: ' + curBout.myMember.name + '</span>';
+                    else if (isEnemyWin) statusBadge = '<span class="badge-lose">× 勝者: ' + curBout.enemyMember.name + '</span>';
+                    else statusBadge = '<span class="badge-draw">▲ 延長</span>';
+                }
+
+                mainContentHtml = `
+                    <div class="individual-current-match-card">
+                        <div class="indiv-match-header">
+                            <span class="indiv-round-tag">${curBout.posName}</span>
+                        </div>
+                        <div class="indiv-fighters-vs-row">
+                            <div class="indiv-fighter-box red">
+                                <span class="corner-ribbon red">赤</span>
+                                <div class="fighter-school">${ClubState.schoolName} (${ClubState.prefecture})</div>
+                                <div class="fighter-main-name">${escapeHtml(curBout.myMember.name)}</div>
+                                <span class="fighter-role-tag">${curBout.isPlayerBout ? '主将・あなた' : '自校代表'}</span>
+                                <div class="fighter-score-display">${myPts}</div>
+                            </div>
+                            <div class="indiv-vs-center">
+                                <span class="indiv-vs-badge">VS</span>
+                                <div class="indiv-status-badge">${statusBadge}</div>
+                            </div>
+                            <div class="indiv-fighter-box white">
+                                <span class="corner-ribbon white">白</span>
+                                <div class="fighter-school">${escapeHtml(curBout.enemyMember.schoolName || curBout.schoolName || '')} (${escapeHtml(curBout.enemyMember.pref || curBout.pref || '')})</div>
+                                <div class="fighter-main-name">${escapeHtml(curBout.enemyMember.name)}</div>
+                                <span class="fighter-role-tag">${escapeHtml(curBout.enemyMember.title || '個人代表')}</span>
+                                <div class="fighter-score-display">${oppPts}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                `;
+            }
+        } else {
+            // 団体戦：従来の5枠スコアボード
+            const rowsHtml = boutsData.bouts.map((bout, idx) => {
+                const isCurrent = idx === boutsData.currentBoutIndex && !boutsData.isFinished;
+                const isMyWin = bout.winner === 'my';
+                const isEnemyWin = bout.winner === 'enemy';
 
+                let statusBadge = '<span class="status-pending">対戦前</span>';
+                if (bout.played) {
+                    if (isMyWin) statusBadge = '<span class="badge-win">○ 勝</span>';
+                    else if (isEnemyWin) statusBadge = '<span class="badge-lose">× 敗</span>';
+                    else statusBadge = '<span class="badge-draw">▲ 引分</span>';
+                } else if (isCurrent) {
+                    statusBadge = '<span class="status-fighting pulse">⚔️ 試合中</span>';
+                }
+
+                const myPts = bout.myScore.length ? bout.myScore.join('・') : '-';
+                const oppPts = bout.enemyScore.length ? bout.enemyScore.join('・') : '-';
+
+                return `
+                    <div class="match-row ${isCurrent ? 'current-bout' : ''} ${bout.played ? 'played' : ''}">
+                        <span class="col-pos">${bout.posName}</span>
+                        <div class="col-fighter red">
+                            <span class="fighter-tag red-tag">赤</span>
+                            <strong>${bout.myMember.name}</strong>
+                            ${bout.isPlayerBout ? '<span class="tag-you">主将・あなた</span>' : ''}
+                        </div>
+                        <div class="col-pts red-pts">${myPts}</div>
+                        <div class="col-vs">${statusBadge}</div>
+                        <div class="col-pts white-pts">${oppPts}</div>
+                        <div class="col-fighter white">
+                            <strong>${bout.enemyMember.name}</strong>
+                            <span class="fighter-tag white-tag">白</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            mainContentHtml = `
                 <div class="scoreboard-table">
                     ${rowsHtml}
                 </div>
+            `;
+        }
+
+        const boutLogs = boutsData.bouts
+            .filter((b) => b.played && b.log.length)
+            .map((b) => `<div class="bout-log-item"><strong>【${b.posName}: ${b.myMember.name} vs ${b.enemyMember.name}】</strong><br>${b.log.join('<br>')}</div>`)
+            .join('');
+
+        let tourneyClass = 'bg-district';
+        if (match.type === 'national' || match.type === 'interhigh_national') {
+            tourneyClass = 'bg-national';
+        }
+
+        container.innerHTML = `
+            <div class="match-simulator-view ${tourneyClass} ${isIndividual ? 'individual-mode-sim' : ''}">
+                <div class="match-sim-header">
+                    <div class="match-round-title">${match.title} — ${boutsData.roundName}</div>
+                    ${!isIndividual ? `
+                        <div class="match-teams-title">
+                            <span class="team-red">${ClubState.schoolName} (${ClubState.prefecture})</span>
+                            <span class="vs-label">VS</span>
+                            <span class="team-white">${boutsData.schoolName ? `${boutsData.schoolName} (${boutsData.pref})` : 'ライバル選手'}</span>
+                        </div>
+                    ` : ''}
+                </div>
+
+                ${bracketHtml}
+
+                ${mainContentHtml}
 
                 ${actionControlHtml}
 
                 <div class="live-commentary-box">
-                    <h4>🎙️ 試合実況ログ</h4>
+                    <h4>🎙️ 立ち合い実況ログ</h4>
                     <div class="commentary-scroll">
                         ${boutLogs || '<p class="commentary-empty">立ち合いの開始を待っています…</p>'}
                     </div>
@@ -3100,6 +4249,7 @@
         if (!match || !match.activeBouts) return;
 
         const boutsData = match.activeBouts;
+        const isIndividual = !!match.isIndividual;
         const isWin = boutsData.finalResult === 'win';
         const isLastRound = match.currentRoundIdx >= match.rounds.length - 1;
 
@@ -3107,66 +4257,143 @@
         let descText = '';
         let nextBtnHtml = '';
 
-        if (isWin) {
-            if (isLastRound) {
-                // 大会優勝！
-                if (match.type === 'district') {
-                    titleText = `🏆 ${ClubState.prefecture}大会 優勝！！`;
-                    descText = `見事に地区予選を制覇！3月4週の【全国高校剣道選抜大会】への出場権を獲得しました！！`;
-                    nextBtnHtml = `
-                        <button type="button" class="btn-res-next" onclick="window.KendoClub.finishTournament('win')">
-                            🎖️ 優勝を刻んで次へ進む
-                        </button>
-                    `;
+        if (isIndividual) {
+            // 個人戦の結果処理
+            const wonInRound = (boutsData.bouts || []).filter((b) => b.winner === 'my').map((b) => b.myMember?.name || b.myFighter?.name).filter(Boolean);
+            const lostInRound = (boutsData.bouts || []).filter((b) => b.winner === 'enemy').map((b) => b.myMember?.name || b.myFighter?.name).filter(Boolean);
+
+            const aliveParts = (match.participants || []).filter((p) => p.isAlive);
+            const aliveNames = (aliveParts.length > 0 ? aliveParts.map((p) => p.name) : wonInRound).join('・');
+            const lostNote = lostInRound.length > 0 ? `<br><span style="font-size:0.85rem; color:#94a3b8;">（※【${lostInRound.join('・')}】は惜しくも敗退となりました）</span>` : '';
+
+            if (isWin) {
+                if (isLastRound) {
+                    // 個人戦 優勝！
+                    if (match.type === 'interhigh_district') {
+                        titleText = `🏆 インターハイ都道県予選 完全制覇！`;
+                        descText = `自校代表【${aliveNames}】が見事に予選優勝！8月1週の【全国高等学校総合体育大会（インターハイ）】個人戦への切符を掴み取りました！！${lostNote}`;
+                        nextBtnHtml = `
+                            <button type="button" class="btn-res-next" onclick="window.KendoClub.finishTournament('win')">
+                                🎖️ 優勝を刻んで次へ進む
+                            </button>
+                        `;
+                    } else {
+                        titleText = `👑 全国制覇！！ インターハイ個人 日本一！`;
+                        descText = `全国の頂点に君臨！高校剣道界の最高峰【インターハイ個人戦】において【${aliveNames}】が全国制覇の偉業を達成しました！${lostNote}`;
+                        nextBtnHtml = `
+                            <button type="button" class="btn-res-ending" onclick="window.KendoClub.finishTournament('win')">
+                                👑 栄光を刻んで歴史を紡ぐ
+                            </button>
+                        `;
+                    }
                 } else {
-                    titleText = `👑 全国制覇達成！！ 日本一の栄冠！`;
-                    descText = `全国47都道府県の頂点に君臨！高校剣道界の頂点「全国選抜大会」完全制覇を成し遂げました！`;
+                    // ラウンド突破
+                    const nextRoundObj = match.rounds ? match.rounds[match.currentRoundIdx + 1] : null;
+                    const nextRoundName = nextRoundObj ? nextRoundObj.roundName : '次の回戦';
+                    const isSemiWin = match.type === 'interhigh_district' && match.currentRoundIdx === 2; // 準決勝勝利時（上位2名確定）
+
+                    if (isSemiWin) {
+                        titleText = `🎉 決勝進出！ 全国インターハイ切符獲得！`;
+                        descText = `【${aliveNames}】が準決勝を突破し見事決勝進出！上位2名以上が確定し、8月の【インターハイ全国大会】への出場権を獲得しました！頂点を目指して決勝へ挑みます！${lostNote}`;
+                    } else {
+                        titleText = `${boutsData.roundName} 突破！`;
+                        descText = `【${aliveNames}】が激戦を制して勝ち上がりました！次の対戦へ進出します！${lostNote}`;
+                    }
+
                     nextBtnHtml = `
-                        <button type="button" class="btn-res-ending" onclick="window.KendoClub.finishTournament('win')">
-                            👑 栄光を刻んで歴史を紡ぐ
+                        <button type="button" class="btn-res-next" onclick="window.KendoClub.advanceTournamentRound()">
+                            ⏭️ 次の対戦へ進む（${nextRoundName}）
                         </button>
                     `;
                 }
             } else {
-                titleText = `${boutsData.roundName} 勝利！`;
-                descText = `部員全員の団結で見事に勝利！次の試合へ進出します！`;
+                // 自校選手全員敗退
+                const highestRank = (match.participants || []).reduce((best, p) => {
+                    const r = p.achievedRank || '初戦敗退';
+                    if (r === '準優勝') return '準優勝';
+                    if (r === 'ベスト4' && best !== '準優勝') return 'ベスト4';
+                    if (r === 'ベスト8' && best !== '準優勝' && best !== 'ベスト4') return 'ベスト8';
+                    if (r === '2回戦敗退' && best === '初戦敗退') return '2回戦敗退';
+                    return best;
+                }, '初戦敗退');
+
+                titleText = `惜敗…（${boutsData.roundName}）`;
+                descText = `健闘むなしく敗退となりました（最高成績：${highestRank}）。この悔しさを糧に稽古に励みましょう！`;
                 nextBtnHtml = `
-                    <button type="button" class="btn-res-next" onclick="window.KendoClub.advanceTournamentRound()">
-                        ⏭️ 次の対戦へ進む（${match.rounds[match.currentRoundIdx + 1].roundName}）
+                    <button type="button" class="btn-res-back" onclick="window.KendoClub.finishTournament('${highestRank}')">
+                        🏠 結果を受け止めて道場へ戻る
                     </button>
                 `;
             }
         } else {
-            // 敗退
-            let rankName = '初戦敗退';
-            if (match.type === 'district') {
-                if (match.currentRoundIdx === 1) rankName = 'ベスト4';
-                else if (match.currentRoundIdx === 2) rankName = '準優勝';
+            // 団体戦の結果処理
+            if (isWin) {
+                if (isLastRound) {
+                    // 大会優勝！
+                    if (match.type === 'district') {
+                        titleText = `🏆 ${ClubState.prefecture}大会 優勝！！`;
+                        descText = `見事に地区予選を制覇！3月4週の【全国高校剣道選抜大会】への出場権を獲得しました！！`;
+                        nextBtnHtml = `
+                            <button type="button" class="btn-res-next" onclick="window.KendoClub.finishTournament('win')">
+                                🎖️ 優勝を刻んで次へ進む
+                            </button>
+                        `;
+                    } else {
+                        titleText = `👑 全国制覇達成！！ 日本一の栄冠！`;
+                        descText = `全国47都道府県の頂点に君臨！高校剣道界の頂点「全国選抜大会」完全制覇を成し遂げました！`;
+                        nextBtnHtml = `
+                            <button type="button" class="btn-res-ending" onclick="window.KendoClub.finishTournament('win')">
+                                👑 栄光を刻んで歴史を紡ぐ
+                            </button>
+                        `;
+                    }
+                } else {
+                    titleText = `${boutsData.roundName} 勝利！`;
+                    descText = `部員全員の団結で見事に勝利！次の試合へ進出します！`;
+                    nextBtnHtml = `
+                        <button type="button" class="btn-res-next" onclick="window.KendoClub.advanceTournamentRound()">
+                            ⏭️ 次の対戦へ進む（${match.rounds[match.currentRoundIdx + 1].roundName}）
+                        </button>
+                    `;
+                }
             } else {
-                if (match.currentRoundIdx === 1) rankName = '2回戦敗退';
-                else if (match.currentRoundIdx === 2) rankName = 'ベスト8';
-                else if (match.currentRoundIdx === 3) rankName = 'ベスト4';
-                else if (match.currentRoundIdx === 4) rankName = '準優勝';
-            }
+                // 敗退
+                let rankName = '初戦敗退';
+                if (match.type === 'district') {
+                    if (match.currentRoundIdx === 1) rankName = 'ベスト4';
+                    else if (match.currentRoundIdx === 2) rankName = '準優勝';
+                } else {
+                    if (match.currentRoundIdx === 1) rankName = '2回戦敗退';
+                    else if (match.currentRoundIdx === 2) rankName = 'ベスト8';
+                    else if (match.currentRoundIdx === 3) rankName = 'ベスト4';
+                    else if (match.currentRoundIdx === 4) rankName = '準優勝';
+                }
 
-            titleText = `惜敗…（${boutsData.roundName}）`;
-            descText = `健闘むなしく敗退となりました（成績：${rankName}）。悔しさを胸に、次の目標へ向けて稽古を続けましょう！`;
-            nextBtnHtml = `
-                <button type="button" class="btn-res-back" onclick="window.KendoClub.finishTournament('${rankName}')">
-                    🏠 結果を受け止めて道場へ戻る
-                </button>
-            `;
+                titleText = `惜敗…（${boutsData.roundName}）`;
+                descText = `健闘むなしく敗退となりました（成績：${rankName}）。悔しさを胸に、次の目標へ向けて稽古を続けましょう！`;
+                nextBtnHtml = `
+                    <button type="button" class="btn-res-back" onclick="window.KendoClub.finishTournament('${rankName}')">
+                        🏠 結果を受け止めて道場へ戻る
+                    </button>
+                `;
+            }
         }
 
-        const tourneyType = match.type || 'district';
+        let resultClass = 'bg-district';
+        if (match.type === 'national' || match.type === 'interhigh_national') {
+            resultClass = 'bg-national';
+        }
+
+        const scoreSummaryHtml = isIndividual
+            ? `<div class="result-score">${isWin ? '勝利・勝ち進み' : '敗退'}</div>`
+            : `<div class="result-score">${boutsData.myWins} 勝 ${boutsData.enemyWins} 敗 (${boutsData.draws}分)</div>`;
+
         container.innerHTML = `
-            <div class="match-result-view bg-${tourneyType} ${isWin ? 'victory-view' : 'defeat-view'}">
+            <div class="match-result-view ${resultClass} ${isWin ? 'victory-view' : 'defeat-view'}">
                 <div class="result-banner">
                     <span class="result-trophy">${isWin ? (isLastRound ? '👑' : '🏆') : '🍂'}</span>
                     <h2>${titleText}</h2>
-                    <div class="result-score">
-                        ${boutsData.myWins} 勝 ${boutsData.enemyWins} 敗 (${boutsData.draws}分)
-                    </div>
+                    ${scoreSummaryHtml}
                     <p class="result-submsg">${descText}</p>
                 </div>
                 <div class="result-actions">
@@ -3258,11 +4485,17 @@
             });
             const newCap = ClubState.members.find((m) => m.id === memberId);
             if (newCap) {
-                ClubState.activityLog.unshift(`👑 新主将に【${newCap.name}】が就任！新チームの主将として部を牽引します！`);
+                ClubState.activityLog.unshift(`👑 新主将に【${newCap.name}】が就任！戦力順に基づき、大将～先鋒のオーダーを自動設定しました！`);
             }
-            // 新主将を大将に配置
-            assignCaptainToTaisho(memberId);
+            // 主将変更時：大将〜先鋒の割り当てを戦力順で自動設定
+            assignOrderByCombatPower(memberId);
             ClubState.viewPhase = 'dashboard';
+            saveClubData();
+            renderClubUI();
+        },
+
+        autoAssignOrderByCombatPower: function () {
+            assignOrderByCombatPower();
             saveClubData();
             renderClubUI();
         },
@@ -3414,11 +4647,29 @@
         },
 
         startTournamentMatch: function () {
+            // 6月1週：インターハイ個人予選
+            if (ClubState.month === 6 && ClubState.week === 1) {
+                if (ClubState.members.length === 0) {
+                    alert('部員が不在のため、個人予選に出場できません。');
+                    return;
+                }
+                triggerInterhighDistrictTournament();
+                return;
+            }
+
+            // 8月1週：インターハイ全国個人戦
+            if (ClubState.month === 8 && ClubState.week === 1) {
+                if (ClubState.qualifiedForInterhigh && ClubState.interhighQualifiedMemberIds && ClubState.interhighQualifiedMemberIds.length > 0) {
+                    triggerInterhighNationalTournament();
+                    return;
+                }
+            }
+
+            // 12月3週・3月4週：団体戦大会（最低5名必要）
             if (ClubState.members.length < 5) {
                 alert(`団体戦大会には最低5名の部員が必要です（現在: ${ClubState.members.length}名）。部員が不足しているため出陣できません。`);
                 return;
             }
-            // 地区大会か全国大会かを判定
             if (ClubState.month === 12 && ClubState.week === 3) {
                 triggerDistrictTournament();
             } else if (ClubState.month === 3 && ClubState.week === 4 && ClubState.qualifiedForNational) {
@@ -3432,6 +4683,22 @@
                 return;
             }
             triggerDistrictTournament();
+        },
+
+        debugTriggerInterhighDistrictTournament: function () {
+            if (ClubState.members.length === 0) {
+                alert('部員が不在のため大会を開始できません。');
+                return;
+            }
+            triggerInterhighDistrictTournament();
+        },
+
+        debugTriggerInterhighNationalTournament: function () {
+            if (ClubState.members.length === 0) {
+                alert('部員が不在のため大会を開始できません。');
+                return;
+            }
+            triggerInterhighNationalTournament();
         },
 
         getState: function () {
@@ -3451,9 +4718,13 @@
                 } else {
                     simulateAIBout(curBout);
                     boutsData.currentBoutIndex++;
-                    if (boutsData.currentBoutIndex >= 5) {
+                    if (boutsData.currentBoutIndex >= boutsData.bouts.length) {
                         boutsData.isFinished = true;
-                        evaluateTeamMatch(boutsData);
+                        if (match.isIndividual) {
+                            evaluateIndividualRound(boutsData);
+                        } else {
+                            evaluateTeamMatch(boutsData);
+                        }
                     }
                     saveClubData();
                     renderClubUI();
@@ -3467,7 +4738,8 @@
             if (!match || !match.activeBouts || match.activeBouts.isFinished) return;
 
             const boutsData = match.activeBouts;
-            while (boutsData.currentBoutIndex < 5) {
+            const totalBouts = boutsData.bouts.length;
+            while (boutsData.currentBoutIndex < totalBouts) {
                 const curBout = boutsData.bouts[boutsData.currentBoutIndex];
                 if (curBout.isPlayerBout && !curBout.played) {
                     saveClubData();
@@ -3479,7 +4751,11 @@
             }
 
             boutsData.isFinished = true;
-            evaluateTeamMatch(boutsData);
+            if (match.isIndividual) {
+                evaluateIndividualRound(boutsData);
+            } else {
+                evaluateTeamMatch(boutsData);
+            }
             saveClubData();
             renderClubUI();
         },
@@ -3514,15 +4790,20 @@
             const match = ClubState.currentMatchData;
             if (match && match.activeBouts) {
                 const boutsData = match.activeBouts;
-                while (boutsData.currentBoutIndex < 5) {
+                const totalBouts = boutsData.bouts.length;
+                while (boutsData.currentBoutIndex < totalBouts) {
                     const curBout = boutsData.bouts[boutsData.currentBoutIndex];
                     if (curBout.isPlayerBout && !curBout.played) break;
                     if (!curBout.played) {
                         simulateAIBout(curBout);
                         boutsData.currentBoutIndex++;
-                        if (boutsData.currentBoutIndex >= 5) {
+                        if (boutsData.currentBoutIndex >= totalBouts) {
                             boutsData.isFinished = true;
-                            evaluateTeamMatch(boutsData);
+                            if (match.isIndividual) {
+                                evaluateIndividualRound(boutsData);
+                            } else {
+                                evaluateTeamMatch(boutsData);
+                            }
                         }
                     } else {
                         break;
@@ -3545,16 +4826,18 @@
 
             const playerMember = curBout.myMember;
             const enemyMember = curBout.enemyMember;
+            const isIndividual = !!match.isIndividual;
+            const isIntraClub = !!curBout.isIntraClub;
 
             let enemyPatterns = [];
-            if (enemyMember.stance === 'jodan') {
+            if (enemyMember.stance === 'jodan' || enemyMember.favStance === 'jodan') {
                 enemyPatterns = [
                     { stance: 'jodan', hint: `🔥【上段の構え】${enemyMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（小手で迎撃せよ）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
                     { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は中段に戻りつつ「面」か「小手」を狙っている…`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
                 ];
-            } else if (enemyMember.stance === 'waki') {
+            } else if (enemyMember.stance === 'waki' || enemyMember.favStance === 'waki') {
                 enemyPatterns = [
-                    { stance: 'waki', hint: `🌊【脇構え】${enemyMember.name}は竹刀を低く隠し「後の先防御」か「抜き胴」を狙う！（崩しが有効！）`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
+                    { stance: 'waki', hint: `🌊【下段の構え】${enemyMember.name}は竹刀を低く構え「後の先防御」か「抜き胴」を狙う！（崩しが有効！）`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
                     { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は間合いを測りながら鋭い「小手」を狙う！`, isDanger: false, weights: { 小手: 50, 防御: 25, 面: 15, 胴: 10, 崩し: 0, 突き: 0 } },
                 ];
             } else {
@@ -3564,14 +4847,32 @@
                 ];
             }
 
+            let enemyNameLabel = `${boutsData.schoolName || ClubState.schoolName}・${enemyMember.name}`;
+            let enemyIntroQuote = isIntraClub
+                ? `「主将、全力を尽くして一本を狙います！」`
+                : (isIndividual ? `「${enemyMember.title || '個人代表'}の意地、見せてやる！」` : `「${boutsData.schoolName}の誇りにかけて、一本も譲らん！」`);
+
+            const enemyArmorTheme = enemyMember.armorTheme || {
+                doStops: ['#3b0764', '#581c87', '#7e22ce', '#3b0764', '#1e1b4b'],
+                muneFill: '#1e1b4b',
+                muneStitch: 'rgba(232, 121, 249, 0.85)',
+                tareLine: 'rgba(232, 121, 249, 0.65)',
+            };
+
+            let tourneyTypeTheme = 'district';
+            if (match.type === 'national' || match.type === 'interhigh_national') {
+                tourneyTypeTheme = 'national';
+            }
+
             if (window.KendoGameEngine && window.KendoGameEngine.startCustomMatch) {
                 window.KendoGameEngine.startCustomMatch({
+                    isIndividual: isIndividual,
                     isSpectating: isSpectating,
-                    tournamentType: match.type || 'district',
+                    tournamentType: tourneyTypeTheme,
                     playerData: {
                         name: playerMember.name,
                         schoolName: ClubState.schoolName,
-                        roleTitle: `${curBout.posName}・${ClubState.schoolName}`,
+                        roleTitle: isIndividual ? `${sanitizePosName(curBout.posName)}・${ClubState.schoolName}` : `${curBout.posName}・${ClubState.schoolName}`,
                         maxHealth: playerMember.maxHealth,
                         initialKiai: 0,
                         favStance: playerMember.favStance || 'chudan',
@@ -3583,31 +4884,28 @@
                     },
                     enemyData: {
                         id: `opp_${enemyMember.name}`,
-                        name: `${boutsData.schoolName}・${enemyMember.name}`,
-                        role: curBout.posName,
+                        name: enemyNameLabel,
+                        role: sanitizePosName(curBout.posName),
                         shortName: enemyMember.name,
-                        rank: '高校剣士',
-                        styleTag: `${enemyMember.stance === 'jodan' ? '上段' : enemyMember.stance === 'waki' ? '脇構え' : '中段'}の気迫`,
-                        maxHealth: enemyMember.hp,
+                        rank: isIndividual ? (enemyMember.title || '代表剣士') : '高校剣士',
+                        styleTag: `${(enemyMember.stance || enemyMember.favStance) === 'jodan' ? '上段' : (enemyMember.stance || enemyMember.favStance) === 'waki' ? '下段の構え' : '中段'}の気迫`,
+                        maxHealth: enemyMember.hp || enemyMember.maxHealth || 6,
                         initialKiai: 0,
                         str: enemyMember.str,
                         agi: enemyMember.agi,
                         spi: enemyMember.spi,
-                        introQuote: `「${boutsData.schoolName}の誇りにかけて、一本も譲らん！」`,
-                        armorTheme: {
-                            doStops: ['#3b0764', '#581c87', '#7e22ce', '#3b0764', '#1e1b4b'],
-                            muneFill: '#1e1b4b',
-                            muneStitch: 'rgba(232, 121, 249, 0.85)',
-                            tareLine: 'rgba(232, 121, 249, 0.65)',
-                        },
+                        introQuote: enemyIntroQuote,
+                        armorTheme: enemyArmorTheme,
                         patterns: enemyPatterns,
                     },
                     onMatchEnd: function (result) {
                         curBout.played = true;
                         const techFullNames = { 'メ': '面', 'コ': '小手', 'ド': '胴', 'ツ': '突き', '反': '反則' };
+                        let winnerSide = 'draw';
 
                         if (result.winner === 'player') {
                             curBout.winner = 'my';
+                            winnerSide = 'my';
                             const winKana = (result.myScore && result.myScore.length > 0)
                                 ? result.myScore[result.myScore.length - 1]
                                 : (result.winningKana || 'メ');
@@ -3616,9 +4914,10 @@
                             const moveName = techFullNames[winKana] || result.winningMove || '面';
                             curBout.log.push(isSpectating
                                 ? `【観戦】${playerMember.name}が勝負を決める鮮やかな【${moveName}】を放ち、見事に勝利を収めました！`
-                                : `【主将実戦】あなたが勝負を決める鮮やかな【${moveName}】を一閃！チームを勝利へ導きました！`);
+                                : `【実戦】あなたが勝負を決める鮮やかな【${moveName}】を一閃！勝利を掴み取りました！`);
                         } else if (result.winner === 'enemy') {
                             curBout.winner = 'enemy';
+                            winnerSide = 'enemy';
                             const winKana = (result.enemyScore && result.enemyScore.length > 0)
                                 ? result.enemyScore[result.enemyScore.length - 1]
                                 : (result.winningKana || 'メ');
@@ -3627,14 +4926,29 @@
                             const moveName = techFullNames[winKana] || result.winningMove || '面';
                             curBout.log.push(isSpectating
                                 ? `【観戦】${playerMember.name}は相手の勝負を決める鋭い【${moveName}】に屈し惜敗…`
-                                : `【主将実戦】相手の勝負を決める鋭い【${moveName}】に屈し惜敗…！`);
+                                : `【実戦】相手の勝負を決める鋭い【${moveName}】に屈し惜敗…！`);
                         } else {
-                            curBout.winner = 'draw';
-                            curBout.myScore = [];
-                            curBout.enemyScore = [];
-                            curBout.log.push(isSpectating
-                                ? `【観戦】互いに譲らぬ攻防の末、決定打なく引き分け！`
-                                : `【主将実戦】互いに譲らぬ攻防の末、決定打なく引き分け！`);
+                            // 個人戦での引き分け防止（延長一本勝負判定）
+                            if (isIndividual) {
+                                curBout.winner = 'my';
+                                winnerSide = 'my';
+                                curBout.myScore = ['メ'];
+                                curBout.enemyScore = [];
+                                curBout.log.push(`【延長戦】息詰まる攻防の末、${playerMember.name}が意地の【面】を決めて激闘を制しました！`);
+                            } else {
+                                curBout.winner = 'draw';
+                                winnerSide = 'draw';
+                                curBout.myScore = [];
+                                curBout.enemyScore = [];
+                                curBout.log.push(isSpectating
+                                    ? `【観戦】互いに譲らぬ攻防の末、決定打なく引き分け！`
+                                    : `【主将実戦】互いに譲らぬ攻防の末、決定打なく引き分け！`);
+                            }
+                        }
+
+                        // 個人戦トーナメントブラケットへの結果反映
+                        if (isIndividual) {
+                            applyIndividualMatchOutcome(curBout, winnerSide, curBout.myScore, curBout.enemyScore, curBout.log);
                         }
 
                         // 試合結果に基づくパラメータ成長＆疲労度蓄積
@@ -3654,14 +4968,18 @@
                         }
 
                         boutsData.currentBoutIndex++;
-                        if (boutsData.currentBoutIndex >= 5) {
+                        if (boutsData.currentBoutIndex >= boutsData.bouts.length) {
                             boutsData.isFinished = true;
-                            evaluateTeamMatch(boutsData);
+                            if (match.isIndividual) {
+                                evaluateIndividualRound(boutsData);
+                            } else {
+                                evaluateTeamMatch(boutsData);
+                            }
                         }
 
                         saveClubData();
 
-                        // 1試合終了後は必ずスコアボード画面を表示
+                        // 1試合終了後はスコアボード画面を表示
                         if (window.KendoGameEngine && window.KendoGameEngine.showClubScreen) {
                             window.KendoGameEngine.showClubScreen();
                         }
@@ -3671,11 +4989,9 @@
                         const shouldContinueSpectating = ClubState.isAutoSpectating && nextBout && !nextBout.played && !nextBout.isPlayerBout;
 
                         if (shouldContinueSpectating) {
-                            // スコアボードを描画し、3秒表示後に自動で次の観戦を開始
                             renderClubUI();
                             startAutoSpectateCountdown();
                         } else {
-                            // 主将の出番（大将戦など）に到達、または全試合終了
                             ClubState.isAutoSpectating = false;
                             clearAutoSpectateTimers();
                             renderClubUI();
@@ -3694,6 +5010,9 @@
             const match = ClubState.currentMatchData;
             if (!match) return;
             match.currentRoundIdx++;
+            if (match.bracket) {
+                match.bracket.currentRoundIdx = match.currentRoundIdx;
+            }
             setupCurrentBouts();
             ClubState.viewPhase = 'match_sim';
             saveClubData();
@@ -3704,14 +5023,55 @@
             const match = ClubState.currentMatchData;
             if (!match) return;
 
-            const isDistrict = match.type === 'district';
             const isWin = rank === 'win';
             const rankLabel = isWin ? '優勝' : rank;
-
             const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
             const capName = captain ? captain.name : '主将';
 
-            if (isDistrict) {
+            if (match.type === 'interhigh_district') {
+                // インターハイ予選（個人戦）
+                ClubState.lastInterhighDistrictRank = rankLabel;
+                if (!ClubState.stats.interhighDistrict) {
+                    ClubState.stats.interhighDistrict = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+                }
+                ClubState.stats.interhighDistrict.total++;
+                if (isWin) {
+                    ClubState.stats.interhighDistrict.win++;
+                    ClubState.qualifiedForInterhigh = true;
+                } else if (rankLabel === '準優勝') {
+                    ClubState.stats.interhighDistrict.runnerUp++;
+                    ClubState.qualifiedForInterhigh = true;
+                } else if (rankLabel === 'ベスト4') {
+                    ClubState.stats.interhighDistrict.best4++;
+                } else {
+                    ClubState.stats.interhighDistrict.best8++;
+                }
+
+                // 決勝進出者（優勝または準優勝の部員）をインターハイ全国出場権保持者として登録
+                if (ClubState.qualifiedForInterhigh) {
+                    const qualifiedMembers = (match.participants || []).filter((p) => p.isAlive || p.achievedRank === '準優勝').map((p) => p.memberId);
+                    ClubState.interhighQualifiedMemberIds = qualifiedMembers.length > 0 ? qualifiedMembers : [captain.id];
+                }
+
+                const isQual = ClubState.qualifiedForInterhigh;
+                ClubState.activityLog.unshift(`🏆【${ClubState.year}年目 6月1週】インターハイ都道県個人予選 終了。最高成績：${rankLabel}！${isQual ? '8月のインターハイ（全国高校総体）への出場が決定！' : ''}`);
+
+            } else if (match.type === 'interhigh_national') {
+                // インターハイ全国（個人戦）
+                ClubState.lastInterhighNationalRank = rankLabel;
+                if (!ClubState.stats.interhighNational) {
+                    ClubState.stats.interhighNational = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+                }
+                ClubState.stats.interhighNational.total++;
+                if (isWin) ClubState.stats.interhighNational.win++;
+                else if (rankLabel === '準優勝') ClubState.stats.interhighNational.runnerUp++;
+                else if (rankLabel === 'ベスト4') ClubState.stats.interhighNational.best4++;
+                else ClubState.stats.interhighNational.best8++;
+
+                ClubState.activityLog.unshift(`👑【${ClubState.year}年目 8月1週】全国高校総体（インターハイ）個人戦 終了。最高成績：${rankLabel}！`);
+
+            } else if (match.type === 'district') {
+                // 選抜地区大会（団体戦）
                 ClubState.lastDistrictRank = rankLabel;
                 ClubState.stats.district.total++;
                 if (isWin) {
@@ -3721,8 +5081,10 @@
                 else if (rankLabel === 'ベスト4') ClubState.stats.district.best4++;
                 else ClubState.stats.district.best8++;
 
-                ClubState.activityLog.unshift(`🏆【${ClubState.year}年目 12月3週】${ClubState.prefecture}大会 終了。成績：${rankLabel}！${isWin ? '全国選抜大会への出場が決定！' : ''}`);
+                ClubState.activityLog.unshift(`🏆【${ClubState.year}年目 12月3週】${ClubState.prefecture}大会（選抜予選） 終了。成績：${rankLabel}！${isWin ? '全国選抜大会への出場が決定！' : ''}`);
+
             } else {
+                // 全国選抜大会（団体戦）
                 ClubState.lastNationalRank = rankLabel;
                 ClubState.stats.national.total++;
                 if (isWin) ClubState.stats.national.win++;
@@ -3731,24 +5093,26 @@
                 else ClubState.stats.national.best8++;
 
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 3月4週】全国高校選抜大会 終了。成績：${rankLabel}！`);
-
-                // 年度レコードの保存（3月末）
-                ClubState.history.unshift({
-                    year: ClubState.year,
-                    captainName: capName,
-                    districtResult: ClubState.lastDistrictRank || '不出場',
-                    nationalResult: rankLabel,
-                });
             }
 
-            // 敗退して地区大会が終わった場合も年度レコード保存
-            if (isDistrict && !isWin) {
-                ClubState.history.unshift({
+            // 年度レコード（ClubState.history）の同期・更新
+            let curHistory = ClubState.history.find((h) => h.year === ClubState.year);
+            if (!curHistory) {
+                curHistory = {
                     year: ClubState.year,
                     captainName: capName,
-                    districtResult: rankLabel,
-                    nationalResult: '不出場',
-                });
+                    districtResult: ClubState.lastDistrictRank || '未開催',
+                    nationalResult: ClubState.lastNationalRank || '未開催',
+                    interhighDistrictResult: ClubState.lastInterhighDistrictRank || '不出場',
+                    interhighNationalResult: ClubState.lastInterhighNationalRank || '不出場',
+                };
+                ClubState.history.unshift(curHistory);
+            } else {
+                curHistory.captainName = capName;
+                if (ClubState.lastDistrictRank) curHistory.districtResult = ClubState.lastDistrictRank;
+                if (ClubState.lastNationalRank) curHistory.nationalResult = ClubState.lastNationalRank;
+                if (ClubState.lastInterhighDistrictRank) curHistory.interhighDistrictResult = ClubState.lastInterhighDistrictRank;
+                if (ClubState.lastInterhighNationalRank) curHistory.interhighNationalResult = ClubState.lastInterhighNationalRank;
             }
 
             ClubState.currentMatchData = null;
@@ -3770,12 +5134,24 @@
             return ClubState;
         },
 
+        reconcileBracketData: function (bracket) {
+            reconcileBracketData(bracket);
+        },
+
         simulateAIBout: function (bout) {
             return simulateAIBout(bout);
         },
 
         applyBoutGrowth: function (member, stats) {
             return applyBoutGrowth(member, stats);
+        },
+
+        getFatigueGrowthMultiplier: function (fatigue) {
+            return getFatigueGrowthMultiplier(fatigue);
+        },
+
+        growStat: function (m, category, key, baseGain) {
+            return growStat(m, category, key, baseGain);
         },
     };
 
