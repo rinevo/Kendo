@@ -118,10 +118,17 @@ body.bg-district {
     border: none;
     cursor: pointer;
     font-size: 1.15rem;
-    padding: 2px 4px;
+    padding: 4px 6px;
+    min-width: 30px;
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
     border-radius: 6px;
     transition: transform 0.15s ease, opacity 0.15s ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .btn-bgm-mute:hover {
@@ -150,13 +157,15 @@ body.bg-district {
 #bgmVolumeSlider {
     -webkit-appearance: none;
     appearance: none;
-    width: 72px;
-    height: 5px;
+    width: 76px;
+    height: 6px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 9999px;
     outline: none;
     cursor: pointer;
     transition: background 0.2s ease;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 #bgmVolumeSlider:hover {
@@ -166,11 +175,11 @@ body.bg-district {
 #bgmVolumeSlider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #38bdf8;
-    box-shadow: 0 0 4px rgba(56, 189, 248, 0.8);
+    box-shadow: 0 0 5px rgba(56, 189, 248, 0.9);
     cursor: pointer;
     transition: transform 0.15s ease;
 }
@@ -180,12 +189,12 @@ body.bg-district {
 }
 
 #bgmVolumeSlider::-moz-range-thumb {
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
     border: none;
     border-radius: 50%;
     background: #38bdf8;
-    box-shadow: 0 0 4px rgba(56, 189, 248, 0.8);
+    box-shadow: 0 0 5px rgba(56, 189, 248, 0.9);
     cursor: pointer;
 }
 

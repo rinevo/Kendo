@@ -69,17 +69,81 @@
     const bgmAudio = new Audio();
     bgmAudio.preload = 'auto';
 
+    // ───────────────────────────────────────────
+    // Web Audio API による音量・ミュート制御（iPad / iOS WebKit 対応）
+    // ───────────────────────────────────────────
+    // ※ iPad / iPhone の WebKit では <audio>.volume プロパティへの値代入が無視される仕様です（常に1.0）。
+    //   Web Audio API の GainNode をパイプラインに挟むことで、iPad / iOS でも
+    //   確実なボリューム調整（0〜100%）および完全ミュートを実現します。
+    let audioCtx = null;
+    let sourceNode = null;
+    let gainNode = null;
+
+    function ensureWebAudio() {
+        if (!audioCtx) {
+            try {
+                const AudioCtor = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtor) {
+                    audioCtx = new AudioCtor();
+                    sourceNode = audioCtx.createMediaElementSource(bgmAudio);
+                    gainNode = audioCtx.createGain();
+                    sourceNode.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                }
+            } catch (e) {
+                console.warn('[KendoBGM] Web Audio GainNode init notice:', e);
+            }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
+    }
+
     let currentScene = null;
     let pendingScene = null;
     let fadeTimer = null;
-    let currentVolRatio = 0.0; // 0.0 〜 1.0
+    let currentVolRatio = 1.0; // 定常時は 1.0（フルフェード比率）
+
+    // 統合音量・ミュート適用関数
+    function applyVolume(volRatio) {
+        if (volRatio !== undefined) {
+            currentVolRatio = Math.max(0.0, Math.min(1.0, volRatio));
+        } else if (!fadeTimer) {
+            // フェードタイマー非作動時の定常状態は常に比率 1.0
+            currentVolRatio = 1.0;
+        }
+        const effectiveVol = isMuted ? 0.0 : Math.max(0.0, Math.min(1.0, currentVolRatio * masterVolume));
+
+        // 1. 通常の HTMLMediaElement プロパティ（PC / Android 向け）
+        try {
+            bgmAudio.volume = effectiveVol;
+            bgmAudio.muted = isMuted || effectiveVol === 0;
+        } catch (e) {}
+
+        // 2. Web Audio API GainNode（iPad / iOS WebKit 向け）
+        if (gainNode && audioCtx) {
+            try {
+                if (audioCtx.state === 'suspended' && !isMuted && effectiveVol > 0) {
+                    audioCtx.resume().catch(() => {});
+                }
+                const now = audioCtx.currentTime;
+                gainNode.gain.cancelScheduledValues(now);
+                gainNode.gain.setValueAtTime(effectiveVol, now);
+            } catch (e) {
+                try {
+                    gainNode.gain.value = effectiveVol;
+                } catch (err) {}
+            }
+        }
+    }
 
     bgmAudio.addEventListener('play', () => KendoBGM.updateUi());
     bgmAudio.addEventListener('pause', () => KendoBGM.updateUi());
     bgmAudio.addEventListener('ended', () => KendoBGM.updateUi());
 
-    // ユーザー操作検知（ブラウザAutoplay制限の解除トリガー）
+    // ユーザー操作検知（ブラウザAutoplay制限の解除トリガー & Web Audio初期化）
     function onUserInteraction() {
+        ensureWebAudio();
         if (currentScene && bgmAudio.paused && !bgmAudio.ended && !isMuted) {
             const playPromise = bgmAudio.play();
             if (playPromise !== undefined) {
@@ -113,13 +177,13 @@
         const targetRatio = 1.0;
         const stepInterval = 30;
 
+        applyVolume(startRatio);
+
         fadeTimer = setInterval(() => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(1.0, elapsed / durationMs);
-            currentVolRatio = startRatio + (targetRatio - startRatio) * progress;
-
-            const effectiveVol = isMuted ? 0 : Math.max(0, Math.min(1, currentVolRatio * masterVolume));
-            bgmAudio.volume = effectiveVol;
+            const ratio = startRatio + (targetRatio - startRatio) * progress;
+            applyVolume(ratio);
 
             if (progress >= 1.0) {
                 clearInterval(fadeTimer);
@@ -168,6 +232,7 @@
             // ケース3: 新しい曲への切り替え、または再開
             currentScene = sceneKey;
 
+            ensureWebAudio();
             if (fadeTimer) {
                 clearInterval(fadeTimer);
                 fadeTimer = null;
@@ -179,8 +244,7 @@
             bgmAudio.loop = !!trackDef.loop;
             bgmAudio.src = trackDef.url;
 
-            currentVolRatio = 0.0;
-            bgmAudio.volume = 0.0;
+            applyVolume(0.0);
 
             const playPromise = bgmAudio.play();
             if (playPromise !== undefined) {
@@ -210,7 +274,7 @@
             }
             bgmAudio.pause();
             bgmAudio.currentTime = 0;
-            currentVolRatio = 0.0;
+            applyVolume(0.0);
             this.updateUi();
         },
 
@@ -218,14 +282,13 @@
          * マスター音量を設定 (0.0 〜 1.0)
          */
         setVolume: function (vol) {
+            ensureWebAudio();
             masterVolume = Math.max(0.0, Math.min(1.0, parseFloat(vol) || 0));
             try {
                 localStorage.setItem(STORAGE_KEY_VOL, masterVolume.toFixed(2));
             } catch (e) {}
 
-            const eff = isMuted ? 0 : Math.max(0, Math.min(1, currentVolRatio * masterVolume));
-            bgmAudio.volume = eff;
-
+            applyVolume();
             this.updateUi();
         },
 
@@ -241,13 +304,13 @@
         },
 
         setMute: function (mute) {
+            ensureWebAudio();
             isMuted = !!mute;
             try {
                 localStorage.setItem(STORAGE_KEY_MUTE, isMuted ? 'true' : 'false');
             } catch (e) {}
 
-            const eff = isMuted ? 0 : Math.max(0, Math.min(1, currentVolRatio * masterVolume));
-            bgmAudio.volume = eff;
+            applyVolume();
 
             // ミュート解除時に一時停止中なら再生再開
             if (!isMuted) {

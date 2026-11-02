@@ -19,7 +19,7 @@
                 <button type="button" class="btn-bgm-mute" id="bgmMuteBtn" onclick="window.KendoBGM && window.KendoBGM.toggleMute()" title="BGMのミュート切り替え">🔊</button>
                 <div class="bgm-volume-slider-wrap">
                     <span class="bgm-label">BGM</span>
-                    <input type="range" id="bgmVolumeSlider" min="0" max="100" value="65" oninput="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" title="BGM音量">
+                    <input type="range" id="bgmVolumeSlider" min="0" max="100" value="65" oninput="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" onchange="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" title="BGM音量">
                     <span class="bgm-vol-text" id="bgmVolumeText">65%</span>
                 </div>
             </div>
