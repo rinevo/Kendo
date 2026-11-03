@@ -419,6 +419,60 @@ body.bg-district {
     100% { filter: brightness(1) contrast(1) saturate(1); }
 }
 
+/* ⚔️ 両選手共通の試合情報バナー（選手カード枠外・上部中央） */
+.match-stage-banner {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    z-index: 12;
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: 90%;
+}
+
+.match-stage-badge {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    color: #fef08a;
+    padding: 4px 16px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 12px rgba(245, 158, 11, 0.25);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.match-stage-badge:empty {
+    display: none;
+}
+
+.match-intra-badge {
+    background: linear-gradient(135deg, rgba(185, 28, 28, 0.92), rgba(220, 38, 38, 0.92));
+    border: 1px solid rgba(254, 202, 202, 0.75);
+    color: #ffffff;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45);
+    animation: intraPulse 2s ease-in-out infinite;
+}
+
+@keyframes intraPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
 .vs-divider {
     position: absolute;
     left: 50%;
@@ -472,6 +526,21 @@ body.bg-district {
     padding: 12px 12px 10px;
     backdrop-filter: blur(5px);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.fighter-school {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #94a3b8;
+    line-height: 1.25;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fighter-school:empty {
+    display: none;
 }
 
 .fighter-name {
@@ -1169,10 +1238,14 @@ button.reset-btn:hover:not(:disabled) {
 
 @media (max-width: 768px) {
     .battle-arena { gap: 12px; padding: 14px; }
+    .match-stage-banner { top: 4px; gap: 3px; }
+    .match-stage-badge { font-size: 0.72rem; padding: 2px 10px; }
+    .match-intra-badge { font-size: 0.66rem; padding: 2px 8px; }
     .vs-divider { top: calc(50% + 64px); }
     .vs-divider:not(.tsubazeriai) { display: none; }
     .vs-divider.tsubazeriai { display: block; font-size: 0.76rem; padding: 4px 10px; }
     .fighter-card { max-width: 170px; }
+    .fighter-school { font-size: 0.65rem; }
     .sprite-container { width: 165px; height: 185px; }
     .referee-callout { top: 52%; min-width: 128px; padding: 6px 12px; }
     .referee-main { font-size: 1rem; }
@@ -4977,5 +5050,446 @@ button.reset-btn:hover:not(:disabled) {
     transform: translateY(-2px) scale(1.03);
     box-shadow: 0 10px 32px rgba(234, 179, 8, 0.65);
 }
+
+/* ─────────────────────────────────────────── */
+/* 季節セレモニー（新入生入部・引退式・新体制結団式） */
+/* ─────────────────────────────────────────── */
+.ceremony-spring-banner .ceremony-main-title {
+    background: linear-gradient(135deg, #ffffff 30%, #fbcfe8 70%, #f472b6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(244, 114, 182, 0.3);
+}
+
+.ceremony-spring-banner .ceremony-season-pill {
+    background: rgba(244, 114, 182, 0.18);
+    border: 1px solid rgba(244, 114, 182, 0.55);
+    color: #fbcfe8;
+}
+
+.ceremony-autumn-banner .ceremony-main-title {
+    background: linear-gradient(135deg, #ffffff 30%, #fdba74 70%, #ea580c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(234, 88, 12, 0.3);
+}
+
+.ceremony-autumn-banner .ceremony-season-pill {
+    background: rgba(234, 88, 12, 0.18);
+    border: 1px solid rgba(234, 88, 12, 0.55);
+    color: #fed7aa;
+}
+
+.ceremony-gold-banner .ceremony-main-title {
+    background: linear-gradient(135deg, #ffffff 30%, #fef08a 70%, #eab308 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(234, 179, 8, 0.35);
+}
+
+.freshman-list-section,
+.retired-list-section,
+.newteam-meta-box {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-top: 6px;
+}
+
+.freshman-list-title,
+.retired-list-title,
+.newteam-meta-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.freshman-cards-grid,
+.retired-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+}
+
+.freshman-recruit-card,
+.retired-senior-card {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.freshman-recruit-card:hover,
+.retired-senior-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.5);
+}
+
+.freshman-card-header,
+.retired-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.freshman-name,
+.retired-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.freshman-grade-badge {
+    background: rgba(244, 114, 182, 0.2);
+    border: 1px solid rgba(244, 114, 182, 0.6);
+    color: #fbcfe8;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.freshman-archetype-badge {
+    font-size: 0.8rem;
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+.retired-grade-badge {
+    background: rgba(234, 88, 12, 0.2);
+    border: 1px solid rgba(234, 88, 12, 0.6);
+    color: #fed7aa;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.retired-pos-badge {
+    background: rgba(234, 179, 8, 0.2);
+    border: 1px solid rgba(234, 179, 8, 0.6);
+    color: #fef08a;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.freshman-card-desc,
+.retired-card-desc {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.freshman-stats-row,
+.retired-stats-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
+.stat-pill {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.newteam-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.newteam-meta-box .meta-item {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(234, 179, 8, 0.35);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.newteam-meta-box .meta-label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.newteam-meta-box .meta-val {
+    font-size: 1.05rem;
+    color: #fef08a;
+    font-weight: 800;
+}
+
+/* ─────────────────────────────────────────── */
+/* スマホ・小型画面向け 常時固定クイック稽古ボトムバー */
+/* ─────────────────────────────────────────── */
+.quick-practice-bottom-bar,
+.quick-special-overlay {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .club-dashboard {
+        padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    .quick-practice-bottom-bar {
+        display: block;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1200;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-top: 1px solid rgba(234, 179, 8, 0.4);
+        box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.65);
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+        box-sizing: border-box;
+    }
+
+    .quick-bar-items {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        max-width: 600px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    .btn-quick-practice {
+        flex: 1;
+        min-width: 0;
+        height: 52px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+        color: #f1f5f9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        cursor: pointer;
+        padding: 2px 0;
+        touch-action: manipulation;
+        transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-quick-practice:active {
+        transform: scale(0.93);
+        background: rgba(51, 65, 85, 0.9);
+    }
+
+    .btn-quick-practice .q-icon {
+        font-size: 1.18rem;
+        line-height: 1;
+        pointer-events: none;
+    }
+
+    .btn-quick-practice .q-text {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #cbd5e1;
+        line-height: 1.1;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    .btn-quick-practice.is-rest {
+        border-color: rgba(74, 222, 128, 0.45);
+        background: linear-gradient(180deg, rgba(20, 83, 45, 0.75) 0%, rgba(15, 23, 42, 0.95) 100%);
+    }
+
+    .btn-quick-practice.is-rest .q-text {
+        color: #86efac;
+    }
+
+    .btn-quick-practice.is-special {
+        border-color: rgba(234, 179, 8, 0.55);
+        background: linear-gradient(180deg, rgba(161, 98, 7, 0.75) 0%, rgba(15, 23, 42, 0.95) 100%);
+    }
+
+    .btn-quick-practice.is-special .q-text {
+        color: #fde047;
+        font-weight: 800;
+    }
+
+    .btn-quick-practice.is-executing {
+        opacity: 0.55;
+        pointer-events: none;
+        filter: grayscale(40%);
+    }
+
+    .btn-quick-tourney {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        height: 52px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+        color: #0f172a;
+        font-size: 1.05rem;
+        font-weight: 900;
+        box-shadow: 0 4px 16px rgba(234, 179, 8, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+    }
+
+    .btn-quick-tourney:active {
+        transform: scale(0.97);
+    }
+
+    /* 指名特訓クイックポップアップ */
+    .quick-special-popup {
+        position: absolute;
+        bottom: 100%;
+        left: 8px;
+        right: 8px;
+        margin-bottom: 8px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+        background: rgba(15, 23, 42, 0.98);
+        border: 1.5px solid rgba(234, 179, 8, 0.6);
+        border-radius: 16px;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.8);
+        padding: 14px;
+        max-height: 65vh;
+        overflow-y: auto;
+        z-index: 1205;
+        box-sizing: border-box;
+    }
+
+    .q-popup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+
+    .q-popup-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #fde047;
+    }
+
+    .btn-q-popup-close {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 1.25rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+    }
+
+    .q-popup-desc {
+        font-size: 0.78rem;
+        color: #cbd5e1;
+        margin: 0 0 10px 0;
+        line-height: 1.4;
+    }
+
+    .q-popup-members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .btn-q-member-select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 10px;
+        padding: 10px 14px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        touch-action: manipulation;
+    }
+
+    .btn-q-member-select:active {
+        background: rgba(234, 179, 8, 0.25);
+        border-color: rgba(234, 179, 8, 0.6);
+        transform: scale(0.98);
+    }
+
+    .q-mem-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .q-mem-name {
+        font-size: 0.95rem;
+        color: #ffffff;
+        font-weight: 700;
+    }
+
+    .q-mem-meta {
+        font-size: 0.75rem;
+        color: #94a3b8;
+    }
+
+    .q-mem-btn-label {
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: #fde047;
+        background: rgba(234, 179, 8, 0.15);
+        border: 1px solid rgba(234, 179, 8, 0.3);
+        border-radius: 6px;
+        padding: 4px 8px;
+        white-space: nowrap;
+    }
+
+    .q-empty-members {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        text-align: center;
+        padding: 16px;
+    }
+
+    .quick-special-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 1199;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+    }
+}
+
+
 
 

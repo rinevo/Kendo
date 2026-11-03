@@ -69,42 +69,15 @@
     const bgmAudio = new Audio();
     bgmAudio.preload = 'auto';
 
-    // ───────────────────────────────────────────
-    // Web Audio API による音量・ミュート制御（iPad / iOS WebKit 対応）
-    // ───────────────────────────────────────────
-    // ※ iPad / iPhone の WebKit では <audio>.volume プロパティへの値代入が無視される仕様です（常に1.0）。
-    //   Web Audio API の GainNode をパイプラインに挟むことで、iPad / iOS でも
-    //   確実なボリューム調整（0〜100%）および完全ミュートを実現します。
-    let audioCtx = null;
-    let sourceNode = null;
-    let gainNode = null;
-
-    function ensureWebAudio() {
-        if (!audioCtx) {
-            try {
-                const AudioCtor = window.AudioContext || window.webkitAudioContext;
-                if (AudioCtor) {
-                    audioCtx = new AudioCtor();
-                    sourceNode = audioCtx.createMediaElementSource(bgmAudio);
-                    gainNode = audioCtx.createGain();
-                    sourceNode.connect(gainNode);
-                    gainNode.connect(audioCtx.destination);
-                }
-            } catch (e) {
-                console.warn('[KendoBGM] Web Audio GainNode init notice:', e);
-            }
-        }
-        if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-        }
-    }
-
     let currentScene = null;
     let pendingScene = null;
     let fadeTimer = null;
     let currentVolRatio = 1.0; // 定常時は 1.0（フルフェード比率）
 
     // 統合音量・ミュート適用関数
+    // ※ createMediaElementSource を使うと、PCローカル環境（file://等）でCORS制限により
+    //   ブラウザが無音を出力してしまう重大な副作用があるため、直接HTMLMediaElementで制御する。
+    //   iPad/iOS対策として、ミュート時・音量ゼロ時は pause() で確実に完全無音化を行う。
     function applyVolume(volRatio) {
         if (volRatio !== undefined) {
             currentVolRatio = Math.max(0.0, Math.min(1.0, volRatio));
@@ -114,25 +87,25 @@
         }
         const effectiveVol = isMuted ? 0.0 : Math.max(0.0, Math.min(1.0, currentVolRatio * masterVolume));
 
-        // 1. 通常の HTMLMediaElement プロパティ（PC / Android 向け）
         try {
             bgmAudio.volume = effectiveVol;
             bgmAudio.muted = isMuted || effectiveVol === 0;
         } catch (e) {}
 
-        // 2. Web Audio API GainNode（iPad / iOS WebKit 向け）
-        if (gainNode && audioCtx) {
-            try {
-                if (audioCtx.state === 'suspended' && !isMuted && effectiveVol > 0) {
-                    audioCtx.resume().catch(() => {});
+        // iPad / iOS 対策: iOS では audio.volume プロパティが読み取り専用（常に1）のため、
+        // ミュート時および音量0時は一時停止することで確実に無音化する
+        if (isMuted || effectiveVol === 0) {
+            if (!bgmAudio.paused) {
+                bgmAudio.pause();
+                bgmAudio._pausedForMute = true;
+            }
+        } else if (bgmAudio._pausedForMute) {
+            bgmAudio._pausedForMute = false;
+            if (currentScene && bgmAudio.paused && !bgmAudio.ended) {
+                const p = bgmAudio.play();
+                if (p) {
+                    p.then(() => startFadeIn(300)).catch(() => {});
                 }
-                const now = audioCtx.currentTime;
-                gainNode.gain.cancelScheduledValues(now);
-                gainNode.gain.setValueAtTime(effectiveVol, now);
-            } catch (e) {
-                try {
-                    gainNode.gain.value = effectiveVol;
-                } catch (err) {}
             }
         }
     }
@@ -141,10 +114,9 @@
     bgmAudio.addEventListener('pause', () => KendoBGM.updateUi());
     bgmAudio.addEventListener('ended', () => KendoBGM.updateUi());
 
-    // ユーザー操作検知（ブラウザAutoplay制限の解除トリガー & Web Audio初期化）
+    // ユーザー操作検知（ブラウザAutoplay制限の解除トリガー）
     function onUserInteraction() {
-        ensureWebAudio();
-        if (currentScene && bgmAudio.paused && !bgmAudio.ended && !isMuted) {
+        if (currentScene && bgmAudio.paused && !bgmAudio.ended && !isMuted && masterVolume > 0) {
             const playPromise = bgmAudio.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
@@ -232,7 +204,6 @@
             // ケース3: 新しい曲への切り替え、または再開
             currentScene = sceneKey;
 
-            ensureWebAudio();
             if (fadeTimer) {
                 clearInterval(fadeTimer);
                 fadeTimer = null;
@@ -282,18 +253,30 @@
          * マスター音量を設定 (0.0 〜 1.0)
          */
         setVolume: function (vol) {
-            ensureWebAudio();
             masterVolume = Math.max(0.0, Math.min(1.0, parseFloat(vol) || 0));
             try {
                 localStorage.setItem(STORAGE_KEY_VOL, masterVolume.toFixed(2));
             } catch (e) {}
 
             applyVolume();
+
+            // ゲーム内の音声（効果音・気合・審判）の音量も連動更新
+            if (window.KendoGameEngine && typeof window.KendoGameEngine.updateAudioVolume === 'function') {
+                window.KendoGameEngine.updateAudioVolume();
+            }
+
             this.updateUi();
         },
 
         getVolume: function () {
             return masterVolume;
+        },
+
+        /**
+         * 現在の有効な音声（効果音・ボイス）音量 (0.0 〜 1.0)
+         */
+        getSoundVolume: function () {
+            return isMuted ? 0.0 : masterVolume;
         },
 
         /**
@@ -304,13 +287,17 @@
         },
 
         setMute: function (mute) {
-            ensureWebAudio();
             isMuted = !!mute;
             try {
                 localStorage.setItem(STORAGE_KEY_MUTE, isMuted ? 'true' : 'false');
             } catch (e) {}
 
             applyVolume();
+
+            // ゲーム内の音声（効果音・気合・審判）の音量も連動更新
+            if (window.KendoGameEngine && typeof window.KendoGameEngine.updateAudioVolume === 'function') {
+                window.KendoGameEngine.updateAudioVolume();
+            }
 
             // ミュート解除時に一時停止中なら再生再開
             if (!isMuted) {

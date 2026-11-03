@@ -14,12 +14,12 @@
             </div>
             <h1>⚔️ 剣道</h1>
 
-            <!-- BGM 音響コントロール -->
+            <!-- 音響コントロール（BGM・効果音・ボイス連動） -->
             <div class="bgm-control-bar" id="bgmControlBar">
-                <button type="button" class="btn-bgm-mute" id="bgmMuteBtn" onclick="window.KendoBGM && window.KendoBGM.toggleMute()" title="BGMのミュート切り替え">🔊</button>
+                <button type="button" class="btn-bgm-mute" id="bgmMuteBtn" onclick="window.KendoBGM && window.KendoBGM.toggleMute()" title="ミュート切り替え">🔊</button>
                 <div class="bgm-volume-slider-wrap">
-                    <span class="bgm-label">BGM</span>
-                    <input type="range" id="bgmVolumeSlider" min="0" max="100" value="65" oninput="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" onchange="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" title="BGM音量">
+                    <span class="bgm-label">音量</span>
+                    <input type="range" id="bgmVolumeSlider" min="0" max="100" value="65" oninput="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" onchange="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" title="音量調節">
                     <span class="bgm-vol-text" id="bgmVolumeText">65%</span>
                 </div>
             </div>
@@ -117,7 +117,14 @@
         <!-- ⚔️ 共通実戦戦闘エリア (五人掛け ＆ 団体戦プレイヤー出番時に表示) -->
         <div id="combatAreaWrap" class="combat-area-wrap" style="display: none;">
             <div class="battle-arena" id="battleArena">
-            <div class="fighter-card" id="playerCard">
+                <!-- ⚔️ 共通試合情報バナー（選手カード枠外・上部中央） -->
+                <div class="match-stage-banner" id="matchStageBanner" style="display: none;">
+                    <span class="match-stage-badge" id="matchStageBadge">決勝戦</span>
+                    <span class="match-intra-badge" id="matchIntraBadge" style="display: none;">同門対決</span>
+                </div>
+
+                <div class="fighter-card" id="playerCard">
+                <div class="fighter-school" id="playerSchoolText"></div>
                 <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
                 <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
                 <div class="health-bar">
@@ -152,6 +159,7 @@
             </div>
 
             <div class="fighter-card" id="enemyCard">
+                <div class="fighter-school" id="enemySchoolText"></div>
                 <div class="fighter-name"><span id="enemyNameText">門下生・健太</span> <span class="corner-tag white-tag">白</span></div>
                 <div class="fighter-subtitle" id="enemyTitleBadge">先鋒・初段（素直な面打ち）</div>
                 <div class="health-bar">

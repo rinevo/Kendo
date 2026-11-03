@@ -1963,6 +1963,11 @@ const btnTsuki = document.getElementById('btnTsuki');
 const btnStartMatch = document.getElementById('btnStartMatch');
 const btnNextStage = document.getElementById('btnNextStage');
 const btnReset = document.getElementById('btnReset');
+const matchStageBanner = document.getElementById('matchStageBanner');
+const matchStageBadge = document.getElementById('matchStageBadge');
+const matchIntraBadge = document.getElementById('matchIntraBadge');
+const playerSchoolText = document.getElementById('playerSchoolText');
+const enemySchoolText = document.getElementById('enemySchoolText');
 const enemyNameText = document.getElementById('enemyNameText');
 const enemyTitleBadge = document.getElementById('enemyTitleBadge');
 const playerTitleBadge = document.getElementById('playerTitleBadge');
@@ -2199,8 +2204,8 @@ function buildOpeningCeremonyKeyframes(startPose, endCombatPose, endSprite) {
     ];
 }
 
-// 勝敗決定後の礼法キーフレーム列（中段の構え → 蹲踞 → 竹刀を左腰に収める → 立ち上がり → お互いに礼 → 提げ刀 → 敗者は後ろに下がって退場）
-function buildClosingCeremonyKeyframes(startPose, isLoser = false) {
+// 勝敗決定後の礼法キーフレーム列（中段の構え → 蹲踞 → 竹刀を左腰に収める → 立ち上がり → お互いに礼 → 提げ刀 → 五人掛けモード敗者のみ後ろに下がって退場）
+function buildClosingCeremonyKeyframes(startPose, shouldRetreat = false) {
     const chudan = CEREMONY_POSES.chudan_stand;
     const sonkyoKamae = CEREMONY_POSES.sonkyo_kamae;
     const sonkyoOsameto = CEREMONY_POSES.sonkyo_osameto;
@@ -2218,8 +2223,8 @@ function buildClosingCeremonyKeyframes(startPose, isLoser = false) {
         { t: 3200, sprite: 'sageto',         pose: sageto,        x: 0, y: 0, scaleX: 1.0, scaleY: 1.0, rot: 0, alpha: 1.0, ease: easeInOutSine },
     ];
 
-    if (!isLoser) {
-        // 勝者：礼が終わった後もその場で提げ刀の姿勢を保つ
+    if (!shouldRetreat) {
+        // 退場しない場合（五人掛け勝者、および五人掛け以外の全モード）：礼が終わった後もその場で提げ刀の姿勢を保つ
         baseKfs.push({
             t: CLOSING_TOTAL_T,
             sprite: 'sageto',
@@ -2235,7 +2240,7 @@ function buildClosingCeremonyKeyframes(startPose, isLoser = false) {
         return baseKfs;
     }
 
-    // 敗者：礼の後、提げ刀の姿勢ですり足で後ろへ下がり、画面外へ退場して消える
+    // 五人掛けモード敗者：礼の後、提げ刀の姿勢ですり足で後ろへ下がり、画面外へ退場して消える
     const step1 = { ...sageto, backFootX: 112, frontFootX: 130, hakamaSway: -4 };
     const step2 = { ...sageto, backFootX: 122, frontFootX: 140, hakamaSway: 4 };
 
@@ -2508,17 +2513,72 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     }
 }
 
-// 効果音生成・オーディオ初期化
+// 効果音生成・オーディオ初期化（BGM設定と同期するマスター音量GainNode & コンプレッサー経由）
+let soundMasterGain = null;
+let soundCompressor = null;
+
 function ensureAudio() {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtor) return false;
     if (!audioCtx) {
         audioCtx = new AudioCtor();
+        soundMasterGain = audioCtx.createGain();
+
+        // 迫力ある音圧と音割れ防止のためのダイナミクスコンプレッサー
+        soundCompressor = audioCtx.createDynamicsCompressor();
+        soundCompressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
+        soundCompressor.knee.setValueAtTime(8, audioCtx.currentTime);
+        soundCompressor.ratio.setValueAtTime(3.5, audioCtx.currentTime);
+        soundCompressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+        soundCompressor.release.setValueAtTime(0.12, audioCtx.currentTime);
+
+        soundMasterGain.connect(soundCompressor);
+        soundCompressor.connect(audioCtx.destination);
     }
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
+    updateSoundMasterGain();
     return true;
+}
+
+// BGM設定（ボリューム・ミュート）とゲーム内音声（効果音・気合・審判）の音量を同期
+// ※ BGMの音圧と同等に調和させるため、音声マスター倍率を 2.2倍に設定
+function updateSoundMasterGain() {
+    if (!audioCtx) {
+        const ok = ensureAudio();
+        if (!ok || !soundMasterGain) return;
+    }
+    if (!soundMasterGain && audioCtx) {
+        soundMasterGain = audioCtx.createGain();
+        if (soundCompressor) {
+            soundMasterGain.connect(soundCompressor);
+        } else {
+            soundMasterGain.connect(audioCtx.destination);
+        }
+    }
+    let vol = 0.65;
+    if (window.KendoBGM) {
+        if (typeof window.KendoBGM.isMuted === 'function' && window.KendoBGM.isMuted()) {
+            vol = 0.0;
+        } else if (typeof window.KendoBGM.getVolume === 'function') {
+            vol = window.KendoBGM.getVolume();
+        }
+    }
+    try {
+        const now = audioCtx.currentTime;
+        soundMasterGain.gain.cancelScheduledValues(now);
+        // BGM(mp3)のノーマライズ音圧に合わせた適正ゲイン（最大約2.2倍）
+        soundMasterGain.gain.setValueAtTime(vol * 2.2, now);
+    } catch (e) {
+        soundMasterGain.gain.value = vol * 2.2;
+    }
+}
+
+function getSoundDestination(ctx) {
+    if (!ctx) return null;
+    ensureAudio();
+    return soundMasterGain || ctx.destination;
 }
 
 // ============================================================================
@@ -2648,19 +2708,19 @@ function playRefereeHajimeShout(ctx, now, intensity = 1.0) {
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.0001, now);
     // 「ハ」 (0.00s 〜 0.10s)
-    masterGain.gain.linearRampToValueAtTime(0.42 * intensity, now + 0.025);
-    masterGain.gain.exponentialRampToValueAtTime(0.18 * intensity, now + 0.095); // 音節の切れ目
+    masterGain.gain.linearRampToValueAtTime(0.62 * intensity, now + 0.025);
+    masterGain.gain.exponentialRampToValueAtTime(0.28 * intensity, now + 0.095); // 音節の切れ目
     // 「ジ」 (0.10s 〜 0.20s)
-    masterGain.gain.linearRampToValueAtTime(0.38 * intensity, now + 0.13);
-    masterGain.gain.exponentialRampToValueAtTime(0.16 * intensity, now + 0.195); // 音節の切れ目
+    masterGain.gain.linearRampToValueAtTime(0.58 * intensity, now + 0.13);
+    masterGain.gain.exponentialRampToValueAtTime(0.25 * intensity, now + 0.195); // 音節の切れ目
     // 「メッ！」 (0.20s 〜 0.35s)
-    masterGain.gain.linearRampToValueAtTime(0.50 * intensity, now + 0.23); // メ！と鋭く張る
-    masterGain.gain.setValueAtTime(0.44 * intensity, now + 0.32);
+    masterGain.gain.linearRampToValueAtTime(0.75 * intensity, now + 0.23); // メ！と鋭く張る
+    masterGain.gain.setValueAtTime(0.68 * intensity, now + 0.32);
     // 「ッ！」のスタッカート急停止
     masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
 
     shaper.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getSoundDestination(ctx));
 
     // タイトなアンビエンス（言葉が濁らないよう控えめのショートディレイ）
     const refDelay = ctx.createDelay(0.1);
@@ -2674,7 +2734,7 @@ function playRefereeHajimeShout(ctx, now, intensity = 1.0) {
     masterGain.connect(refDelay);
     refDelay.connect(refFilter);
     refFilter.connect(refRevGain);
-    refRevGain.connect(ctx.destination);
+    refRevGain.connect(getSoundDestination(ctx));
 
     oscMain.start(now);
     oscSub.start(now);
@@ -2684,13 +2744,168 @@ function playRefereeHajimeShout(ctx, now, intensity = 1.0) {
     noiseSource.stop(now + dur);
 }
 
-// 審判の号令（始め！）：Web Audio API によるプロシージャル合成（低く引き締まった男性主審の声）
-function playRefereeVoice(text = 'ハジメッ！', volume = 0.5) {
+// 審判の号令：「勝負あり！」（ショーブ・アリと語尾を延ばさず歯切れよくプロシージャル合成）
+function playRefereeShobuAriShout(ctx, now, intensity = 1.0) {
+    const dur = 0.60; // 「ショー」はゆったり、語尾の「アリ」は延ばさず切る（約0.60秒）
+    const refPitch = 152; // 男性主審の低く太いピッチ
+
+    // 1. 声帯オシレータ（主Sawtooth + 補助Triangle）
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    // ピッチ推移: ショーー(0.00〜0.22s) -> ブ(0.24〜0.34s) -> ア！(0.36〜0.48s) -> リ(0.49〜0.60s: 語尾を延ばさない)
+    oscMain.frequency.setValueAtTime(refPitch * 0.94, now);
+    oscMain.frequency.linearRampToValueAtTime(refPitch * 1.02, now + 0.22); // ショーー（ゆっくり伸ばす）
+    oscMain.frequency.setValueAtTime(refPitch * 0.98, now + 0.24); // ブ
+    oscMain.frequency.linearRampToValueAtTime(refPitch * 1.05, now + 0.34);
+    oscMain.frequency.setValueAtTime(refPitch * 1.12, now + 0.36); // ア！
+    oscMain.frequency.linearRampToValueAtTime(refPitch * 1.20, now + 0.48);
+    oscMain.frequency.setValueAtTime(refPitch * 1.18, now + 0.49); // リ（語尾を延ばさない）
+    oscMain.frequency.exponentialRampToValueAtTime(refPitch * 1.22, now + 0.59);
+
+    oscSub.frequency.setValueAtTime(refPitch * 0.47, now);
+    oscSub.frequency.linearRampToValueAtTime(refPitch * 0.51, now + 0.22);
+    oscSub.frequency.setValueAtTime(refPitch * 0.49, now + 0.24);
+    oscSub.frequency.linearRampToValueAtTime(refPitch * 0.53, now + 0.34);
+    oscSub.frequency.setValueAtTime(refPitch * 0.56, now + 0.36);
+    oscSub.frequency.linearRampToValueAtTime(refPitch * 0.60, now + 0.48);
+    oscSub.frequency.setValueAtTime(refPitch * 0.59, now + 0.49);
+    oscSub.frequency.exponentialRampToValueAtTime(refPitch * 0.61, now + 0.59);
+
+    // 2. 子音ノイズ発生器（シの摩擦ノイズ、ブの破裂クリック、リの抜け）
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = getBreathNoiseBuffer(ctx);
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.Q.setValueAtTime(2.2, now);
+
+    const noiseGain = ctx.createGain();
+    // 「ショ」の呼気・摩擦アタック (3600Hz)
+    noiseFilter.frequency.setValueAtTime(3600, now);
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(0.18 * intensity, now + 0.02);
+    noiseGain.gain.exponentialRampToValueAtTime(0.02 * intensity, now + 0.16);
+
+    // 「ブ」の破裂ノイズ (800Hz)
+    noiseFilter.frequency.setValueAtTime(800, now + 0.24);
+    noiseGain.gain.setValueAtTime(0.16 * intensity, now + 0.25);
+    noiseGain.gain.exponentialRampToValueAtTime(0.015 * intensity, now + 0.32);
+
+    // 「リ」の抜けノイズ (2800Hz)
+    noiseFilter.frequency.setValueAtTime(2800, now + 0.49);
+    noiseGain.gain.setValueAtTime(0.14 * intensity, now + 0.50);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.58);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+
+    // 3. 声道フォルマント（ショ /o/ -> ブ /u/ -> ア /a/ -> リ /i/）
+    const formants = createFormantFilters(ctx, 500, 950, 2400);
+    formants.filter1.Q.value = 5.2;
+    formants.filter2.Q.value = 6.2;
+    formants.filter3.Q.value = 5.5;
+
+    // F1推移: ショーー(500) -> ブ(380) -> ア(820) -> リ(290)
+    formants.filter1.frequency.setValueAtTime(500, now);
+    formants.filter1.frequency.setValueAtTime(500, now + 0.22); // 「ショー」をゆったり伸ばす
+    formants.filter1.frequency.linearRampToValueAtTime(380, now + 0.25);
+    formants.filter1.frequency.setValueAtTime(380, now + 0.34);
+    formants.filter1.frequency.linearRampToValueAtTime(820, now + 0.37);
+    formants.filter1.frequency.setValueAtTime(820, now + 0.48);
+    formants.filter1.frequency.linearRampToValueAtTime(290, now + 0.51);
+    formants.filter1.frequency.setValueAtTime(290, now + 0.59);
+
+    // F2推移: ショーー(950) -> ブ(1200) -> ア(1300) -> リ(2300)
+    formants.filter2.frequency.setValueAtTime(950, now);
+    formants.filter2.frequency.setValueAtTime(950, now + 0.22);
+    formants.filter2.frequency.linearRampToValueAtTime(1200, now + 0.25);
+    formants.filter2.frequency.setValueAtTime(1200, now + 0.34);
+    formants.filter2.frequency.linearRampToValueAtTime(1300, now + 0.37);
+    formants.filter2.frequency.setValueAtTime(1300, now + 0.48);
+    formants.filter2.frequency.linearRampToValueAtTime(2300, now + 0.51);
+    formants.filter2.frequency.setValueAtTime(2300, now + 0.59);
+
+    // F3推移
+    formants.filter3.frequency.setValueAtTime(2400, now);
+    formants.filter3.frequency.setValueAtTime(2400, now + 0.22);
+    formants.filter3.frequency.linearRampToValueAtTime(2350, now + 0.25);
+    formants.filter3.frequency.setValueAtTime(2350, now + 0.34);
+    formants.filter3.frequency.linearRampToValueAtTime(2500, now + 0.37);
+    formants.filter3.frequency.setValueAtTime(2500, now + 0.48);
+    formants.filter3.frequency.linearRampToValueAtTime(2900, now + 0.51);
+    formants.filter3.frequency.setValueAtTime(2900, now + 0.59);
+
+    // 音源ミックス
+    const voiceMix = ctx.createGain();
+    voiceMix.gain.value = 0.62;
+    oscMain.connect(voiceMix);
+    oscSub.connect(voiceMix);
+    voiceMix.connect(formants.busIn);
+    noiseGain.connect(formants.busIn);
+
+    // 4. サチュレーション（温かく引き締まった倍音）
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getRefereeVoiceCurve();
+    formants.busOut.connect(shaper);
+
+    // 5. マスター音量エンベロープ（「ショーー」はゆったり、「アリ」は語尾を延ばさず切る）
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    // 「ショーー」 (0.00s 〜 0.22s: ゆったり響かせる)
+    masterGain.gain.linearRampToValueAtTime(0.65 * intensity, now + 0.035);
+    masterGain.gain.setValueAtTime(0.60 * intensity, now + 0.16);
+    masterGain.gain.exponentialRampToValueAtTime(0.32 * intensity, now + 0.22);
+    // 「ブ」 (0.22s 〜 0.34s)
+    masterGain.gain.linearRampToValueAtTime(0.56 * intensity, now + 0.27);
+    masterGain.gain.exponentialRampToValueAtTime(0.30 * intensity, now + 0.34);
+    // 「ア！」 (0.34s 〜 0.48s: はぎれよく)
+    masterGain.gain.linearRampToValueAtTime(0.80 * intensity, now + 0.40);
+    masterGain.gain.exponentialRampToValueAtTime(0.50 * intensity, now + 0.48);
+    // 「リ」 (0.48s 〜 0.60s: 語尾を延ばさず短くスパッと切る)
+    masterGain.gain.linearRampToValueAtTime(0.68 * intensity, now + 0.52);
+    masterGain.gain.setValueAtTime(0.58 * intensity, now + 0.56);
+    // 0.60s で急停止（語尾を延ばさない）
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.60);
+
+    shaper.connect(masterGain);
+    masterGain.connect(getSoundDestination(ctx));
+
+    // タイトなアンビエンス（道場空間のショートディレイ残響）
+    const refDelay = ctx.createDelay(0.1);
+    refDelay.delayTime.setValueAtTime(0.035, now);
+    const refFilter = ctx.createBiquadFilter();
+    refFilter.type = 'lowpass';
+    refFilter.frequency.setValueAtTime(3000, now);
+    const refRevGain = ctx.createGain();
+    refRevGain.gain.setValueAtTime(0.10, now);
+
+    masterGain.connect(refDelay);
+    refDelay.connect(refFilter);
+    refFilter.connect(refRevGain);
+    refRevGain.connect(getSoundDestination(ctx));
+
+    oscMain.start(now);
+    oscSub.start(now);
+    noiseSource.start(now);
+    oscMain.stop(now + dur);
+    oscSub.stop(now + dur);
+    noiseSource.stop(now + dur);
+}
+
+// 審判の号令（始め！/ 勝負あり！）：Web Audio API によるプロシージャル合成（低く引き締まった男性主審の声）
+function playRefereeVoice(text = 'ハジメッ！', volume = 1.0) {
+    const isShobuAri = text && (text.includes('勝負あり') || text.includes('ショウブアリ') || text.includes('勝負'));
     if (ensureAudio()) {
         try {
             const ctx = audioCtx;
             const now = ctx.currentTime;
-            playRefereeHajimeShout(ctx, now, 1.0);
+            if (isShobuAri) {
+                playRefereeShobuAriShout(ctx, now, volume);
+            } else {
+                playRefereeHajimeShout(ctx, now, volume);
+            }
             return;
         } catch (e) {
             // Web Audio エラー時はフォールバックへ
@@ -2700,9 +2915,10 @@ function playRefereeVoice(text = 'ハジメッ！', volume = 0.5) {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     try {
         window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
+        const spokenText = isShobuAri ? '勝負あり！' : text;
+        const utter = new SpeechSynthesisUtterance(spokenText);
         utter.lang = 'ja-JP';
-        utter.rate = 1.35; // 短く切れ味のある素早い号令
+        utter.rate = isShobuAri ? 1.4 : 1.35; // 短く切れ味のある素早い号令
         utter.pitch = 0.82; // 男性審判の低く引き締まった太い声
         utter.volume = Math.max(0, Math.min(1, volume));
 
@@ -2814,7 +3030,7 @@ function attachDojoReverb(ctx, now, source, duration) {
     filter.connect(feedback);
     feedback.connect(delay);
     filter.connect(revGain);
-    revGain.connect(ctx.destination);
+    revGain.connect(getSoundDestination(ctx));
 }
 
 // 1. 面のシャウト：「メェーーーーン！」
@@ -2889,13 +3105,13 @@ function playMenShout(ctx, now, basePitch, intensity = 1.0) {
     // マスター音量エンベロープ
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.0001, now);
-    masterGain.gain.linearRampToValueAtTime(0.18 * intensity, now + 0.04);
-    masterGain.gain.linearRampToValueAtTime(0.38 * intensity, now + 0.08); // 「メェッ」のアタック
-    masterGain.gain.exponentialRampToValueAtTime(0.26 * intensity, now + 0.34); // 「ーーー」の張り
+    masterGain.gain.linearRampToValueAtTime(0.28 * intensity, now + 0.04);
+    masterGain.gain.linearRampToValueAtTime(0.65 * intensity, now + 0.08); // 「メェッ」のアタック
+    masterGain.gain.exponentialRampToValueAtTime(0.48 * intensity, now + 0.34); // 「ーーー」の張り
     masterGain.gain.linearRampToValueAtTime(0.0001, now + dur); // 「ン！」の収束
 
     shaper.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getSoundDestination(ctx));
     attachDojoReverb(ctx, now, masterGain, dur);
 
     oscMain.start(now);
@@ -2922,7 +3138,7 @@ function playKoteShout(ctx, now, basePitch, intensity = 1.0) {
     kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
     kNoise.connect(kFilter);
     kFilter.connect(kGain);
-    kGain.connect(ctx.destination);
+    kGain.connect(getSoundDestination(ctx));
     kNoise.start(now);
     kNoise.stop(now + 0.03);
 
@@ -2981,14 +3197,14 @@ function playKoteShout(ctx, now, basePitch, intensity = 1.0) {
 
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.0001, now);
-    masterGain.gain.linearRampToValueAtTime(0.20 * intensity, now + 0.03); // コ
-    masterGain.gain.linearRampToValueAtTime(0.40 * intensity, now + 0.11); // テェーーッ
-    masterGain.gain.setValueAtTime(0.35 * intensity, now + 0.24);
+    masterGain.gain.linearRampToValueAtTime(0.32 * intensity, now + 0.03); // コ
+    masterGain.gain.linearRampToValueAtTime(0.66 * intensity, now + 0.11); // テェーーッ
+    masterGain.gain.setValueAtTime(0.55 * intensity, now + 0.24);
     // スタッカート（ッ！でスパッと切る）
     masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.275);
 
     shaper.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getSoundDestination(ctx));
     attachDojoReverb(ctx, now, masterGain, 0.27);
 
     oscMain.start(now);
@@ -3013,7 +3229,7 @@ function playDoShout(ctx, now, basePitch, intensity = 1.0) {
     dGain.gain.setValueAtTime(0.32 * intensity, now);
     dGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
     dOsc.connect(dGain);
-    dGain.connect(ctx.destination);
+    dGain.connect(getSoundDestination(ctx));
     dOsc.start(now);
     dOsc.stop(now + 0.05);
 
@@ -3066,12 +3282,12 @@ function playDoShout(ctx, now, basePitch, intensity = 1.0) {
 
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.0001, now);
-    masterGain.gain.linearRampToValueAtTime(0.42 * intensity, now + 0.05); // 「ドォッ」の力強いアタック
-    masterGain.gain.exponentialRampToValueAtTime(0.30 * intensity, now + 0.30); // 腹の底からの張り
+    masterGain.gain.linearRampToValueAtTime(0.68 * intensity, now + 0.05); // 「ドォッ」の力強いアタック
+    masterGain.gain.exponentialRampToValueAtTime(0.50 * intensity, now + 0.30); // 腹の底からの張り
     masterGain.gain.linearRampToValueAtTime(0.0001, now + dur); // 鋭く引く
 
     shaper.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getSoundDestination(ctx));
     attachDojoReverb(ctx, now, masterGain, dur);
 
     oscMain.start(now);
@@ -3097,7 +3313,7 @@ function playTsukiShout(ctx, now, basePitch, intensity = 1.0) {
     tsGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
     tsNoise.connect(tsFilter);
     tsFilter.connect(tsGain);
-    tsGain.connect(ctx.destination);
+    tsGain.connect(getSoundDestination(ctx));
     tsNoise.start(now);
     tsNoise.stop(now + 0.05);
 
@@ -3155,13 +3371,13 @@ function playTsukiShout(ctx, now, basePitch, intensity = 1.0) {
 
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.0001, now);
-    masterGain.gain.linearRampToValueAtTime(0.22 * intensity, now + 0.03);
-    masterGain.gain.linearRampToValueAtTime(0.42 * intensity, now + 0.10); // 「キィーーッ！」
-    masterGain.gain.setValueAtTime(0.36 * intensity, now + 0.30);
+    masterGain.gain.linearRampToValueAtTime(0.35 * intensity, now + 0.03);
+    masterGain.gain.linearRampToValueAtTime(0.68 * intensity, now + 0.10); // 「キィーーッ！」
+    masterGain.gain.setValueAtTime(0.58 * intensity, now + 0.30);
     masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35); // 鋭く貫通して切れる
 
     shaper.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getSoundDestination(ctx));
     attachDojoReverb(ctx, now, masterGain, 0.35);
 
     oscMain.start(now);
@@ -3269,12 +3485,12 @@ function playShinaiSnap(ctx, now, intensity = 1.0) {
     filter.Q.setValueAtTime(2.4, now);
 
     const snapGain = ctx.createGain();
-    snapGain.gain.setValueAtTime(0.09 * intensity, now);
+    snapGain.gain.setValueAtTime(0.26 * intensity, now);
     snapGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
 
     noise.connect(filter);
     filter.connect(snapGain);
-    snapGain.connect(ctx.destination);
+    snapGain.connect(getSoundDestination(ctx));
     noise.start(now);
     noise.stop(now + 0.065);
 }
@@ -3293,12 +3509,12 @@ function playTaikoDon(ctx, now, intensity = 1.0) {
     subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.36);
 
     taikoGain.gain.setValueAtTime(0.0001, now);
-    taikoGain.gain.linearRampToValueAtTime(0.11 * intensity, now + 0.012);
+    taikoGain.gain.linearRampToValueAtTime(0.30 * intensity, now + 0.012);
     taikoGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
 
     osc.connect(taikoGain);
     subOsc.connect(taikoGain);
-    taikoGain.connect(ctx.destination);
+    taikoGain.connect(getSoundDestination(ctx));
 
     osc.start(now);
     subOsc.start(now);
@@ -3311,9 +3527,9 @@ function playSound(type) {
     const ctx = audioCtx;
     const now = ctx.currentTime;
     const gain = ctx.createGain();
-    gain.connect(ctx.destination);
+    gain.connect(getSoundDestination(ctx));
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.04, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.24, now + 0.01);
 
     if (type === 'attack') {
         playShinaiSnap(ctx, now, 1.0);
@@ -3420,11 +3636,11 @@ function playSound(type) {
             osc.frequency.setValueAtTime(freq, now + idx * 0.05);
 
             noteGain.gain.setValueAtTime(0.0001, now + idx * 0.05);
-            noteGain.gain.exponentialRampToValueAtTime(0.065, now + idx * 0.05 + 0.015);
+            noteGain.gain.exponentialRampToValueAtTime(0.20, now + idx * 0.05 + 0.015);
             noteGain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.05 + 0.28);
 
             osc.connect(noteGain);
-            noteGain.connect(ctx.destination);
+            noteGain.connect(getSoundDestination(ctx));
 
             osc.start(now + idx * 0.05);
             osc.stop(now + idx * 0.05 + 0.3);
@@ -4265,6 +4481,26 @@ function updateStageBarUI() {
     }
 }
 
+// 選手カード内から学校名および両選手共通の文言（決勝戦・準決勝・同門対決等）、
+// さらに「代表剣士」「代表選手」「高校剣士」を除去するヘルパー
+function cleanFighterSubtitle(text, schoolName) {
+    if (!text) return '';
+    let res = text.replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
+    if (schoolName) {
+        res = res.split(schoolName).join('');
+    }
+    // 両選手共通の文言（枠外に表示するため選手カード内からは除去）
+    res = res
+        .replace(/[（\(]\s*同門対決\s*[）\)]/g, '')
+        .replace(/同門対決/g, '')
+        .replace(/(?:1回戦|2回戦|3回戦|4回戦|準々決勝|準決勝|決勝戦|個人戦)/g, '')
+        // 代表剣士・代表選手・高校剣士の除去
+        .replace(/(?:代表剣士|代表選手|高校剣士)/g, '')
+        .replace(/^[・\s]+|[・\s]+$/g, '')
+        .trim();
+    return res;
+}
+
 function updateUI() {
     const enemyData = getCurrentEnemy();
     const pMax = getPlayerMaxHealth();
@@ -4274,23 +4510,141 @@ function updateUI() {
     const playerPct = (pHp / pMax) * 100;
     const enemyPct = (eHp / eMax) * 100;
 
-    if (enemyNameText) enemyNameText.textContent = enemyData.name;
-    if (enemyTitleBadge) {
-        const cleanEnemyRole = (enemyData.role || '').replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
-        enemyTitleBadge.textContent = `${cleanEnemyRole}・${enemyData.rank}（${enemyData.styleTag}）`;
-    }
-    if (playerTitleBadge) {
-        if (state.customMatch && state.customMatch.active && state.customMatch.player) {
-            const defaultSchool = (window.KendoClub && window.KendoClub.getState && window.KendoClub.getState().schoolName) || '青雲高校';
-            const rawTitle = state.customMatch.player.roleTitle || `${defaultSchool}・主将`;
-            const cleanTitle = rawTitle.replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
-            playerTitleBadge.textContent = cleanTitle;
-            if (playerNameText) playerNameText.textContent = state.customMatch.player.name || 'あなた';
+    const isCustomMatch = !!(state.customMatch && state.customMatch.active);
+
+    // ── ⚔️ 選手カード枠外：両選手共通の試合情報バナー表示 ──
+    if (matchStageBanner && matchStageBadge) {
+        if (isCustomMatch) {
+            matchStageBanner.style.display = 'inline-flex';
+            const isSpecial = !!state.customMatch.isSpecialPractice;
+            const isIndiv = !!state.customMatch.isIndividual;
+            const isIntra = !!state.customMatch.isIntraClub;
+            const roundName = (state.customMatch.roundName || '').replace(/[（\(]\s*同門対決\s*[）\)]/g, '').trim();
+            const posName = (state.customMatch.boutPosName || '').replace(/[（\(]\s*同門対決\s*[）\)]/g, '').trim();
+
+            let stageText = '';
+            if (isSpecial) {
+                stageText = '🥋 マンツーマン指名特訓';
+            } else if (isIndiv) {
+                // 個人戦: 「🏆 決勝戦」「⚔️ 準決勝」など
+                const roundClean = roundName || posName || '個人戦';
+                const icon = roundClean.includes('決勝') ? '🏆' : '⚔️';
+                stageText = `${icon} ${roundClean}`;
+            } else {
+                // 団体戦: 「🏆 地区予選 決勝戦・大将戦」など
+                const icon = (roundName.includes('決勝') || posName.includes('大将')) ? '🏆' : '⚔️';
+                if (roundName && posName) {
+                    stageText = `${icon} ${roundName}・${posName}戦`;
+                } else if (posName) {
+                    stageText = `${icon} ${posName}戦`;
+                } else {
+                    stageText = `${icon} 団体戦`;
+                }
+            }
+            matchStageBadge.textContent = stageText;
+
+            if (matchIntraBadge) {
+                if (isSpecial) {
+                    matchIntraBadge.style.display = 'inline-block';
+                    matchIntraBadge.textContent = '🤝 部内実戦稽古';
+                } else {
+                    matchIntraBadge.style.display = isIntra ? 'inline-block' : 'none';
+                    matchIntraBadge.textContent = '🔥 同門対決';
+                }
+            }
         } else {
-            if (playerNameText) playerNameText.textContent = 'あなた';
+            // 五人掛け（クラシック）モード
+            matchStageBanner.style.display = 'inline-flex';
+            const curEnemy = getCurrentEnemy();
+            const isBoss = state.stageIndex === 4;
+            const icon = isBoss ? '🏆' : '⚔️';
+            matchStageBadge.textContent = `${icon} 五人掛け・${curEnemy.role}戦`;
+            if (matchIntraBadge) {
+                matchIntraBadge.style.display = 'none';
+            }
+        }
+    }
+
+    // ── プレイヤー側 ──
+    if (isCustomMatch && state.customMatch.player) {
+        const pData = state.customMatch.player;
+        const pSchool = pData.schoolName
+            || (window.KendoClub && window.KendoClub.getState && window.KendoClub.getState().schoolName)
+            || '';
+        if (playerSchoolText) {
+            playerSchoolText.textContent = pSchool;
+            playerSchoolText.style.display = pSchool ? 'block' : 'none';
+        }
+        if (playerNameText) {
+            playerNameText.textContent = pData.name || 'あなた';
+        }
+        if (playerTitleBadge) {
+            let cleanTitle = cleanFighterSubtitle(pData.roleTitle || '', pSchool);
+            playerTitleBadge.textContent = cleanTitle;
+            playerTitleBadge.style.display = cleanTitle ? 'block' : 'none';
+        }
+    } else {
+        if (playerSchoolText) {
+            playerSchoolText.textContent = '';
+            playerSchoolText.style.display = 'none';
+        }
+        if (playerNameText) playerNameText.textContent = 'あなた';
+        if (playerTitleBadge) {
+            playerTitleBadge.style.display = 'block';
             playerTitleBadge.textContent = state.clearedStages.size === ENEMY_ROSTER.length
                 ? '🏆 天下無双・五人掛け覇者'
                 : `挑戦者（${state.clearedStages.size}/${ENEMY_ROSTER.length}人撃破）`;
+        }
+    }
+
+    // ── 敵側 ──
+    if (isCustomMatch && state.customMatch.enemy) {
+        const eData = state.customMatch.enemy;
+        let eSchool = eData.schoolName || '';
+        let eName = eData.shortName || eData.name || '';
+        // eSchool が空で eData.name に「学校名・名前」形式がある場合は分離
+        if (!eSchool && eData.name && eData.name.includes('・')) {
+            const parts = eData.name.split('・');
+            eSchool = parts[0];
+            eName = parts.slice(1).join('・');
+        }
+        if (enemySchoolText) {
+            enemySchoolText.textContent = eSchool;
+            enemySchoolText.style.display = eSchool ? 'block' : 'none';
+        }
+        if (enemyNameText) {
+            enemyNameText.textContent = eName;
+        }
+        if (enemyTitleBadge) {
+            const cleanEnemyRole = cleanFighterSubtitle(eData.role || '', eSchool);
+            const cleanRank = cleanFighterSubtitle(eData.rank || '', eSchool);
+            const styleTag = eData.styleTag ? eData.styleTag.replace(/[（\(）\)]/g, '').trim() : '';
+
+            const roleParts = [cleanEnemyRole, cleanRank].filter(Boolean);
+            const roleText = roleParts.join('・');
+
+            let subtitle = '';
+            if (roleText && styleTag) {
+                subtitle = `${roleText}（${styleTag}）`;
+            } else if (roleText) {
+                subtitle = roleText;
+            } else if (styleTag) {
+                subtitle = styleTag;
+            }
+
+            enemyTitleBadge.textContent = subtitle;
+            enemyTitleBadge.style.display = subtitle ? 'block' : 'none';
+        }
+    } else {
+        if (enemySchoolText) {
+            enemySchoolText.textContent = '';
+            enemySchoolText.style.display = 'none';
+        }
+        if (enemyNameText) enemyNameText.textContent = enemyData.name;
+        if (enemyTitleBadge) {
+            enemyTitleBadge.style.display = 'block';
+            const cleanEnemyRole = (enemyData.role || '').replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
+            enemyTitleBadge.textContent = `${cleanEnemyRole}・${enemyData.rank}（${enemyData.styleTag}）`;
         }
     }
     updateStageBarUI();
@@ -4406,6 +4760,11 @@ function updateUI() {
 
     if (btnReturnToClub) {
         btnReturnToClub.style.display = (isPostMatch && isCustom) ? 'inline-block' : 'none';
+        if (state.customMatch && state.customMatch.isSpecialPractice) {
+            btnReturnToClub.textContent = '🥋 部活画面へ戻る';
+        } else {
+            btnReturnToClub.textContent = '🥋 大会画面へ戻る';
+        }
     }
 
     if (btnReset) {
@@ -4713,11 +5072,6 @@ function startMatchCeremony() {
     clearPendingRoundTimers();
     hideRefereeCallout();
 
-    // 立ち合い開始時に試合中BGMを再生
-    if (window.KendoBGM && window.KendoBGM.play) {
-        window.KendoBGM.play('match');
-    }
-
     animators.player.alpha = 1;
     animators.enemy.alpha = 1;
     animators.player.posX = 0;
@@ -4748,7 +5102,12 @@ function startMatchCeremony() {
 
     updateUI();
     decideEnemyIntent();
-    updateStatus(`🙇 【${enemyData.role}戦】お互いに礼をし、竹刀を構えて蹲踞します…`, 'neutral');
+    const isSpecial = !!(state.customMatch && state.customMatch.isSpecialPractice);
+    if (isSpecial) {
+        updateStatus(`🙇 【指名特訓】${enemyData.shortName}とお互いに礼をし、竹刀を構えて蹲踞します…`, 'neutral');
+    } else {
+        updateStatus(`🙇 【${enemyData.role}戦】お互いに礼をし、竹刀を構えて蹲踞します…`, 'neutral');
+    }
 
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const playerEndSprite = getCombatStanceAnim('player');
@@ -4777,13 +5136,19 @@ function startMatchCeremony() {
         setTimeout(() => {
             playSound('clash');
             playRefereeVoice('ハジメッ！');
+            const isSpecial = !!(state.customMatch && state.customMatch.isSpecialPractice);
             showRefereeCallout({
                 winner: null,
                 mainText: '始め！',
-                subText: `⚔️ ${enemyData.role}・${enemyData.shortName}戦 立ち合い開始！`,
+                subText: isSpecial ? `⚔️ ${enemyData.shortName}との特訓実戦稽古 開始！` : `⚔️ ${enemyData.role}・${enemyData.shortName}戦 立ち合い開始！`,
                 isCritical: false,
             });
             updateStatus('審判「始め！」 — お互いに立ち上がって立ち合い開始！', 'neutral');
+
+            // 審判の「始め！」の号令と同時にBGM再生開始
+            if (window.KendoBGM && window.KendoBGM.play) {
+                window.KendoBGM.play('match');
+            }
         }, 1950)
     );
 
@@ -4803,6 +5168,8 @@ function startMatchCeremony() {
         if (state.customMatch && state.customMatch.isSpectating) {
             updateStatus(`始め！【観戦中】${state.customMatch.player.name} vs ${enemyData.name} — 立ち合いを見届けます。`, 'neutral');
             scheduleNextSpectateTurn(1100);
+        } else if (isSpecial) {
+            updateStatus(`始め！【指名特訓】${enemyData.shortName}との実戦稽古開始！技を選んで打ち込め！`, 'neutral');
         } else {
             const cleanRole = (enemyData.role || '').replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
             updateStatus(`始め！【${cleanRole}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
@@ -4814,27 +5181,39 @@ function startMatchCeremony() {
 }
 
 // 勝敗決定後の礼法シーケンス（「勝負あり」などのメッセージが消えてから実行）
-// 中段の構えに整える → 蹲踞 → 竹刀を左腰に納める（納刀） → 立ち上がる → 相互の立礼 → 提げ刀 → 負けたほうは後退して退場
+// 中段の構えに整える → 蹲踞 → 竹刀を左腰に納める（納刀） → 立ち上がる → 相互の立礼 → 提げ刀 → 負けたほうは後退して退場（五人掛けモードのみ）
 function startClosingCeremony() {
     if (!state.gameOver) return;
+    if (window.KendoBGM && window.KendoBGM.stop) {
+        window.KendoBGM.stop();
+    }
     clearCeremonyTimers();
     state.matchPhase = 'closing_ceremony';
     updateUI();
     decideEnemyIntent();
-    updateStatus('勝負あり — お互いに中段の構えから蹲踞・納刀・礼を行い、敗者は退場します…', 'neutral');
+
+    // 負けた側が後ろに下がるアニメーションは「五人掛けモード（クラシック）」のみ実行する
+    const isFiveManMode = !(state.customMatch && state.customMatch.active);
+    const shouldRetreatOnLose = isFiveManMode;
+    const statusMsg = isFiveManMode
+        ? '勝負あり — お互いに中段の構えから蹲踞・納刀・礼を行い、敗者は退場します…'
+        : '勝負あり — お互いに中段の構えから蹲踞・納刀・礼を行います…';
+    updateStatus(statusMsg, 'neutral');
 
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const isPlayerLoser = state.playerHealth <= 0;
     const isEnemyLoser = state.enemyHealth <= 0;
+    const playerRetreat = isPlayerLoser && shouldRetreatOnLose;
+    const enemyRetreat = isEnemyLoser && shouldRetreatOnLose;
 
-    animators.player.keyframes = buildClosingCeremonyKeyframes({ ...animators.player.currentPose }, isPlayerLoser);
+    animators.player.keyframes = buildClosingCeremonyKeyframes({ ...animators.player.currentPose }, playerRetreat);
     animators.player.seqStartTime = now;
     animators.player.virtualElapsed = 0;
     animators.player.lastUpdateNow = now;
     animators.player.lastKeyIndex = -1;
     animators.player.impactWeight = 'normal';
 
-    animators.enemy.keyframes = buildClosingCeremonyKeyframes({ ...animators.enemy.currentPose }, isEnemyLoser);
+    animators.enemy.keyframes = buildClosingCeremonyKeyframes({ ...animators.enemy.currentPose }, enemyRetreat);
     animators.enemy.seqStartTime = now;
     animators.enemy.virtualElapsed = 0;
     animators.enemy.lastUpdateNow = now;
@@ -4844,8 +5223,8 @@ function startClosingCeremony() {
     pendingClosingCallback = () => {
         clearCeremonyTimers();
         state.matchPhase = 'post_match';
-        state.playerAnimState = isPlayerLoser ? 'exited' : 'sageto';
-        state.enemyAnimState = isEnemyLoser ? 'exited' : 'sageto';
+        state.playerAnimState = playerRetreat ? 'exited' : 'sageto';
+        state.enemyAnimState = enemyRetreat ? 'exited' : 'sageto';
         decideEnemyIntent();
         updateUI();
 
@@ -5787,7 +6166,7 @@ function playRound(playerAction) {
     let finalStatusMessage = message;
     let finalStatusType = statusType;
 
-    // 勝敗判定（試合中は勝敗決定後もBGMを再生継続し、別画面への遷移時に停止）
+    // 勝敗判定（HPが0になっても「勝負あり」文字が出るまではBGM再生を継続）
     if (state.playerHealth <= 0 && state.enemyHealth <= 0) {
         state.playerAnimState = 'hit';
         state.enemyAnimState = 'hit';
@@ -5955,18 +6334,39 @@ function playRound(playerAction) {
         }
 
         if (state.gameOver) {
-            // 勝敗決定時は、キャラクタ上のダメージ数値表示（約1.05s）が完全に消えてから「勝負あり」メッセージを表示する
+            // 勝敗決定時は、キャラクタ上のダメージ数値表示（約1.05s）が完全に消えてから「勝負あり」へ移行
             const dmgDuration = 1150;
             const gameOverCalloutTimer = setTimeout(() => {
-                if (calloutData) {
-                    showRefereeCallout(calloutData, () => {
-                        startClosingCeremony();
-                    });
-                } else {
-                    startClosingCeremony();
+                // 1. 🏆 まずBGMを停止
+                if (window.KendoBGM && window.KendoBGM.stop) {
+                    window.KendoBGM.stop();
                 }
-                if (endGameSound) {
-                    playSound(endGameSound);
+
+                // 2. BGM停止後、静寂の間（約220ms）を置いてから審判が「勝負あり！」と短く鋭く宣告
+                const refereeShoutTimer = setTimeout(() => {
+                    playRefereeVoice('勝負あり！', 1.0);
+
+                    if (calloutData) {
+                        showRefereeCallout(calloutData, () => {
+                            startClosingCeremony();
+                        });
+                    } else {
+                        startClosingCeremony();
+                    }
+
+                    // 3. 審判の号令（約0.60秒）が終わった後に勝敗ジングルを再生（声と被らないように）
+                    if (endGameSound) {
+                        const jingleTimer = setTimeout(() => {
+                            playSound(endGameSound);
+                        }, 650);
+                        if (state.ceremonyTimers) {
+                            state.ceremonyTimers.push(jingleTimer);
+                        }
+                    }
+                }, 220);
+
+                if (state.ceremonyTimers) {
+                    state.ceremonyTimers.push(refereeShoutTimer);
                 }
             }, dmgDuration);
             if (state.ceremonyTimers) {
@@ -6036,6 +6436,11 @@ function resetGame() {
     state.round = 0;
     state.gameOver = false;
     state.lastOutcome = null;
+
+    // 試合開始前（待機状態）はBGMを停止（審判の「始め！」で再生開始）
+    if (window.KendoBGM && window.KendoBGM.stop) {
+        window.KendoBGM.stop();
+    }
 
     decideEnemyIntent();
     state.playerAnimState = getNeutralAnim('player');
@@ -6107,6 +6512,10 @@ window.KendoGameEngine = {
         state.customMatch = {
             active: true,
             isIndividual: !!options.isIndividual,
+            isIntraClub: !!options.isIntraClub,
+            isSpecialPractice: !!options.isSpecialPractice,
+            roundName: options.roundName || '',
+            boutPosName: options.boutPosName || '',
             isSpectating: !!options.isSpectating,
             player: options.playerData,
             enemy: options.enemyData,
@@ -6312,8 +6721,9 @@ window.KendoGameEngine = {
             state.customMatch = null;
             resetGame();
 
-            if (window.KendoBGM && window.KendoBGM.play) {
-                window.KendoBGM.play('match');
+            // 試合開始前（待機状態）はBGMを停止（審判の「始め！」で再生開始）
+            if (window.KendoBGM && window.KendoBGM.stop) {
+                window.KendoBGM.stop();
             }
         } else if (mode === 'club') {
             if (currentModeBadge) currentModeBadge.textContent = '🥋 全国制覇モード';
@@ -6391,8 +6801,9 @@ window.KendoGameEngine = {
         if (clubView) clubView.style.display = 'none';
         if (combatArea) combatArea.style.display = '';
 
-        if (window.KendoBGM && window.KendoBGM.play) {
-            window.KendoBGM.play('match');
+        // 試合開始前（待機状態）はBGMを停止（審判の「始め！」で再生開始）
+        if (window.KendoBGM && window.KendoBGM.stop) {
+            window.KendoBGM.stop();
         }
     },
 
@@ -6458,6 +6869,11 @@ window.KendoGameEngine = {
         ctx.restore();
 
         ctx.restore();
+    },
+
+    // BGM・システム音量と連動して効果音・ボイスのマスター音量を更新
+    updateAudioVolume: function () {
+        updateSoundMasterGain();
     },
 };
 

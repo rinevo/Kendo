@@ -1047,9 +1047,12 @@
         lastInterhighDistrictRank: null,
         lastInterhighNationalRank: null,
         activityLog: [],
-        viewPhase: 'dashboard',      // 'setup' | 'dashboard' | 'order_edit' | 'match_sim' | 'match_result' | 'history' | 'captain_select' | 'tournament_opening' | 'tournament_ceremony'
+        viewPhase: 'dashboard',      // 'setup' | 'dashboard' | 'order_edit' | 'match_sim' | 'match_result' | 'history' | 'captain_select' | 'tournament_opening' | 'tournament_ceremony' | 'freshman_welcome' | 'retire_ceremony' | 'new_team_ceremony'
         openingTournamentType: null, // 開会式表示中の大会種別
         ceremonyResultData: null,    // 閉会・表彰式表示用のデータ
+        freshmanWelcomeData: null,   // 新1年生入部歓迎画面データ
+        retireCeremonyData: null,    // 3年生引退セレモニー画面データ
+        newTeamCeremonyData: null,   // 新主将就任・新体制始動画面データ
         currentMatchData: null,      // 進行中の大会試合
         selectedSpecialTargetId: null, // 前回選択した特別指導対象部員ID
         selectedPracticeMenu: null,    // 現在選択中の練習メニュー (クリック後に 'basics' | 'suburi' | 'kakari' | 'zazen' | 'rest' | 'special')
@@ -1095,6 +1098,9 @@
                 viewPhase: ClubState.viewPhase,
                 openingTournamentType: ClubState.openingTournamentType,
                 ceremonyResultData: ClubState.ceremonyResultData,
+                freshmanWelcomeData: ClubState.freshmanWelcomeData,
+                retireCeremonyData: ClubState.retireCeremonyData,
+                newTeamCeremonyData: ClubState.newTeamCeremonyData,
                 currentMatchData: ClubState.currentMatchData,
                 selectedSpecialTargetId: ClubState.selectedSpecialTargetId,
                 selectedPracticeMenu: ClubState.selectedPracticeMenu,
@@ -1153,6 +1159,9 @@
             ClubState.viewPhase = data.viewPhase || 'dashboard';
             ClubState.openingTournamentType = data.openingTournamentType || null;
             ClubState.ceremonyResultData = data.ceremonyResultData || null;
+            ClubState.freshmanWelcomeData = data.freshmanWelcomeData || null;
+            ClubState.retireCeremonyData = data.retireCeremonyData || null;
+            ClubState.newTeamCeremonyData = data.newTeamCeremonyData || null;
             ClubState.currentMatchData = data.currentMatchData || null;
             if (ClubState.currentMatchData && ClubState.currentMatchData.bracket) {
                 reconcileBracketData(ClubState.currentMatchData.bracket);
@@ -1645,13 +1654,22 @@
         // 新1年生の初期値は全員控えにする（オーダーは上級生優先で維持・編成）
         sanitizeOrder();
 
+        // 🌸 新1年生入部・歓迎セレモニー画面へ
+        ClubState.freshmanWelcomeData = {
+            year: ClubState.year,
+            recruitCount: recruitCount,
+            recruitMembers: recruitMembers,
+        };
+        ClubState.viewPhase = 'freshman_welcome';
+
         saveClubData();
         renderClubUI();
     }
 
     // 9月1週：3年生引退 ＆ 新主将指名
     function triggerRetireAndCaptainSelection() {
-        const retiredNames = ClubState.members.filter((m) => m.grade >= 3).map((m) => m.name);
+        const retiredMembers = ClubState.members.filter((m) => m.grade >= 3);
+        const retiredNames = retiredMembers.map((m) => m.name);
         // 3年生を名簿から削除
         ClubState.members = ClubState.members.filter((m) => m.grade < 3);
 
@@ -1660,8 +1678,13 @@
 
         sanitizeOrder();
 
-        // 新主将指名画面へ
-        ClubState.viewPhase = 'captain_select';
+        // 🍂 3年生引退セレモニー画面へ
+        ClubState.retireCeremonyData = {
+            year: ClubState.year,
+            retiredMembers: retiredMembers,
+            retiredNames: retiredNames,
+        };
+        ClubState.viewPhase = 'retire_ceremony';
         saveClubData();
         renderClubUI();
     }
@@ -1865,6 +1888,11 @@
         try {
             const AudioCtor = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtor) return;
+            const sfxVol = (typeof window !== 'undefined' && window.KendoBGM && typeof window.KendoBGM.getSoundVolume === 'function')
+                ? window.KendoBGM.getSoundVolume()
+                : 0.65;
+            if (sfxVol <= 0.001) return; // ミュート時は再生スキップ
+
             const ctx = window._kendoAudioCtx || (window._kendoAudioCtx = new AudioCtor());
             if (ctx.state === 'suspended') ctx.resume();
             const now = ctx.currentTime;
@@ -1875,7 +1903,7 @@
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(freq, now + idx * 0.05);
                 noteGain.gain.setValueAtTime(0.0001, now + idx * 0.05);
-                noteGain.gain.exponentialRampToValueAtTime(0.065, now + idx * 0.05 + 0.015);
+                noteGain.gain.exponentialRampToValueAtTime(0.20 * sfxVol, now + idx * 0.05 + 0.015);
                 noteGain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.05 + 0.28);
                 osc.connect(noteGain);
                 noteGain.connect(ctx.destination);
@@ -2005,7 +2033,7 @@
         updateAllMemberMotionBadges();
 
         // 実行中のボタン無効化・パルス演出
-        const btnGroup = document.querySelectorAll('.btn-practice, .btn-special-practice');
+        const btnGroup = document.querySelectorAll('.btn-practice, .btn-special-practice, .btn-quick-practice, .btn-quick-tourney');
         btnGroup.forEach((b) => b.classList.add('is-executing'));
 
         // 3秒間（3000ms）、得意な構えから現在のアニメーションを動かし、その後各自の得意構え待機に戻す
@@ -3394,6 +3422,18 @@
             const ceremonyScene = isWinner ? 'victory' : 'ceremony';
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
             renderTournamentCeremony(container);
+        } else if (ClubState.viewPhase === 'freshman_welcome') {
+            stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
+            renderFreshmanWelcome(container);
+        } else if (ClubState.viewPhase === 'retire_ceremony') {
+            stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
+            renderRetireCeremony(container);
+        } else if (ClubState.viewPhase === 'new_team_ceremony') {
+            stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('victory');
+            renderNewTeamCeremony(container);
         } else {
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderDashboard(container);
@@ -3481,10 +3521,6 @@
                     <div class="member-mini-chara-wrap">
                         <div class="mini-chara-canvas-box">
                             <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
-                        </div>
-                        <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
-                            <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
-                            <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
                         </div>
                     </div>
                     <button type="button" class="btn-choose-captain">
@@ -3712,16 +3748,8 @@
                             </div>
                         </div>
                         <div class="member-mini-chara-wrap">
-                            <div class="mini-chara-motion-badge" data-member-id="${m.id}">
-                                <span class="motion-pulse-dot"></span>
-                                <span class="motion-name">${getMemberMotionBadgeText(m)}</span>
-                            </div>
                             <div class="mini-chara-canvas-box">
                                 <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
-                            </div>
-                            <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
-                                <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
-                                <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
                             </div>
                         </div>
                     </div>
@@ -3766,16 +3794,8 @@
                             </div>
                         </div>
                         <div class="member-mini-chara-wrap">
-                            <div class="mini-chara-motion-badge" data-member-id="${m.id}">
-                                <span class="motion-pulse-dot"></span>
-                                <span class="motion-name">${getMemberMotionBadgeText(m)}</span>
-                            </div>
                             <div class="mini-chara-canvas-box">
                                 <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
-                            </div>
-                            <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
-                                <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
-                                <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
                             </div>
                         </div>
                     </div>
@@ -3938,6 +3958,68 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- スマートフォン・小型端末向け 常時固定クイック稽古ボトムバー -->
+                <div id="quickSpecialOverlay" class="quick-special-overlay" style="display: none;" onclick="window.KendoClub.toggleQuickSpecialPopup(false)"></div>
+                ${isTournamentWeek ? `
+                    <div class="quick-practice-bottom-bar is-tournament">
+                        <button type="button" class="btn-quick-tourney" onclick="window.KendoClub.startTournamentMatch()">
+                            🏆 公式大会に出陣する！（開会式へ）
+                        </button>
+                    </div>
+                ` : `
+                    <div class="quick-practice-bottom-bar">
+                        <div class="quick-bar-items">
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('basics')" title="足捌き・基本稽古：敏捷・小手＋">
+                                <span class="q-icon">🏃</span>
+                                <span class="q-text">すり足</span>
+                            </button>
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：筋力・面＋">
+                                <span class="q-icon">⚔️</span>
+                                <span class="q-text">素振り</span>
+                            </button>
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('kakari')" title="追い込み・掛かり稽古：気魄・全技＋">
+                                <span class="q-icon">🔥</span>
+                                <span class="q-text">掛かり</span>
+                            </button>
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('zazen')" title="座禅・見取り稽古：気魄＋・疲労微回復">
+                                <span class="q-icon">🧘</span>
+                                <span class="q-text">座禅</span>
+                            </button>
+                            <button type="button" class="btn-quick-practice is-rest" onclick="window.KendoClub.onSelectPractice('rest')" title="休養・道具手入れ：疲労大幅回復">
+                                <span class="q-icon">🍵</span>
+                                <span class="q-text">休養</span>
+                            </button>
+                            <button type="button" class="btn-quick-practice is-special" onclick="window.KendoClub.toggleQuickSpecialPopup()" title="指名特訓：部員を選んで実戦立ち合い">
+                                <span class="q-icon">🤝</span>
+                                <span class="q-text">特訓</span>
+                            </button>
+                        </div>
+
+                        <!-- 特訓部員選択ポップアップ -->
+                        <div id="quickSpecialPopup" class="quick-special-popup" style="display: none;">
+                            <div class="q-popup-header">
+                                <span class="q-popup-title">🤝 指名して特訓試合に出陣</span>
+                                <button type="button" class="btn-q-popup-close" onclick="window.KendoClub.toggleQuickSpecialPopup(false)">✕</button>
+                            </div>
+                            <p class="q-popup-desc">実戦試合（立ち合い）を行う部員を選択してください：</p>
+                            <div class="q-popup-members-list">
+                                ${teammates.length > 0 ? teammates.map((m) => {
+                                    const dualStr = m.isClubDual ? ` [${m.originalClub}]` : '';
+                                    return `
+                                        <button type="button" class="btn-q-member-select" onclick="window.KendoClub.launchQuickSpecialPractice('${m.id}')">
+                                            <div class="q-mem-info">
+                                                <strong class="q-mem-name">${escapeHtml(m.name)}</strong>
+                                                <span class="q-mem-meta">${m.grade}年${dualStr} / 構え:${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'} / 戦力:${Math.round(getMemberCombatPower(m))}</span>
+                                            </div>
+                                            <span class="q-mem-btn-label">出陣 ⚔️</span>
+                                        </button>
+                                    `;
+                                }).join('') : '<div class="q-empty-members">特訓可能な部員がいません</div>'}
+                            </div>
+                        </div>
+                    </div>
+                `}
             </div>
         `;
 
@@ -4047,10 +4129,6 @@
                     </div>
                     <div class="order-mini-chara-wrap">
                         <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
-                        <div class="mini-chara-badge" style="background: ${(m.armorTheme && m.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(m.armorTheme && m.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
-                            <span class="mini-armor-dot" style="background: ${(m.armorTheme && m.armorTheme.dotColor) || '#64748b'};"></span>
-                            <span class="mini-armor-name">胴: ${escapeHtml((m.armorTheme && m.armorTheme.themeName) || '黒漆塗')}</span>
-                        </div>
                     </div>
                     <div class="order-swap-btns">
                         <button type="button" class="btn-swap" ${idx === 4 ? 'disabled' : ''} onclick="window.KendoClub.swapOrder(${idx}, ${idx + 1})" title="上のポジションと入れ替え">⬆️</button>
@@ -4079,10 +4157,6 @@
                     </div>
                     <div class="order-mini-chara-wrap">
                         <canvas class="member-mini-canvas" data-member-id="${b.id}" width="91" height="100"></canvas>
-                        <div class="mini-chara-badge" style="background: ${(b.armorTheme && b.armorTheme.badgeBg) || 'rgba(15, 23, 42, 0.85)'}; border-color: ${(b.armorTheme && b.armorTheme.badgeBorder) || 'rgba(148, 163, 184, 0.45)'};">
-                            <span class="mini-armor-dot" style="background: ${(b.armorTheme && b.armorTheme.dotColor) || '#64748b'};"></span>
-                            <span class="mini-armor-name">胴: ${escapeHtml((b.armorTheme && b.armorTheme.themeName) || '黒漆塗')}</span>
-                        </div>
                     </div>
                     <div class="bench-assign-actions">
                         <span class="assign-label">オーダー配置:</span>
@@ -5104,6 +5178,376 @@
     }
 
     // ───────────────────────────────────────────
+    // 4月1週：新1年生入部・歓迎セレモニー画面
+    // ───────────────────────────────────────────
+    function renderFreshmanWelcome(container) {
+        const data = ClubState.freshmanWelcomeData;
+        const recruitMembers = (data && data.recruitMembers) || [];
+        const count = recruitMembers.length;
+        const year = (data && data.year) || ClubState.year;
+
+        const cardsHtml = recruitMembers.map((m) => {
+            return `
+                <div class="freshman-recruit-card">
+                    <div class="freshman-card-header">
+                        <span class="freshman-name">${escapeHtml(m.name)}</span>
+                        <span class="freshman-grade-badge">新1年</span>
+                        <span class="freshman-archetype-badge">【${escapeHtml(m.archetypeName || '一般')}】</span>
+                    </div>
+                    <div class="freshman-card-desc">${escapeHtml(m.desc || '')}</div>
+                    <div class="freshman-stats-row">
+                        <span class="stat-pill">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                        <span class="stat-pill">戦力: ${Math.round(getMemberCombatPower(m))}</span>
+                        <span class="stat-pill">体力: ${m.maxHealth}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="ceremony-container ceremony-welcome-view">
+                <div class="ceremony-opening-banner ceremony-spring-banner">
+                    <span class="ceremony-season-pill">🌸 第${year}期 4月1週（新年度始動）</span>
+                    <h1 class="ceremony-main-title">🌸 新1年生入部・歓迎セレモニー</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 剣道場 ｜ 新たな仲間 ${count}名 入部</div>
+                </div>
+
+                <div class="ceremony-card">
+                    <div class="ceremony-art-wrap">
+                        <img class="ceremony-art-img" src="img/ceremony/freshman_welcome.png" alt="新1年生入部・初めての稽古" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="ceremony-art-fallback" style="display:none;">
+                            <span class="art-fallback-icon">🌸</span>
+                            <span class="art-fallback-title">新1年生入部・初めての稽古</span>
+                        </div>
+                        <div class="ceremony-tagline-overlay">〜春の光射す道場、竹刀の音とともに新たな歴史が幕を開ける〜</div>
+                    </div>
+
+                    <div class="ceremony-scroll-body">
+                        <div class="ceremony-speech-box">
+                            <div class="speech-header">📜 【主将・部員一同より歓迎の辞】</div>
+                            <p class="speech-content">
+                                新入生の皆さん、${escapeHtml(ClubState.schoolName)}剣道部へようこそ！<br>
+                                今日から皆さんは苦楽を共にするかけがえのない仲間です。<br>
+                                礼節を重んじ、日々の厳しい稽古を共に乗り越え、目指すは悲願の全国制覇！全員で頂点を掴み取りましょう！
+                            </p>
+                        </div>
+
+                        <div class="freshman-list-section">
+                            <div class="freshman-list-title">🥋 【入部した新1年生（計${count}名）】</div>
+                            <div class="freshman-cards-grid">
+                                ${cardsHtml}
+                            </div>
+                        </div>
+
+                        <div class="ceremony-actions">
+                            <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromFreshmanWelcomeToDashboard()">
+                                🥋 稽古を開始する（道場へ進む）
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function proceedFromFreshmanWelcomeToDashboard() {
+        ClubState.freshmanWelcomeData = null;
+        ClubState.viewPhase = 'dashboard';
+        saveClubData();
+        renderClubUI();
+    }
+
+    // ───────────────────────────────────────────
+    // 9月1週：3年生引退式セレモニー画面
+    // ───────────────────────────────────────────
+    function renderRetireCeremony(container) {
+        const data = ClubState.retireCeremonyData;
+        const retiredMembers = (data && data.retiredMembers) || [];
+        const year = (data && data.year) || ClubState.year;
+
+        const cardsHtml = retiredMembers.map((m) => {
+            return `
+                <div class="retired-senior-card">
+                    <div class="retired-card-header">
+                        <span class="retired-name">${escapeHtml(m.name)}</span>
+                        <span class="retired-grade-badge">3年・勇退</span>
+                        <span class="retired-pos-badge">${m.isPlayer ? '前主将' : '先輩'}</span>
+                    </div>
+                    <div class="retired-card-desc">${escapeHtml(m.desc || '')}</div>
+                    <div class="retired-stats-row">
+                        <span class="stat-pill">戦力: ${Math.round(getMemberCombatPower(m))}</span>
+                        <span class="stat-pill">得意: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="ceremony-container ceremony-retire-view">
+                <div class="ceremony-closing-banner ceremony-autumn-banner">
+                    <span class="ceremony-season-pill">🍂 第${year}期 9月1週（世代交代）</span>
+                    <h1 class="ceremony-main-title">🍂 3年生引退式・感謝の集い</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 剣道場 ｜ 3年生 ${retiredMembers.length}名 勇退</div>
+                </div>
+
+                <div class="ceremony-card">
+                    <div class="ceremony-art-wrap">
+                        <img class="ceremony-art-img" src="img/ceremony/senior_retire.png" alt="3年生引退式" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="ceremony-art-fallback" style="display:none;">
+                            <span class="art-fallback-icon">🍂</span>
+                            <span class="art-fallback-title">3年生引退式</span>
+                        </div>
+                        <div class="ceremony-tagline-overlay">〜激闘を終えし先輩たちの汗と涙、その志を次の世代へ〜</div>
+                    </div>
+
+                    <div class="ceremony-scroll-body">
+                        <div class="ceremony-speech-box">
+                            <div class="speech-header">📜 【3年生 先輩たちより引退の言葉】</div>
+                            <p class="speech-content">
+                                これまで厳しい稽古を共に耐え抜いてくれて、本当にありがとう。<br>
+                                夏の大会を全力で戦い終え、悔いなく竹刀を置くことができます。<br>
+                                私たちの悲願であった全国制覇の夢は、頼もしい後輩である君たちに託します。新主将を中心に、胸を張って前へ進んでください！
+                            </p>
+                        </div>
+
+                        <div class="retired-list-section">
+                            <div class="retired-list-title">🎖️ 【勇退する3年生先輩たち】</div>
+                            <div class="retired-cards-grid">
+                                ${cardsHtml}
+                            </div>
+                        </div>
+
+                        <div class="ceremony-actions">
+                            <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromRetireCeremonyToCaptainSelect()">
+                                👑 新主将の指名へ進む
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function proceedFromRetireCeremonyToCaptainSelect() {
+        ClubState.retireCeremonyData = null;
+        ClubState.viewPhase = 'captain_select';
+        saveClubData();
+        renderClubUI();
+    }
+
+    // ───────────────────────────────────────────
+    // 9月1週：新主将就任・新体制始動セレモニー画面
+    // ───────────────────────────────────────────
+    function renderNewTeamCeremony(container) {
+        const data = ClubState.newTeamCeremonyData;
+        const newCap = (data && data.newCaptain) || ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+        const activeMembers = (data && data.activeMembers) || ClubState.members;
+        const year = (data && data.year) || ClubState.year;
+
+        const countGrade2 = activeMembers.filter((m) => m.grade === 2).length;
+        const countGrade1 = activeMembers.filter((m) => m.grade === 1).length;
+
+        container.innerHTML = `
+            <div class="ceremony-container ceremony-newteam-view">
+                <div class="ceremony-opening-banner ceremony-gold-banner">
+                    <span class="ceremony-season-pill">👑 第${year}期 9月1週（新体制発足）</span>
+                    <h1 class="ceremony-main-title">👑 新体制始動！新チーム結団式</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 剣道場 ｜ 新主将：${escapeHtml(newCap ? newCap.name : 'あなた')}（新2年）</div>
+                </div>
+
+                <div class="ceremony-card">
+                    <div class="ceremony-art-wrap">
+                        <img class="ceremony-art-img" src="img/ceremony/new_team_start.png" alt="新体制始動" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="ceremony-art-fallback" style="display:none;">
+                            <span class="art-fallback-icon">👑</span>
+                            <span class="art-fallback-title">新体制始動</span>
+                        </div>
+                        <div class="ceremony-tagline-overlay">〜新主将を筆頭に結集せし剣心、悲願の全国制覇へいざ出陣！〜</div>
+                    </div>
+
+                    <div class="ceremony-scroll-body">
+                        <div class="ceremony-speech-box">
+                            <div class="speech-header">📜 【新主将 就任宣言】</div>
+                            <p class="speech-content">
+                                「この度、${escapeHtml(ClubState.schoolName)}剣道部の新主将を拝命した【${escapeHtml(newCap ? newCap.name : 'あなた')}】です。<br>
+                                引退された先輩方の想いを受け継ぎ、全員で支え合い、必ずや秋・冬の地区予選、そして春の全国選抜を勝ち抜いて全国の頂点を掴み取ります！全員、気合を入れていくぞ！」
+                            </p>
+                        </div>
+
+                        <div class="newteam-meta-box">
+                            <div class="newteam-meta-title">⚔️ 【新体制 チーム編成】</div>
+                            <div class="newteam-meta-grid">
+                                <div class="meta-item">
+                                    <span class="meta-label">新主将</span>
+                                    <span class="meta-val">👑 ${escapeHtml(newCap ? newCap.name : 'あなた')} (2年)</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">部員数</span>
+                                    <span class="meta-val">全${activeMembers.length}名（2年生: ${countGrade2}名 / 1年生: ${countGrade1}名）</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">チーム目標</span>
+                                    <span class="meta-val">🏆 地区予選突破・全国選抜制覇！</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ceremony-actions">
+                            <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromNewTeamCeremonyToDashboard()">
+                                🏠 新チームで稽古を始める（道場へ）
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function proceedFromNewTeamCeremonyToDashboard() {
+        ClubState.newTeamCeremonyData = null;
+        ClubState.viewPhase = 'dashboard';
+        saveClubData();
+        renderClubUI();
+    }
+
+    // ───────────────────────────────────────────
+    // マンツーマン指名特訓：実戦稽古（試合）
+    // ───────────────────────────────────────────
+    function startSpecialPracticeBout(targetMemberId) {
+        const playerMember = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+        const targetMember = ClubState.members.find((m) => m.id === targetMemberId);
+        if (!playerMember || !targetMember) return;
+        if (targetMember.id === playerMember.id) return;
+
+        ClubState.selectedSpecialTargetId = targetMember.id;
+
+        // 特訓相手部員の得意構えに応じたAIパターン
+        const stance = targetMember.favStance || targetMember.stance || 'chudan';
+        let enemyPatterns = [];
+        if (stance === 'jodan') {
+            enemyPatterns = [
+                { stance: 'jodan', hint: `🔥【上段の構え】${targetMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（小手で迎撃せよ）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
+                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は中段に戻りつつ「面」か「小手」を狙っている…`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
+            ];
+        } else if (stance === 'waki') {
+            enemyPatterns = [
+                { stance: 'waki', hint: `🌊【下段の構え】${targetMember.name}は竹刀を低く構え「後の先防御」か「抜き胴」を狙う！（崩しが有効！）`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
+                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は間合いを測りながら鋭い「小手」を狙う！`, isDanger: false, weights: { 小手: 50, 防御: 25, 面: 15, 胴: 10, 崩し: 0, 突き: 0 } },
+            ];
+        } else {
+            enemyPatterns = [
+                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は真っ直ぐ「面」か「小手」を狙っている！`, isDanger: false, weights: { 面: 45, 小手: 30, 胴: 15, 防御: 10, 崩し: 0, 突き: 0 } },
+                { stance: 'chudan', hint: `🛡️【中段の構え】${targetMember.name}は守りを固めつつ隙を伺っている…（崩しの好機！）`, isDanger: false, weights: { 防御: 40, 面: 30, 小手: 20, 胴: 10, 崩し: 0, 突き: 0 } },
+            ];
+        }
+
+        const enemyArmorTheme = targetMember.armorTheme || {
+            doStops: ['#1e293b', '#334155', '#475569', '#1e293b', '#0f172a'],
+            muneFill: '#0f172a',
+            muneStitch: 'rgba(56, 189, 248, 0.85)',
+            tareLine: 'rgba(56, 189, 248, 0.65)',
+        };
+
+        const enemyQuote = `「主将、胸を貸してください！全力で一本を狙います！」`;
+
+        if (window.KendoGameEngine && window.KendoGameEngine.startCustomMatch) {
+            window.KendoGameEngine.startCustomMatch({
+                isIndividual: false,
+                isIntraClub: true,
+                isSpecialPractice: true,
+                roundName: 'マンツーマン特別指導',
+                boutPosName: '実戦特訓',
+                tournamentType: 'district',
+                playerData: {
+                    name: playerMember.name,
+                    schoolName: ClubState.schoolName,
+                    roleTitle: '主将',
+                    maxHealth: playerMember.maxHealth || 6,
+                    initialKiai: 0,
+                    favStance: playerMember.favStance || 'chudan',
+                    skills: playerMember.skills,
+                    str: playerMember.str,
+                    agi: playerMember.agi,
+                    spi: playerMember.spi,
+                    armorTheme: playerMember.armorTheme,
+                },
+                enemyData: {
+                    id: `practice_${targetMember.id}`,
+                    name: `${ClubState.schoolName}・${targetMember.name}`,
+                    schoolName: ClubState.schoolName,
+                    shortName: targetMember.name,
+                    role: targetMember.grade ? `${targetMember.grade}年` : '部員',
+                    rank: '',
+                    styleTag: `${stance === 'jodan' ? '上段' : stance === 'waki' ? '下段の構え' : '中段'}の気迫`,
+                    maxHealth: targetMember.maxHealth || 6,
+                    initialKiai: 0,
+                    str: targetMember.str,
+                    agi: targetMember.agi,
+                    spi: targetMember.spi,
+                    skills: targetMember.skills,
+                    introQuote: enemyQuote,
+                    armorTheme: enemyArmorTheme,
+                    patterns: enemyPatterns,
+                },
+                onMatchEnd: function (result) {
+                    const isPlayerWin = result.winner === 'player';
+                    const isEnemyWin = result.winner === 'enemy';
+
+                    const pStats = {
+                        hits: (result.boutStats && result.boutStats.playerHits !== undefined) ? result.boutStats.playerHits : (isPlayerWin ? 1 : 0),
+                        blocks: (result.boutStats && result.boutStats.playerBlocks !== undefined) ? result.boutStats.playerBlocks : 0,
+                        rounds: result.rounds || (result.boutStats && result.boutStats.rounds) || 3,
+                        winningMove: isPlayerWin ? (result.winningMove || '面') : null,
+                        pushWins: (result.boutStats && result.boutStats.pushWins) || 0,
+                    };
+
+                    const eStats = {
+                        hits: (result.boutStats && result.boutStats.enemyHits !== undefined) ? result.boutStats.enemyHits : (isEnemyWin ? 1 : 0),
+                        blocks: (result.boutStats && result.boutStats.enemyBlocks !== undefined) ? result.boutStats.enemyBlocks : 0,
+                        rounds: result.rounds || (result.boutStats && result.boutStats.rounds) || 3,
+                        winningMove: isEnemyWin ? (result.winningMove || '面') : null,
+                        pushWins: 0,
+                    };
+
+                    const realPlayer = getRealClubMember(playerMember) || playerMember;
+                    const realTarget = getRealClubMember(targetMember) || targetMember;
+
+                    const pGrowth = applyBoutGrowth(realPlayer, pStats);
+                    const tGrowth = applyBoutGrowth(realTarget, eStats);
+
+                    // 特訓効果として相手の調子を上向かせる
+                    improveCondition(realTarget);
+
+                    const outcomeText = isPlayerWin
+                        ? `主将の一本勝ち（決まり手: ${result.winningMove || '面'}）`
+                        : (isEnemyWin ? `${realTarget.name}の一本勝ち（決まり手: ${result.winningMove || '面'}）` : '互角の引き分け');
+
+                    const pSummary = pGrowth ? pGrowth.summary : '維持';
+                    const tSummary = tGrowth ? tGrowth.summary : '維持';
+                    const dualText = realTarget.isClubDual ? `（${realTarget.originalClub}掛け持ち）` : '';
+
+                    const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${realTarget.name}${dualText}へマンツーマン指名特訓を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
+
+                    ClubState.activityLog.unshift(logEntry);
+                    playStatUpSound();
+
+                    advanceCalendarWeek();
+                    saveClubData();
+
+                    if (window.KendoBGM && window.KendoBGM.stop) {
+                        window.KendoBGM.stop();
+                    }
+
+                    if (window.KendoGameEngine && window.KendoGameEngine.showClubScreen) {
+                        window.KendoGameEngine.showClubScreen();
+                    }
+                    renderClubUI();
+                }
+            });
+        }
+    }
+
+    // ───────────────────────────────────────────
     // グローバル公開インターフェース (window.KendoClub)
     // ───────────────────────────────────────────
     window.KendoClub = {
@@ -5189,7 +5633,15 @@
             }
             // 主将変更時：大将〜先鋒の割り当てを戦力順で自動設定
             assignOrderByCombatPower(memberId);
-            ClubState.viewPhase = 'dashboard';
+
+            // 👑 新体制始動セレモニー画面へ
+            ClubState.newTeamCeremonyData = {
+                year: ClubState.year,
+                newCaptain: newCap,
+                activeMembers: [...ClubState.members],
+            };
+            ClubState.viewPhase = 'new_team_ceremony';
+
             saveClubData();
             renderClubUI();
         },
@@ -5241,13 +5693,33 @@
             saveClubData();
         },
 
-        onSpecialPractice: function (instant = false) {
+        onSpecialPractice: function () {
             const sel = document.getElementById('selSpecialTarget');
             const targetId = (sel && sel.value) ? sel.value : ClubState.selectedSpecialTargetId;
             if (targetId) {
                 ClubState.selectedSpecialTargetId = targetId;
-                executePractice('special', targetId, instant);
+                startSpecialPracticeBout(targetId);
             }
+        },
+
+        startSpecialPracticeBout: function (targetId) {
+            startSpecialPracticeBout(targetId);
+        },
+
+        toggleQuickSpecialPopup: function (forceState) {
+            const popup = document.getElementById('quickSpecialPopup');
+            const overlay = document.getElementById('quickSpecialOverlay');
+            if (!popup) return;
+            const willShow = (forceState !== undefined) ? !!forceState : (popup.style.display === 'none');
+            popup.style.display = willShow ? 'block' : 'none';
+            if (overlay) overlay.style.display = willShow ? 'block' : 'none';
+        },
+
+        launchQuickSpecialPractice: function (memberId) {
+            this.toggleQuickSpecialPopup(false);
+            if (!memberId) return;
+            ClubState.selectedSpecialTargetId = memberId;
+            startSpecialPracticeBout(memberId);
         },
 
         recruitDualClubMember: function () {
@@ -5545,6 +6017,10 @@
             renderClubUI();
         },
 
+        startSpecialPracticeBout: function (targetMemberId) {
+            startSpecialPracticeBout(targetMemberId);
+        },
+
         launchMatchBout: function (isSpectating = false) {
             const match = ClubState.currentMatchData;
             if (!match || !match.activeBouts) return;
@@ -5575,10 +6051,13 @@
                 ];
             }
 
-            let enemyNameLabel = `${boutsData.schoolName || ClubState.schoolName}・${enemyMember.name}`;
+            const enemySchool = isIntraClub
+                ? ClubState.schoolName
+                : (curBout.schoolName || boutsData.schoolName || (enemyMember && enemyMember.schoolName) || '');
+            let enemyNameLabel = enemySchool ? `${enemySchool}・${enemyMember.name}` : enemyMember.name;
             let enemyIntroQuote = isIntraClub
                 ? `「主将、全力を尽くして一本を狙います！」`
-                : (isIndividual ? `「${enemyMember.title || '個人代表'}の意地、見せてやる！」` : `「${boutsData.schoolName}の誇りにかけて、一本も譲らん！」`);
+                : (isIndividual ? `「${enemyMember.title || '個人代表'}の意地、見せてやる！」` : `「${boutsData.schoolName || enemySchool}の誇りにかけて、一本も譲らん！」`);
 
             const enemyArmorTheme = enemyMember.armorTheme || {
                 doStops: ['#3b0764', '#581c87', '#7e22ce', '#3b0764', '#1e1b4b'],
@@ -5595,12 +6074,17 @@
             if (window.KendoGameEngine && window.KendoGameEngine.startCustomMatch) {
                 window.KendoGameEngine.startCustomMatch({
                     isIndividual: isIndividual,
+                    isIntraClub: isIntraClub,
+                    roundName: boutsData.roundName || '',
+                    boutPosName: curBout.posName || '',
                     isSpectating: isSpectating,
                     tournamentType: tourneyTypeTheme,
                     playerData: {
                         name: playerMember.name,
                         schoolName: ClubState.schoolName,
-                        roleTitle: isIndividual ? `${sanitizePosName(curBout.posName)}・${ClubState.schoolName}` : `${curBout.posName}・${ClubState.schoolName}`,
+                        roleTitle: isIndividual
+                            ? (playerMember.isPlayer ? '主将' : (playerMember.grade ? `${playerMember.grade}年` : ''))
+                            : (playerMember.isPlayer && curBout.posName === '大将' ? '大将（主将）' : curBout.posName),
                         maxHealth: playerMember.maxHealth,
                         initialKiai: 0,
                         favStance: playerMember.favStance || 'chudan',
@@ -5613,9 +6097,14 @@
                     enemyData: {
                         id: `opp_${enemyMember.name}`,
                         name: enemyNameLabel,
-                        role: sanitizePosName(curBout.posName),
+                        schoolName: enemySchool,
                         shortName: enemyMember.name,
-                        rank: isIndividual ? (enemyMember.title || '代表剣士') : '高校剣士',
+                        role: isIndividual
+                            ? (isIntraClub ? (enemyMember.isPlayer ? '主将' : (enemyMember.grade ? `${enemyMember.grade}年` : '')) : '')
+                            : sanitizePosName(curBout.posName),
+                        rank: isIndividual
+                            ? (enemyMember.title && !['代表剣士', '高校剣士', '代表選手'].includes(enemyMember.title) ? enemyMember.title : '')
+                            : '',
                         styleTag: `${(enemyMember.stance || enemyMember.favStance) === 'jodan' ? '上段' : (enemyMember.stance || enemyMember.favStance) === 'waki' ? '下段の構え' : '中段'}の気迫`,
                         maxHealth: enemyMember.hp || enemyMember.maxHealth || 6,
                         initialKiai: 0,
@@ -5762,6 +6251,10 @@
                 window.KendoBGM.stop();
             }
             renderClubUI();
+        },
+
+        startSpecialPracticeBout: function (targetMemberId) {
+            startSpecialPracticeBout(targetMemberId);
         },
 
         advanceTournamentRound: function () {
@@ -5923,6 +6416,18 @@
             advanceCalendarWeek();
             saveClubData();
             renderClubUI();
+        },
+
+        proceedFromFreshmanWelcomeToDashboard: function () {
+            proceedFromFreshmanWelcomeToDashboard();
+        },
+
+        proceedFromRetireCeremonyToCaptainSelect: function () {
+            proceedFromRetireCeremonyToCaptainSelect();
+        },
+
+        proceedFromNewTeamCeremonyToDashboard: function () {
+            proceedFromNewTeamCeremonyToDashboard();
         },
 
         previewOpening: function (type = 'interhigh_district') {
