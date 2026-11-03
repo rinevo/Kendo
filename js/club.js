@@ -1002,19 +1002,39 @@
         };
     }
 
+    // 各イベントの年間発生管理（1年に同じイベントは最大1回のみ発生）
+    function hasEventTriggeredThisYear(eventId) {
+        if (!ClubState.eventHistoryByYear) return false;
+        const list = ClubState.eventHistoryByYear[ClubState.year];
+        return Array.isArray(list) && list.includes(eventId);
+    }
+
+    function markEventTriggeredThisYear(eventId) {
+        if (!ClubState.eventHistoryByYear) {
+            ClubState.eventHistoryByYear = {};
+        }
+        if (!Array.isArray(ClubState.eventHistoryByYear[ClubState.year])) {
+            ClubState.eventHistoryByYear[ClubState.year] = [];
+        }
+        if (!ClubState.eventHistoryByYear[ClubState.year].includes(eventId)) {
+            ClubState.eventHistoryByYear[ClubState.year].push(eventId);
+        }
+    }
+
     // イベント発生判定エンジン
     function checkAndTriggerClubEvent(deferImmediateLaunch = false) {
         if (!ClubState.members || ClubState.members.length === 0) return false;
 
         let pickedEvent = null;
-        // 1. 季節固定イベントのチェック (カレンダーの月・週が完全一致)
-        const seasonalEvent = CLUB_EVENTS.find((e) => e.category === 'seasonal' && e.month === ClubState.month && e.week === ClubState.week);
+        // 1. 季節固定イベントのチェック (カレンダーの月・週が完全一致 ＆ 今年度未発生)
+        const seasonalEvent = CLUB_EVENTS.find((e) => e.category === 'seasonal' && e.month === ClubState.month && e.week === ClubState.week && !hasEventTriggeredThisYear(e.id));
         if (seasonalEvent) {
             pickedEvent = seasonalEvent;
         } else {
-            // 2. 条件付きイベントのチェック（合致した候補からランダムに1件）
+            // 2. 条件付きイベントのチェック（今年度未発生 ＆ 条件合致した候補からランダムに1件）
             const matchedConditionals = CLUB_EVENTS.filter((e) => {
                 if (e.category !== 'conditional' || typeof e.condition !== 'function') return false;
+                if (hasEventTriggeredThisYear(e.id)) return false;
                 try {
                     return e.condition(ClubState);
                 } catch (err) {
@@ -1024,8 +1044,8 @@
             if (matchedConditionals.length > 0) {
                 pickedEvent = getRandomItem(matchedConditionals);
             } else if (Math.random() < 0.25) {
-                // 3. 日常ランダムイベントのチェック (通常週の約25%で発生)
-                const dailyEvents = CLUB_EVENTS.filter((e) => e.category === 'daily');
+                // 3. 日常ランダムイベントのチェック (通常週の約25%で発生 ＆ 今年度未発生のものから抽選)
+                const dailyEvents = CLUB_EVENTS.filter((e) => e.category === 'daily' && !hasEventTriggeredThisYear(e.id));
                 if (dailyEvents.length > 0) {
                     pickedEvent = getRandomItem(dailyEvents);
                 }
@@ -1033,6 +1053,7 @@
         }
 
         if (pickedEvent) {
+            markEventTriggeredThisYear(pickedEvent.id);
             if (deferImmediateLaunch) {
                 // 大会終了直後など：即時遷移させず保留し、まず練習メニュー画面を表示
                 ClubState.pendingEventData = buildEventData(pickedEvent);
@@ -1706,6 +1727,7 @@
         specialPracticeAttacks: null,   // マンツーマン特別指導時の主将・指名部員のランダム攻撃情報
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
         captainAutoMode: false,      // 全国制覇特典：主将の試合も自動化（オート観戦・即時判定）フラグ
+        eventHistoryByYear: {},      // 年度ごとのイベント発生履歴 { [year]: [eventId, ...] } （1年に同一イベントは最大1回）
         history: [],                 // 歴代年表 [{ year, captainName, districtResult, nationalResult, interhighDistrictResult, interhighNationalResult }]
         stats: {
             district: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
@@ -1752,6 +1774,7 @@
                 memberGridScrollLeft: ClubState.memberGridScrollLeft,
                 isRestPosture: !!ClubState.isRestPosture,
                 captainAutoMode: !!ClubState.captainAutoMode,
+                eventHistoryByYear: ClubState.eventHistoryByYear || {},
                 history: ClubState.history,
                 stats: ClubState.stats,
             };
@@ -1820,6 +1843,7 @@
             ClubState.memberGridScrollLeft = typeof data.memberGridScrollLeft === 'number' ? data.memberGridScrollLeft : -1;
             ClubState.isRestPosture = !!data.isRestPosture;
             ClubState.captainAutoMode = !!data.captainAutoMode;
+            ClubState.eventHistoryByYear = (data && data.eventHistoryByYear && typeof data.eventHistoryByYear === 'object') ? data.eventHistoryByYear : {};
             if (Array.isArray(data.history)) ClubState.history = data.history;
             if (data.stats) {
                 ClubState.stats = data.stats;
@@ -2110,6 +2134,7 @@
         ClubState.memberGridScrollLeft = -1;
         ClubState.isRestPosture = false;
         ClubState.specialPracticeAttacks = null;
+        ClubState.eventHistoryByYear = {};
         ClubState.history = [];
         ClubState.stats = {
             district: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
@@ -7544,6 +7569,7 @@
         triggerEventById: function (eventId) {
             const ev = CLUB_EVENTS.find(e => e.id === eventId);
             if (ev) {
+                markEventTriggeredThisYear(ev.id);
                 triggerClubEvent(ev);
                 saveClubData();
                 renderClubUI();
