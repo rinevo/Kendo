@@ -4853,9 +4853,6 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'defend_spam',
                 counterMove: '崩し',
                 stance: 'chudan',
-                hint: isWakiStance
-                    ? `⚠️【見切り】${enemyData.shortName}はあなたの「下段・防御」の待ちを見抜いた！「崩し」でガードを粉砕しに来るぞ！（「基本打突」で迎撃せよ！）`
-                    : `⚠️【見切り】${enemyData.shortName}はあなたの守り癖を完全に読んだ！「崩し」で体勢を崩しにかかるぞ！（「基本打突」で出鼻を挫け！）`,
                 weights: { 崩し: 75, 小手: 15, 面: 10, 防御: 0, 突き: 0, 胴: 0 },
             };
         }
@@ -4869,7 +4866,6 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'men_spam',
                 counterMove: '胴',
                 stance: 'waki',
-                hint: `⚠️【見切り】${enemyData.shortName}はあなたの「面」の連打を完全に読んだ！「抜き胴」や「応じ技」で迎撃されるぞ！（「小手」か「防御」に変えろ！）`,
                 weights: { 胴: 65, 防御: 25, 小手: 10, 面: 0, 崩し: 0, 突き: 0 },
             };
         }
@@ -4883,7 +4879,6 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'kote_spam',
                 counterMove: '面',
                 stance: 'chudan',
-                hint: `⚠️【見切り】${enemyData.shortName}は手元への「小手」を予測！上から叩き割る「面」を狙っているぞ！（「胴」か「防御」で迎え撃て！）`,
                 weights: { 面: 72, 胴: 15, 防御: 13, 小手: 0, 崩し: 0, 突き: 0 },
             };
         }
@@ -4897,7 +4892,6 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'do_spam',
                 counterMove: '小手',
                 stance: 'chudan',
-                hint: `⚠️【見切り】${enemyData.shortName}はあなたの「胴」の軌道を見切った！手元を捉える鋭い「小手」を狙っている！（「面」で上から制せ！）`,
                 weights: { 小手: 70, 面: 20, 防御: 10, 胴: 0, 崩し: 0, 突き: 0 },
             };
         }
@@ -4911,7 +4905,6 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'tsuki_spam',
                 counterMove: '突き',
                 stance: 'chudan',
-                hint: `⚠️【見切り】${enemyData.shortName}はあなたの必殺「突き」を完全に警戒！相打ち狙いの「突き」か出鼻を挫く「小手」が来るぞ！`,
                 weights: { 突き: 50, 小手: 30, 崩し: 20, 面: 0, 胴: 0, 防御: 0 },
             };
         }
@@ -5007,17 +5000,17 @@ function decideEnemyIntent() {
             : null;
 
         if (learnedPattern) {
+            // 敵パターンの通常ヒントを取得（「見切った」等の予告を表示せず、崩しやカウンターを自然に繰り出す）
+            const targetStance = learnedPattern.stance || 'chudan';
+            const matchingPattern = (enemyData.patterns && enemyData.patterns.find((p) => (p.stance || 'chudan') === targetStance))
+                || (enemyData.patterns && enemyData.patterns[0]);
+
             intent = {
-                stance: learnedPattern.stance || 'chudan',
-                hint: learnedPattern.hint,
-                isDanger: true,
+                stance: targetStance,
+                hint: matchingPattern ? matchingPattern.hint : `⚖️【中段の構え】${enemyData.shortName}は油断なく竹刀を構え、間合いを測っている…`,
+                isDanger: matchingPattern ? matchingPattern.isDanger : false,
                 weights: { ...learnedPattern.weights },
             };
-            // 初回見切り時または対策パターン変化時に演出ポップアップ
-            const prevType = state.enemyLearnedPattern ? state.enemyLearnedPattern.type : null;
-            if (prevType !== learnedPattern.type && state.round > 0) {
-                spawnFloatingPopup('enemy', '👁️ 見切った！', 'popup-break');
-            }
             state.enemyLearnedPattern = learnedPattern;
         } else {
             state.enemyLearnedPattern = null;
@@ -6874,6 +6867,10 @@ window.KendoGameEngine = {
             window.KendoClub.stopClubMiniCharaLoop();
         }
 
+        if (window.KendoClub && window.KendoClub.clearMobilePortal) {
+            window.KendoClub.clearMobilePortal();
+        }
+
         if (window.KendoClub && window.KendoClub.updateModeCardUI) {
             window.KendoClub.updateModeCardUI();
         }
@@ -6904,6 +6901,10 @@ window.KendoGameEngine = {
 
             if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
                 window.KendoClub.stopClubMiniCharaLoop();
+            }
+
+            if (window.KendoClub && window.KendoClub.clearMobilePortal) {
+                window.KendoClub.clearMobilePortal();
             }
 
             state.customMatch = null;
@@ -6959,6 +6960,11 @@ window.KendoGameEngine = {
                     if (window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
                 } else if (cs && ['tournament_opening', 'match_sim', 'match_result'].includes(cs.viewPhase)) {
                     if (window.KendoBGM.stop) window.KendoBGM.stop();
+                } else if (cs && cs.viewPhase === 'event_scene') {
+                    // イベント画面：再生中のBGMは停止させずそのまま継続
+                    if (!window.KendoBGM.isPlaying || !window.KendoBGM.isPlaying()) {
+                        if (window.KendoBGM.play) window.KendoBGM.play('club');
+                    }
                 } else {
                     if (window.KendoBGM.play) window.KendoBGM.play('club');
                 }
@@ -6981,6 +6987,10 @@ window.KendoGameEngine = {
 
         if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
             window.KendoClub.stopClubMiniCharaLoop();
+        }
+
+        if (window.KendoClub && window.KendoClub.clearMobilePortal) {
+            window.KendoClub.clearMobilePortal();
         }
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'none';

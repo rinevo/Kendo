@@ -86,10 +86,13 @@ body.bg-dojo {
     flex-direction: column;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .game {
         border-radius: 16px;
         border-width: 1.5px;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        overflow: visible !important;
     }
 }
 
@@ -5276,14 +5279,17 @@ button.reset-btn:hover:not(:disabled) {
         bottom: 0;
         left: 0;
         right: 0;
-        z-index: 1200;
-        background: rgba(15, 23, 42, 0.94);
+        width: 100%;
+        z-index: 9999;
+        background: rgba(15, 23, 42, 0.96);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
         border-top: 1px solid rgba(234, 179, 8, 0.4);
         box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.65);
         padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
         box-sizing: border-box;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
     }
 
     .quick-bar-items {
@@ -5402,7 +5408,7 @@ button.reset-btn:hover:not(:disabled) {
         padding: 14px;
         max-height: 65vh;
         overflow-y: auto;
-        z-index: 1205;
+        z-index: 10000;
         box-sizing: border-box;
     }
 
@@ -5501,11 +5507,369 @@ button.reset-btn:hover:not(:disabled) {
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.55);
-        z-index: 1199;
+        z-index: 9998;
         backdrop-filter: blur(2px);
         -webkit-backdrop-filter: blur(2px);
     }
 }
+
+/* ───────────────────────────────────────────
+   高校生らしい部活ライフイベント 専用スタイル
+   ─────────────────────────────────────────── */
+.event-scene-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+    animation: fadeInCeremony 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.event-scene-banner {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.55) 0%, rgba(15, 23, 42, 0.85) 60%, rgba(180, 83, 9, 0.3) 100%);
+    border: 1px solid rgba(234, 179, 8, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px 20px;
+    text-align: center;
+    margin-bottom: 22px;
+}
+
+.event-scene-card {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.event-art-wrap {
+    position: relative;
+    width: 100%;
+    height: 380px;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 22px;
+    border: 2px solid rgba(234, 179, 8, 0.45);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    background: #020617;
+}
+
+.event-art-wrap .ceremony-art-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+    display: block;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.event-art-wrap:hover .ceremony-art-img {
+    transform: scale(1.03);
+}
+
+.event-art-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
+    gap: 12px;
+}
+
+.event-art-fallback .art-fallback-icon {
+    font-size: 4rem;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+    animation: floatIcon 3s ease-in-out infinite alternate;
+}
+
+@keyframes floatIcon {
+    from { transform: translateY(0); }
+    to { transform: translateY(-6px); }
+}
+
+.event-art-fallback .art-fallback-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.08em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.event-scroll-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* 情景ナレーションボックス */
+.event-narration-box {
+    background: rgba(30, 41, 59, 0.7);
+    border-left: 4px solid #38bdf8;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.narration-header {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #38bdf8;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.narration-content {
+    font-size: 0.98rem;
+    line-height: 1.75;
+    color: #e2e8f0;
+    margin: 0;
+}
+
+/* 会話セクション */
+.event-dialogues-box {
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 12px;
+    padding: 16px 18px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.dialogues-header {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #fbbf24;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.event-dialogues-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.event-dialogue-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.event-speaker-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: #cbd5e1;
+}
+
+.event-dialogue-item.is-captain .event-speaker-badge {
+    color: #fbbf24;
+}
+
+.event-speaker-badge .speaker-icon {
+    font-size: 1rem;
+}
+
+.event-dialogue-bubble {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #f1f5f9;
+    position: relative;
+}
+
+.event-dialogue-item.is-captain .event-dialogue-bubble {
+    border-color: rgba(234, 179, 8, 0.4);
+    background: rgba(30, 41, 59, 0.85);
+}
+
+/* イベントボーナスカード */
+.event-bonus-card {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.14) 0%, rgba(16, 185, 129, 0.14) 100%);
+    border: 1.5px solid rgba(234, 179, 8, 0.5);
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(234, 179, 8, 0.15);
+}
+
+.event-bonus-header {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #fde047;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+
+.event-bonus-desc {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+}
+
+/* アクションボタン */
+.event-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.btn-event-complete {
+    font-size: 1.15rem;
+    padding: 14px 44px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+    color: #0f172a;
+    border: none;
+    box-shadow: 0 8px 24px rgba(234, 179, 8, 0.4);
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.btn-event-complete:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(234, 179, 8, 0.6);
+}
+
+/* モバイル・レスポンシブ最適化 */
+@media (max-width: 768px) {
+    .event-scene-container {
+        padding: 12px 8px 32px;
+    }
+    .event-art-wrap {
+        height: 240px;
+    }
+    .event-scene-banner {
+        padding: 16px 12px;
+    }
+    .narration-content {
+        font-size: 0.9rem;
+    }
+    .event-dialogue-bubble {
+        font-size: 0.88rem;
+    }
+    .event-bonus-desc {
+        font-size: 0.95rem;
+    }
+    .btn-event-complete {
+        width: 100%;
+        padding: 14px 20px;
+        font-size: 1.05rem;
+    }
+}
+
+/* ───────────────────────────────────────────
+   大会終了後の保留中高校生イベントバナー
+   ─────────────────────────────────────────── */
+.event-pending-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.22) 0%, rgba(245, 158, 11, 0.12) 100%);
+    border: 1px solid rgba(234, 179, 8, 0.55);
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin-top: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: goldGlowPulse 2.5s infinite ease-in-out;
+}
+
+.event-pending-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.event-pending-badge {
+    display: inline-block;
+    background: #eab308;
+    color: #1a1a1a;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-bottom: 4px;
+}
+
+.event-pending-title {
+    display: block;
+    font-size: 1.05rem;
+    color: #fef08a;
+    margin-bottom: 2px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.event-pending-desc {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #fde047;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btn-event-pending-open {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #eab308, #ca8a04);
+    color: #1a1a1a;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(234, 179, 8, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-event-pending-open:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 16px rgba(234, 179, 8, 0.65);
+}
+
+@media (max-width: 768px) {
+    .event-pending-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+    .event-pending-title {
+        white-space: normal;
+    }
+    .event-pending-desc {
+        white-space: normal;
+    }
+    .btn-event-pending-open {
+        width: 100%;
+        text-align: center;
+        padding: 10px 14px;
+    }
+}
+
+
 
 
 

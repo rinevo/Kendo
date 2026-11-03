@@ -8,6 +8,7 @@
  * - 試合結果画面：BGM完全停止（無音）
  * - 大会表彰状表示画面（優勝）：bgm/Gold_in_the_Dojo.mp3（1回のみ再生、ループなし）
  * - 大会表彰状表示画面（準優勝等）：bgm/The_Sunlit_Dojo.mp3（1回のみ再生、ループなし）
+ * - 高校生ライフイベント画面：BGMは停止せず再生中の曲（練習メニューBGM等）をそのまま継続
  * - 音量調節（0〜100%）＆ ミュート機能（localStorageで永続化）
  * - ブラウザ自動再生制限（Autoplay Policy）対応
  */
@@ -170,7 +171,7 @@
     const KendoBGM = {
         /**
          * 指定シーンのBGMを再生
-         * @param {string} sceneKey - 'title' | 'club' | 'tournament' | 'match' | 'victory' | 'farewell'
+         * @param {string} sceneKey - 'title' | 'club' | 'tournament' | 'match' | 'victory' | 'farewell' | 'event'
          * @param {number} [fadeDuration=400] - フェードインにかける時間（ミリ秒）
          * @param {boolean} [forceRestart=false] - 既に終了している場合に最初から再開するか
          */

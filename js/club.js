@@ -450,6 +450,638 @@
     }
 
     // ───────────────────────────────────────────
+    // 高校生らしい部活ライフイベント マスターデータ
+    // ───────────────────────────────────────────
+    const CLUB_EVENTS = [
+        // ── 1. 季節・年間行事イベント（カレンダー月・週連動） ──
+        {
+            id: 'freshman_demo',
+            category: 'seasonal',
+            month: 4,
+            week: 3,
+            title: '🌸 新歓演武会！新入生への気迫の模範稽古',
+            seasonTag: '🌸 春の息吹 ｜ 4月3週',
+            image: 'img/event/freshman_demo.png',
+            fallbackIcon: '🌸',
+            fallbackTitle: '新歓演武会と道場見学',
+            tagline: '〜春光射す道場、新入生の熱い視線に鋭い竹刀が閃く〜',
+            narration: '放課後の道場には、たくさんの新入生が見学に詰めかけていた。<br>静寂を切り裂く鋭い踏み込みと気迫のこもった打突音に、ギャラリーから大きなどよめきと感嘆の声が上がる！',
+            dialogues: [
+                { speaker: '主将', text: '全員、いつも通りの気迫を見せてやれ！これが我が校の剣道だ！' },
+                { speaker: '部員', text: '「めぇぇぇん！」鋭い打突が決まり、新入生たちの目が輝いている！' },
+            ],
+            effectsDesc: '🔥 部員全員の気魄 +2 ｜ 🌟 全員の調子が上昇！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 2);
+                    improveCondition(m);
+                });
+                return '新入生たちの前で堂々の演武を披露！部員全員の気魄が向上し、調子が上がりました！';
+            },
+        },
+        {
+            id: 'midterm_study',
+            category: 'seasonal',
+            month: 5,
+            week: 2,
+            title: '📚 中間考査前の放課後勉強会！目指せ全員赤点回避',
+            seasonTag: '📚 新緑の初夏 ｜ 5月2週',
+            image: 'img/event/study_session.png',
+            fallbackIcon: '📖',
+            fallbackTitle: '放課後勉強会・赤点回避',
+            tagline: '〜竹刀をシャープペンに持ち替え、文武両道の団結へ〜',
+            narration: '中間テスト直前、稽古時間を短縮して道場の隅で勉強会を開催！<br>「大会に出るには赤点回避が絶対条件だぞ！」主将のゲキを受け、部員同士で教え合う温かい時間が流れる。',
+            dialogues: [
+                { speaker: '主将', text: '文武両道こそ真の剣士！誰一人赤点を取らせるわけにはいかないぞ！' },
+                { speaker: '部員', text: '先輩、この数学の公式がどうしても…！あ、なるほど！解けました！' },
+            ],
+            effectsDesc: '🧠 全員の気魄 +1 ｜ 🍵 疲労度 -15 ｜ 🌟 士気高揚！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 1);
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 15);
+                    improveCondition(m);
+                });
+                return '勉強会でチームの絆が深まりました！部員全員の気魄+1、疲労度-15、調子が向上！';
+            },
+        },
+        {
+            id: 'rainy_maintenance',
+            category: 'seasonal',
+            month: 6,
+            week: 3,
+            title: '☔ 梅雨の静かな道場と竹刀メンテナンス',
+            seasonTag: '☔ 水無月の雨 ｜ 6月3週',
+            image: 'img/event/rainy_maintenance.png',
+            fallbackIcon: '☔',
+            fallbackTitle: '静かな道場と道具手入れ',
+            tagline: '〜外はしとしと降る雨、静かに座して道具を慈しむ〜',
+            narration: '外は激しい雨。湿気で傷みやすい竹刀を皆で点検し、丁寧にささくれを削って弦を締め直す。<br>道具を大切にする心が、打突の鋭さと冴えを生み出していく。',
+            dialogues: [
+                { speaker: '主将', text: '道具を粗末にする者に、一本の冴えは宿らない。丁寧に仕上げよう。' },
+                { speaker: '部員', text: '握り直すと吸い付くように構えやすいです！次の稽古が楽しみです！' },
+            ],
+            effectsDesc: '⚔️ 全員の面・小手・胴技術 +1 ｜ 🍵 疲労度 -10',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    if (!m.skills) m.skills = { men: 10, kote: 10, do: 10, tsuki: 8 };
+                    m.skills.men = Math.min(STAT_HARD_MAX, m.skills.men + 1);
+                    m.skills.kote = Math.min(STAT_HARD_MAX, m.skills.kote + 1);
+                    m.skills.do = Math.min(STAT_HARD_MAX, m.skills.do + 1);
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 10);
+                });
+                return '竹刀の手入れで道具への愛着と技の冴えが向上！面・小手・胴技術+1、疲労度-10！';
+            },
+        },
+        {
+            id: 'final_exam_clear',
+            category: 'seasonal',
+            month: 7,
+            week: 2,
+            title: '📝 期末考査突破！全員無事クリアで夏本番へ',
+            seasonTag: '📝 夏の訪れ ｜ 7月2週',
+            image: 'img/event/final_exam_clear.png',
+            fallbackIcon: '📝',
+            fallbackTitle: '期末考査突破・夏へ突入',
+            tagline: '〜テストを乗り越えた達成感！心置きなく剣道に没頭できる〜',
+            narration: '期末考査の最終日、結果発表！全員無事に合格点をクリアし補習を回避！<br>晴れやかな笑顔で道場に集まった部員たち。いよいよ夏休みの本格的な鍛錬が始まる！',
+            dialogues: [
+                { speaker: '部員', text: '主将！全員赤点なしで乗り切りました！補習免除です！' },
+                { speaker: '主将', text: 'よくやった！これで心置きなく稽古に打ち込めるぞ。夏合宿、気合入れていくぞ！' },
+            ],
+            effectsDesc: '🌟 全員の調子が上昇 ｜ 🍵 疲労度 -20 ｜ 🔥 気魄 +1',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    improveCondition(m);
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 20);
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 1);
+                });
+                return '期末考査を全員クリア！安堵と高揚感で全員の調子が向上、疲労度-20、気魄+1！';
+            },
+        },
+        {
+            id: 'summer_camp',
+            category: 'seasonal',
+            month: 7,
+            week: 4,
+            title: '🔥 炎天下の夏期強化合宿！限界突破の千本素振り',
+            seasonTag: '🔥 盛夏合宿 ｜ 7月4週',
+            image: 'img/event/summer_camp.png',
+            fallbackIcon: '🔥',
+            fallbackTitle: '夏期強化合宿・千本素振り',
+            tagline: '〜砂浜を蹴り、太陽に向かって振り下ろす！限界を超えた絆〜',
+            narration: '照りつける太陽とセミの声。朝の砂浜ダッシュから始まった地獄の強化合宿。<br>全員が声を枯らして竹刀を振り抜き、己の限界を打ち破った！',
+            dialogues: [
+                { speaker: '主将', text: 'あと百本！腕が上がらなくなってからが本当の稽古だ！声を上げろ！' },
+                { speaker: '部員', text: '「ウオオオッ！」道場と砂浜に魂の叫びがこだまする！' },
+            ],
+            effectsDesc: '💪 腕力 +2 ｜ 🏃 敏捷 +1 ｜ 🔥 気魄 +3 ｜ ❤️ 体力 +1（※疲労度+20）',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.str = Math.min(STAT_HARD_MAX, (m.str || 10) + 2);
+                    m.agi = Math.min(STAT_HARD_MAX, (m.agi || 10) + 1);
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 3);
+                    m.maxHealth = Math.min(HEALTH_HARD_MAX, (m.maxHealth || 5) + 1);
+                    m.health = Math.min(m.maxHealth, (m.health || 5) + 1);
+                    m.fatigue = Math.min(100, (m.fatigue || 0) + 20);
+                });
+                return '過酷な夏合宿を乗り越え肉体と精神が劇的進化！体力+1、腕力+2、敏捷+1、気魄+3！（疲労+20）';
+            },
+        },
+        {
+            id: 'summer_watermelon',
+            category: 'seasonal',
+            month: 8,
+            week: 3,
+            title: '🍉 猛暑の稽古後！キンキンに冷えたスイカとアイス',
+            seasonTag: '🍉 盛夏のオアシス ｜ 8月3週',
+            image: 'img/event/summer_watermelon.png',
+            fallbackIcon: '🍉',
+            fallbackTitle: 'スイカとアイスの差し入れ',
+            tagline: '〜汗だくの縁側、冷たい甘みが乾いた喉を潤す青春の味〜',
+            narration: '気温35度を超える猛暑の稽古が終わった瞬間、氷水で冷やした特大スイカとアイスが登場！<br>「うまい！」「生き返る〜！」道場の縁側に部員たちの最高の笑顔が弾ける。',
+            dialogues: [
+                { speaker: '部員', text: '冷たくて甘くて最高です…！生き返りました！' },
+                { speaker: '主将', text: 'しっかり水分と塩分を取れよ！後半も気合で乗り切るぞ！' },
+            ],
+            effectsDesc: '🍵 チーム全員の疲労度 -50 ｜ 😆 全員の調子が【絶好調】へ！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 50);
+                    m.condition = 'best';
+                });
+                return '冷えたスイカとアイスで身も心も全快！全員の疲労度-50、調子が【絶好調】になりました！';
+            },
+        },
+        {
+            id: 'sports_festival',
+            category: 'seasonal',
+            month: 10,
+            week: 2,
+            title: '🍁 体育祭激走！部活動対抗リレーで袴姿の快走',
+            seasonTag: '🍁 秋晴れの祭典 ｜ 10月2週',
+            image: 'img/event/sports_festival.png',
+            fallbackIcon: '🏃',
+            fallbackTitle: '体育祭・部活対抗リレー',
+            tagline: '〜万国旗たなびく秋空、タスキを繋ぐ剣士の韋駄天ダッシュ〜',
+            narration: '全校生徒が熱狂する体育祭の華・部活動対抗リレー！<br>剣道着と袴姿に赤タスキ、竹刀をバトン代わりに全速力でトラックを駆け抜ける姿に、観客席から大歓声！',
+            dialogues: [
+                { speaker: '部員', text: '主将、バトン頼みます！すり足ダッシュで差をつけました！' },
+                { speaker: '主将', text: 'よし受け取った！剣道部の意地を見せてやる！ゴールまで突っ走るぞ！' },
+            ],
+            effectsDesc: '🏃 部員全員の敏捷 +2 ｜ 🌟 全員の調子が上昇！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.agi = Math.min(STAT_HARD_MAX, (m.agi || 10) + 2);
+                    improveCondition(m);
+                });
+                return '部活動対抗リレーで快走し学校中の注目の的に！全員の敏捷+2、調子が向上しました！';
+            },
+        },
+        {
+            id: 'autumn_practice_match',
+            category: 'seasonal',
+            month: 10,
+            week: 4,
+            title: '⚔️ 隣県の強豪校と激突！熱気に満ちた合同練習試合',
+            seasonTag: '⚔️ 実りの秋・遠征 ｜ 10月4週',
+            image: 'img/event/practice_match.png',
+            fallbackIcon: '⚔️',
+            fallbackTitle: '他校との合同練習試合',
+            tagline: '〜鍔迫り合いの火花、見知らぬ強豪の剣風が闘志に火を点ける〜',
+            narration: '隣県の強豪高校へ遠征しての合同練習試合！<br>全国レベルの鋭い出ばな技や重厚な攻防を肌で体感し、実戦の勘と技のバリエーションが飛躍的に磨かれた！',
+            dialogues: [
+                { speaker: '部員', text: '相手校の先鋒、踏み込みがものすごく速い…！でもタイミングは見切りました！' },
+                { speaker: '主将', text: '恐れず間合いを制しろ！ここでの経験が冬の選抜予選で必ず生きる！' },
+            ],
+            effectsDesc: '⚔️ 全員の面・小手・胴・突き +1 ｜ 🔥 気魄 +2',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    if (!m.skills) m.skills = { men: 10, kote: 10, do: 10, tsuki: 8 };
+                    m.skills.men = Math.min(STAT_HARD_MAX, m.skills.men + 1);
+                    m.skills.kote = Math.min(STAT_HARD_MAX, m.skills.kote + 1);
+                    m.skills.do = Math.min(STAT_HARD_MAX, m.skills.do + 1);
+                    m.skills.tsuki = Math.min(STAT_HARD_MAX, m.skills.tsuki + 1);
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 2);
+                });
+                return '強豪校との激戦を通じて実戦力が飛躍！全員の全技パラメータ+1、気魄+2！';
+            },
+        },
+        {
+            id: 'cleaning_race',
+            category: 'seasonal',
+            month: 11,
+            week: 2,
+            title: '🧹 年末前の道場大掃除！白熱の雑巾がけレース',
+            seasonTag: '🧹 晩秋の道場 ｜ 11月2週',
+            image: 'img/event/cleaning_race.png',
+            fallbackIcon: '🧹',
+            fallbackTitle: '道場大掃除・雑巾がけ',
+            tagline: '〜床の木目を磨き上げ、いつしか全力ダッシュ勝負へ〜',
+            narration: '日頃の稽古への感謝を込めた大掃除。<br>誰が一番早く端まで拭き終えるか、いつの間にか全員参加のガチンコ雑巾がけレースが勃発！下半身が知らず知らず鍛え上げられた！',
+            dialogues: [
+                { speaker: '部員', text: '誰にも負けませんよ！雑巾がけなら私のすり足が最速です！' },
+                { speaker: '主将', text: '足腰の鍛錬にもってこいだな！ピカピカの道場で次の稽古に挑もう！' },
+            ],
+            effectsDesc: '🏃 敏捷 +1 ｜ 💪 腕力 +1 ｜ 🍵 疲労度 -10',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.agi = Math.min(STAT_HARD_MAX, (m.agi || 10) + 1);
+                    m.str = Math.min(STAT_HARD_MAX, (m.str || 10) + 1);
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 10);
+                });
+                return '道場が鏡のようにピカピカに！雑巾がけダッシュで敏捷+1、腕力+1、疲労度-10！';
+            },
+        },
+        {
+            id: 'year_end_soba',
+            category: 'seasonal',
+            month: 12,
+            week: 4,
+            title: '🍲 一年の締めくくり！稽古納めと温かい年越しそば',
+            seasonTag: '🍲 師走の温もり ｜ 12月4週',
+            image: 'img/event/year_end_soba.png',
+            fallbackIcon: '🍲',
+            fallbackTitle: '稽古納めと年越しそば',
+            tagline: '〜竹刀を納め、湯気立つそばを啜る。仲間と共に駆け抜けた1年〜',
+            narration: '今年最後の稽古を終え、道場の畳に車座になって熱々の年越しそばを囲む。<br>嬉しい勝利も悔しい敗戦も、すべてこの仲間と分かち合ってきた。絆を胸に新年へ！',
+            dialogues: [
+                { speaker: '部員', text: 'あぁ…出汁が身体に染み渡ります…！今年一年、本当にありがとうございました！' },
+                { speaker: '主将', text: 'みんな本当によく頑張った。来年は必ず、全国の頂点へ全員で行くぞ！' },
+            ],
+            effectsDesc: '🍵 全員の疲労度 -35 ｜ 😆 全員の調子が【絶好調】へ！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 35);
+                    m.condition = 'best';
+                });
+                return '年越しそばで心身ともに温まりました！全員の疲労度-35、調子が【絶好調】へ上昇！';
+            },
+        },
+        {
+            id: 'cold_training',
+            category: 'seasonal',
+            month: 1,
+            week: 1,
+            title: '🌅 息白き極寒の寒稽古！神社への必勝祈願初詣',
+            seasonTag: '🌅 新春の誓い ｜ 1月1週',
+            image: 'img/event/cold_training.png',
+            fallbackIcon: '🌅',
+            fallbackTitle: '極寒の寒稽古と初詣',
+            tagline: '〜凍てつく道場の床、白く吐く息。新春の朝日に捧げる必勝の祈り〜',
+            narration: '新春早朝の極寒の道場。裸足で踏みしめる板張りの冷たさに気合いが引き締まる！<br>稽古後は全員で近所の神社へ駆け足で初詣。二礼二拍手一礼、誓うは全国制覇！',
+            dialogues: [
+                { speaker: '主将', text: '寒さに負けるな！この寒さを耐え抜いた者だけが、春の舞台で輝ける！' },
+                { speaker: '部員', text: '「めぇぇぇん！」神社の絵馬に全員で「全国制覇」と書き込みました！' },
+            ],
+            effectsDesc: '🔥 全員の気魄 +4 ｜ 🛡️ 不動心の覚醒！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 4);
+                    improveCondition(m);
+                });
+                return '新春の寒稽古と必勝祈願で精神が研ぎ澄まされました！全員の気魄+4、調子向上！';
+            },
+        },
+        {
+            id: 'valentine_beans',
+            category: 'seasonal',
+            month: 2,
+            week: 2,
+            title: '🍫 節分豆まき＆バレンタインチョコの差し入れ',
+            seasonTag: '🍫 如月の笑顔 ｜ 2月2週',
+            image: 'img/event/valentine_beans.png',
+            fallbackIcon: '🍫',
+            fallbackTitle: '節分とバレンタイン',
+            tagline: '〜道場に響く笑い声！鬼退治の豆まきと甘いチョコで士気最高潮〜',
+            narration: '節分の鬼役をめぐってじゃんけん勝負！道場に笑い声が響く。<br>さらに放課後、クラスメイトや後輩からバレンタインチョコの差し入れが届き、部員たちのテンションは最高潮に！',
+            dialogues: [
+                { speaker: '部員', text: '「鬼は〜外！福は〜内！」主将、チョコの差し入れ貰っちゃいました！' },
+                { speaker: '主将', text: 'ははは、浮かれるなよ！だがその笑顔の勢いのまま、春の大会まで駆け抜けよう！' },
+            ],
+            effectsDesc: '🌟 全員の調子が向上 ｜ 🍵 疲労度 -15 ｜ 🔥 気魄 +1',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    improveCondition(m);
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 15);
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 1);
+                });
+                return '豆まきとチョコで道場が大いに盛り上がりました！全員の調子向上、疲労度-15、気魄+1！';
+            },
+        },
+        {
+            id: 'graduation_farewell',
+            category: 'seasonal',
+            month: 3,
+            week: 2,
+            title: '🎓 先輩たちへの感謝！道場での胴上げと旅立ちの誓い',
+            seasonTag: '🎓 旅立ちの春 ｜ 3月2週',
+            image: 'img/event/graduation_farewell.png',
+            fallbackIcon: '🎓',
+            fallbackTitle: '卒業生への送辞と胴上げ',
+            tagline: '〜制服姿の先輩たちへ花束を。受け継がれる伝統、新たな覚悟〜',
+            narration: '高校の卒業式を終えた先輩たちが道場へ最後の挨拶に訪れる。<br>後輩たちから花束の贈呈と、道場が揺れるほどの感謝の胴上げ！「あとは任せたぞ」託された想いが胸に熱く灯る。',
+            dialogues: [
+                { speaker: '主将', text: '先輩方、今まで本当にありがとうございました！先輩方の教えを胸に必ず全国を制覇します！' },
+                { speaker: '部員', text: '「せーの、そーれ！」宙を舞う先輩たちの晴れやかな笑顔！' },
+            ],
+            effectsDesc: '🔥 全員の気魄 +3 ｜ 💪 腕力 +1 ｜ 🌟 主将の統率力覚醒！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 3);
+                    m.str = Math.min(STAT_HARD_MAX, (m.str || 10) + 1);
+                    improveCondition(m);
+                });
+                return '卒業生を胴上げで送り出し、伝統のバトンを受け継ぎました！全員の気魄+3、腕力+1、調子向上！';
+            },
+        },
+
+        // ── 2. 状況・条件連動イベント ──
+        {
+            id: 'slump_night_talk',
+            category: 'conditional',
+            condition: (state) => state.members.some((m) => m.condition === 'worst' || m.condition === 'poor'),
+            title: '🌙 月明かりの居残り稽古！スランプを打ち破る一本',
+            seasonTag: '🌙 静夜の絆',
+            image: 'img/event/slump_night_talk.png',
+            fallbackIcon: '🌙',
+            fallbackTitle: 'スランプ脱出の深夜稽古',
+            tagline: '〜消灯前の道場、静かに向き合う二人。迷いを断ち切る鋭い打突〜',
+            narration: '最近スランプに悩んでいた部員が、一人道場に残って素振りを繰り返していた。<br>そこへ主将がそっと歩み寄り竹刀を交える。「焦るな、お前の打突は素晴らしいものを持ってる」迷いがスーッと晴れていく。',
+            dialogues: [
+                { speaker: '主将', text: '力を抜け。結果を気にしすぎて構えが小さくなってるぞ。思い切り打ち込んでこい！' },
+                { speaker: '部員', text: '「めぇぇぇん！」…あ、今の感触…！主将、私、掴めました！' },
+            ],
+            effectsDesc: '✨ 不調部員の調子が【絶好調】へ！ ｜ ⚔️ 得意技 +3！',
+            apply: (state) => {
+                const target = state.members.find((m) => m.condition === 'worst' || m.condition === 'poor') || state.members[0];
+                if (target) {
+                    target.condition = 'best';
+                    if (!target.skills) target.skills = { men: 10, kote: 10, do: 10, tsuki: 8 };
+                    const fav = target.favStance === 'jodan' ? 'men' : target.favStance === 'waki' ? 'do' : 'kote';
+                    target.skills[fav] = Math.min(STAT_HARD_MAX, target.skills[fav] + 3);
+                    return `主将の温かい指導で【${target.name}】がスランプを完全に脱出！調子が【絶好調】になり、得意技が+3強化されました！`;
+                }
+                return '居残り稽古で部員の迷いが晴れました！';
+            },
+        },
+        {
+            id: 'manager_onigiri',
+            category: 'conditional',
+            condition: (state) => {
+                const totalFatigue = state.members.reduce((acc, m) => acc + (m.fatigue || 0), 0);
+                return (totalFatigue / Math.max(1, state.members.length)) >= 45;
+            },
+            title: '🍙 愛情満点！特大スタミナおにぎりとレモン蜂蜜漬け',
+            seasonTag: '🍙 心温まる差し入れ',
+            image: 'img/event/manager_onigiri.png',
+            fallbackIcon: '🍙',
+            fallbackTitle: '特大スタミナおにぎり',
+            tagline: '〜過酷な稽古の合間、心尽くしの差し入れが疲れた体を芯から癒す〜',
+            narration: '連日の猛稽古で全員が疲労困憊の中、マネージャーから特大スタミナおにぎりと冷えたレモン蜂蜜漬けの差し入れ！<br>「皆さんお疲れ様です！いっぱい食べてくださいね！」道場に笑顔と活力が戻る！',
+            dialogues: [
+                { speaker: '部員', text: '鮭に昆布に梅干し！大きくて具だくさんでめちゃくちゃ美味しいです！' },
+                { speaker: '主将', text: 'ありがたいな…！みんなの支えがあってこそ稽古に打ち込める。感謝して完食しよう！' },
+            ],
+            effectsDesc: '🍵 チーム全員の疲労度 -45 ｜ 🌟 全員の調子が上昇！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 45);
+                    improveCondition(m);
+                });
+                return '特大おにぎりとレモンの差し入れで疲労が一気に回復！全員の疲労度-45、調子向上！';
+            },
+        },
+        {
+            id: 'cross_club_training',
+            category: 'conditional',
+            condition: (state) => state.members.some((m) => m.isClubDual),
+            title: '🤝 助っ人部員が伝授！他部直伝のフィジカルトレーニング',
+            seasonTag: '🤝 異種目コラボ特訓',
+            image: 'img/event/cross_club_training.png',
+            fallbackIcon: '🤝',
+            fallbackTitle: '他部直伝フィジカルトレーニング',
+            tagline: '〜異なる部活の知恵が融合！新たな体の使い方に目覚める〜',
+            narration: '助っ人部員が元いた部活（陸上や柔道など）の秘伝フィジカルトレーニングを剣道部に紹介！<br>「剣道のすり足や体当たりにもめちゃくちゃ応用できますよ！」部員全員で挑戦し、新境地を開拓！',
+            dialogues: [
+                { speaker: '部員', text: '体幹と股関節の使い方が全然違います！下半身がブレなくなりました！' },
+                { speaker: '主将', text: '掛け持ち助っ人の視点が部を強くする。素晴らしいメニューだ、取り入れよう！' },
+            ],
+            effectsDesc: '🏃 全員の敏捷 +2 ｜ 💪 腕力 +2',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.agi = Math.min(STAT_HARD_MAX, (m.agi || 10) + 2);
+                    m.str = Math.min(STAT_HARD_MAX, (m.str || 10) + 2);
+                });
+                return '助っ人部員考案のトレーニングで下半身と体幹が強化！全員の敏捷+2、腕力+2！';
+            },
+        },
+        {
+            id: 'legendary_ob_visit',
+            category: 'conditional',
+            condition: () => Math.random() < 0.08,
+            title: '🥋 かつて全国を制した伝説のOB先輩が電撃来訪！',
+            seasonTag: '🥋 伝説の襲来',
+            image: 'img/event/legendary_ob_visit.png',
+            fallbackIcon: '🥋',
+            fallbackTitle: '伝説のOB先輩・電撃来訪',
+            tagline: '〜防具を担いでふらりと登場！鬼のような掛かり稽古で限界突破〜',
+            narration: '「おいおい、声が小さいんじゃないか？」道場の引き戸が開き、全国優勝経験を持つ伝説のOB先輩が登場！<br>容赦のない怒涛の掛かり稽古を全員につけられ、道場には熱気と闘志が渦巻いた！',
+            dialogues: [
+                { speaker: 'OB先輩', text: '気迫で負けてどうする！構えを崩さず前へ出ろ！まだいけるぞ！' },
+                { speaker: '主将', text: '「ありがとうございましたッ！」これが全国を獲った人の気迫…！負けていられない！' },
+            ],
+            effectsDesc: '💪 腕力 +2 ｜ 🔥 気魄 +3 ｜ ⚔️ 面技術 +2',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.str = Math.min(STAT_HARD_MAX, (m.str || 10) + 2);
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 3);
+                    if (!m.skills) m.skills = { men: 10, kote: 10, do: 10, tsuki: 8 };
+                    m.skills.men = Math.min(STAT_HARD_MAX, m.skills.men + 2);
+                });
+                return '伝説のOB先輩から魂の猛稽古を受けました！全員の腕力+2、気魄+3、面技術+2！';
+            },
+        },
+
+        // ── 3. 日常ランダムイベント ──
+        {
+            id: 'after_school_snack',
+            category: 'daily',
+            title: '🍗 部活帰りの寄り道！商店街での熱々買い食い',
+            seasonTag: '🍗 放課後の幸福',
+            image: 'img/event/after_school_snack.png',
+            fallbackIcon: '🍗',
+            fallbackTitle: '放課後の寄り道買い食い',
+            tagline: '〜夕焼け空の下、竹刀袋を背負ってかじる揚げたてコロッケ〜',
+            narration: 'ハードな稽古を終えた帰り道、駅前の商店街で揚げたての熱々コロッケとファミチキを皆で買い食い！<br>サクサクの衣とジューシーな肉汁に、今日一日の疲れがスーッと溶けていく何気ない幸福。',
+            dialogues: [
+                { speaker: '部員', text: '稽古の後の買い食い、なんでこんなに美味しいんでしょうね！' },
+                { speaker: '主将', text: 'しっかり食って筋肉に変えろよ！明日も厳しい稽古が待ってるからな！' },
+            ],
+            effectsDesc: '🍵 チーム全員の疲労度 -15 ｜ 🌟 全員の調子が上昇！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 15);
+                    improveCondition(m);
+                });
+                return '放課後の買い食いで笑顔がこぼれました！全員の疲労度-15、調子が向上！';
+            },
+        },
+        {
+            id: 'rainy_meditation',
+            category: 'daily',
+            title: '🌧️ 激しい通り雨と道場の静けさ・不動の座禅瞑想',
+            seasonTag: '🌧️ 雨宿りと静寂',
+            image: 'img/event/rainy_meditation.png',
+            fallbackIcon: '🧘',
+            fallbackTitle: '雨宿りの座禅瞑想',
+            tagline: '〜屋根を叩く雨音、心を無にして正座する道場での静かな時間〜',
+            narration: '稽古終了と同時に外は猛烈な夕立。雨宿りを兼ねて、道場の照明を落とし全員で静かに座禅を組む。<br>雨音に包まれながら呼吸を整えると、心が研ぎ澄まされ不動心が宿っていく。',
+            dialogues: [
+                { speaker: '主将', text: '雨音に耳を澄ませろ。雑念を捨て、心を鏡のように澄み切らせるんだ。' },
+                { speaker: '部員', text: '深く息を吐くと、頭の中のモヤモヤが消えて驚くほど集中できました。' },
+            ],
+            effectsDesc: '🔥 全員の気魄 +2 ｜ 🍵 疲労度 -10',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 2);
+                    m.fatigue = Math.max(0, (m.fatigue || 0) - 10);
+                });
+                return '静かな雨の座禅で不動心が研ぎ澄まされました！全員の気魄+2、疲労度-10！';
+            },
+        },
+        {
+            id: 'clubroom_treasure',
+            category: 'daily',
+            title: '📷 部室の奥から発掘！歴代先輩の記念アルバムと寄せ書き',
+            seasonTag: '📷 伝統の息吹',
+            image: 'img/event/clubroom_treasure.png',
+            fallbackIcon: '📜',
+            fallbackTitle: '歴代の寄せ書きとアルバム',
+            tagline: '〜埃をかぶったアルバムを開くと、そこには黄金期の熱き誓い〜',
+            narration: '部室のロッカーの整理中、歴代の先輩たちが残した古いアルバムと布製の部旗を発見！<br>「目指せ全国制覇！」と力強く書かれた寄せ書きに、時代を超えた熱い情熱が込み上げてくる。',
+            dialogues: [
+                { speaker: '部員', text: '見てください主将！10年前の先輩たちの写真です！みんな今の私たちと同じ顔してます！' },
+                { speaker: '主将', text: 'この人たちも同じ道場で汗を流したんだな。先輩たちに恥じない結果を残そう！' },
+            ],
+            effectsDesc: '🔥 部員全員の気魄 +2 ｜ 🌟 全員の調子が上昇！',
+            apply: (state) => {
+                state.members.forEach((m) => {
+                    m.spi = Math.min(STAT_HARD_MAX, (m.spi || 10) + 2);
+                    improveCondition(m);
+                });
+                return '歴代先輩の熱い想いに触れ闘志が再燃！全員の気魄+2、調子が向上！';
+            },
+        },
+    ];
+
+    // イベント表示用データ構築
+    function buildEventData(eventDef) {
+        if (!eventDef) return null;
+        const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0] || { name: '主将' };
+        const otherMembers = ClubState.members.filter((m) => !m.isPlayer);
+        const randomMember = otherMembers.length > 0 ? getRandomItem(otherMembers) : captain;
+
+        return {
+            id: eventDef.id,
+            title: eventDef.title,
+            seasonTag: eventDef.seasonTag,
+            image: eventDef.image,
+            fallbackIcon: eventDef.fallbackIcon,
+            fallbackTitle: eventDef.fallbackTitle,
+            tagline: eventDef.tagline,
+            narration: eventDef.narration,
+            dialogues: (eventDef.dialogues || []).map((d) => {
+                const speakerName = d.speaker === '主将' ? captain.name : d.speaker === '部員' ? randomMember.name : d.speaker;
+                return {
+                    speaker: speakerName,
+                    text: d.text.replace(/\{captain\}/g, captain.name).replace(/\{member\}/g, randomMember.name),
+                };
+            }),
+            effectsDesc: eventDef.effectsDesc,
+        };
+    }
+
+    // イベント発生判定エンジン
+    function checkAndTriggerClubEvent(deferImmediateLaunch = false) {
+        if (!ClubState.members || ClubState.members.length === 0) return false;
+
+        let pickedEvent = null;
+        // 1. 季節固定イベントのチェック (カレンダーの月・週が完全一致)
+        const seasonalEvent = CLUB_EVENTS.find((e) => e.category === 'seasonal' && e.month === ClubState.month && e.week === ClubState.week);
+        if (seasonalEvent) {
+            pickedEvent = seasonalEvent;
+        } else {
+            // 2. 条件付きイベントのチェック（合致した候補からランダムに1件）
+            const matchedConditionals = CLUB_EVENTS.filter((e) => {
+                if (e.category !== 'conditional' || typeof e.condition !== 'function') return false;
+                try {
+                    return e.condition(ClubState);
+                } catch (err) {
+                    return false;
+                }
+            });
+            if (matchedConditionals.length > 0) {
+                pickedEvent = getRandomItem(matchedConditionals);
+            } else if (Math.random() < 0.25) {
+                // 3. 日常ランダムイベントのチェック (通常週の約25%で発生)
+                const dailyEvents = CLUB_EVENTS.filter((e) => e.category === 'daily');
+                if (dailyEvents.length > 0) {
+                    pickedEvent = getRandomItem(dailyEvents);
+                }
+            }
+        }
+
+        if (pickedEvent) {
+            if (deferImmediateLaunch) {
+                // 大会終了直後など：即時遷移させず保留し、まず練習メニュー画面を表示
+                ClubState.pendingEventData = buildEventData(pickedEvent);
+                return false;
+            } else {
+                triggerClubEvent(pickedEvent);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // イベント発動・データ構築
+    function triggerClubEvent(eventDef) {
+        if (!eventDef) return;
+        ClubState.currentEventData = buildEventData(eventDef);
+        ClubState.viewPhase = 'event_scene';
+    }
+
+    // イベント完了・効果適用
+    function completeClubEvent() {
+        if (!ClubState.currentEventData) {
+            ClubState.viewPhase = 'dashboard';
+            renderClubUI();
+            return;
+        }
+
+        const eventDef = CLUB_EVENTS.find((e) => e.id === ClubState.currentEventData.id);
+        let logSummary = '';
+        if (eventDef && typeof eventDef.apply === 'function') {
+            try {
+                logSummary = eventDef.apply(ClubState);
+            } catch (err) {
+                console.error('[KendoClub] Error applying event effects:', err);
+            }
+        }
+
+        const logMsg = `✨【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】${ClubState.currentEventData.title}！${logSummary ? ' ' + logSummary : ''}`;
+        ClubState.activityLog.unshift(logMsg);
+        playStatUpSound();
+
+        ClubState.currentEventData = null;
+        ClubState.viewPhase = 'dashboard';
+        saveClubData();
+        renderClubUI();
+    }
+
+    // ───────────────────────────────────────────
     // 部員ジェネレータ ＆ 個性アーキタイプ
     // ───────────────────────────────────────────
     let memberIdCounter = 1;
@@ -1047,12 +1679,14 @@
         lastInterhighDistrictRank: null,
         lastInterhighNationalRank: null,
         activityLog: [],
-        viewPhase: 'dashboard',      // 'setup' | 'dashboard' | 'order_edit' | 'match_sim' | 'match_result' | 'history' | 'captain_select' | 'tournament_opening' | 'tournament_ceremony' | 'freshman_welcome' | 'retire_ceremony' | 'new_team_ceremony'
+        viewPhase: 'dashboard',      // 'setup' | 'dashboard' | 'order_edit' | 'match_sim' | 'match_result' | 'history' | 'captain_select' | 'tournament_opening' | 'tournament_ceremony' | 'freshman_welcome' | 'retire_ceremony' | 'new_team_ceremony' | 'event_scene'
         openingTournamentType: null, // 開会式表示中の大会種別
         ceremonyResultData: null,    // 閉会・表彰式表示用のデータ
         freshmanWelcomeData: null,   // 新1年生入部歓迎画面データ
         retireCeremonyData: null,    // 3年生引退セレモニー画面データ
         newTeamCeremonyData: null,   // 新主将就任・新体制始動画面データ
+        currentEventData: null,      // 高校生部活ライフイベント画面データ
+        pendingEventData: null,      // 保留中の高校生部活ライフイベント（大会直後等、ダッシュボード確認後に表示）
         currentMatchData: null,      // 進行中の大会試合
         selectedSpecialTargetId: null, // 前回選択した特別指導対象部員ID
         selectedPracticeMenu: null,    // 現在選択中の練習メニュー (クリック後に 'basics' | 'suburi' | 'kakari' | 'zazen' | 'rest' | 'special')
@@ -1101,6 +1735,8 @@
                 freshmanWelcomeData: ClubState.freshmanWelcomeData,
                 retireCeremonyData: ClubState.retireCeremonyData,
                 newTeamCeremonyData: ClubState.newTeamCeremonyData,
+                currentEventData: ClubState.currentEventData,
+                pendingEventData: ClubState.pendingEventData,
                 currentMatchData: ClubState.currentMatchData,
                 selectedSpecialTargetId: ClubState.selectedSpecialTargetId,
                 selectedPracticeMenu: ClubState.selectedPracticeMenu,
@@ -1162,6 +1798,8 @@
             ClubState.freshmanWelcomeData = data.freshmanWelcomeData || null;
             ClubState.retireCeremonyData = data.retireCeremonyData || null;
             ClubState.newTeamCeremonyData = data.newTeamCeremonyData || null;
+            ClubState.currentEventData = data.currentEventData || null;
+            ClubState.pendingEventData = data.pendingEventData || null;
             ClubState.currentMatchData = data.currentMatchData || null;
             if (ClubState.currentMatchData && ClubState.currentMatchData.bracket) {
                 reconcileBracketData(ClubState.currentMatchData.bracket);
@@ -1448,6 +2086,8 @@
         ClubState.lastInterhighNationalRank = null;
         ClubState.activityLog = [];
         ClubState.viewPhase = 'setup';
+        ClubState.currentEventData = null;
+        ClubState.pendingEventData = null;
         ClubState.currentMatchData = null;
         ClubState.selectedSpecialTargetId = null;
         ClubState.selectedPracticeMenu = null;
@@ -1489,7 +2129,7 @@
         return { year: nYear, month: nMonth, week: nWeek };
     }
 
-    function advanceCalendarWeek() {
+    function advanceCalendarWeek(deferEvent = false) {
         const next = getNextWeekInfo();
         ClubState.year = next.year;
         ClubState.month = next.month;
@@ -1586,6 +2226,14 @@
             } else {
                 ClubState.activityLog.unshift(`【${ClubState.year}年目 3月4週】全国大会が開催されていますが、本校は地区予選敗退のため不出場。新年度へ向け稽古に励みます。`);
             }
+            saveClubData();
+            renderClubUI();
+            return;
+        }
+
+        // 7. 大会・セレモニー以外の通常週で、部活イベント判定
+        const triggered = checkAndTriggerClubEvent(deferEvent);
+        if (triggered) {
             saveClubData();
             renderClubUI();
             return;
@@ -1985,6 +2633,17 @@
         }
 
         ClubState.activityLog.unshift(logEntry);
+
+        // 大会直後などで保留されていた高校生イベントがあれば、練習メニュー終了後に表示
+        if (ClubState.pendingEventData) {
+            ClubState.currentEventData = ClubState.pendingEventData;
+            ClubState.pendingEventData = null;
+            ClubState.viewPhase = 'event_scene';
+            saveClubData();
+            renderClubUI();
+            return;
+        }
+
         advanceCalendarWeek();
     }
 
@@ -3366,9 +4025,18 @@
         renderMiniCharaFrame(typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
     }
 
+    function clearMobilePortal() {
+        const portal = document.getElementById('clubMobilePortal');
+        if (portal) portal.innerHTML = '';
+    }
+
     function renderClubUI() {
         const container = document.getElementById('clubModeView');
         if (!container) return;
+
+        if (ClubState.viewPhase !== 'dashboard') {
+            clearMobilePortal();
+        }
 
         // 既存の部員一覧の横スクロール位置があれば退避保存
         // ※コンテナが表示状態かつレイアウト済みで、正のスクロール値を持つ場合のみ更新（非表示時やレイアウト未完了による0リセット破壊を防止）
@@ -3440,6 +4108,15 @@
             stopClubMiniCharaLoop();
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('victory');
             renderNewTeamCeremony(container);
+        } else if (ClubState.viewPhase === 'event_scene') {
+            stopClubMiniCharaLoop();
+            // 高校生イベント画面：再生中のBGMは停止させずそのまま継続
+            if (window.KendoBGM) {
+                if (!window.KendoBGM.isPlaying || !window.KendoBGM.isPlaying()) {
+                    if (window.KendoBGM.play) window.KendoBGM.play('club');
+                }
+            }
+            renderEventScene(container);
         } else {
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderDashboard(container);
@@ -3855,6 +4532,20 @@
         // 活動日誌
         const logHtml = ClubState.activityLog.slice(0, 5).map((log) => `<li>${log}</li>`).join('');
 
+        // 保留中の高校生部活イベントバナー
+        const pendingEventHtml = ClubState.pendingEventData ? `
+            <div class="event-pending-banner">
+                <div class="event-pending-info">
+                    <span class="event-pending-badge">✨ 高校生部活イベント発生中！</span>
+                    <strong class="event-pending-title">${escapeHtml(ClubState.pendingEventData.title)}</strong>
+                    <p class="event-pending-desc">${escapeHtml(ClubState.pendingEventData.tagline || '部員たちの青春ストーリーが発生しています')}</p>
+                </div>
+                <button type="button" class="btn-event-pending-open" onclick="window.KendoClub.launchPendingEvent()">
+                    📖 イベントを見る
+                </button>
+            </div>
+        ` : '';
+
         container.innerHTML = `
             <div class="club-dashboard">
                 <div class="club-sticky-header">
@@ -3874,6 +4565,7 @@
                     </div>
 
                     ${bannerHtml}
+                    ${pendingEventHtml}
                 </div>
 
                 ${isShortage ? `
@@ -4074,6 +4766,21 @@
                 }
             }, { passive: true });
         }
+
+        // モバイル固定ボトムバーを body 直下の #clubMobilePortal にポータル移動
+        // （親要素の backdrop-filter や overflow: clip による Containing Block 化を完全に防ぎ、画面最下部に確実に固定）
+        let mobilePortal = document.getElementById('clubMobilePortal');
+        if (!mobilePortal) {
+            mobilePortal = document.createElement('div');
+            mobilePortal.id = 'clubMobilePortal';
+            document.body.appendChild(mobilePortal);
+        }
+        mobilePortal.innerHTML = '';
+
+        const bottomBar = container.querySelector('.quick-practice-bottom-bar');
+        const overlay = container.querySelector('#quickSpecialOverlay');
+        if (overlay) mobilePortal.appendChild(overlay);
+        if (bottomBar) mobilePortal.appendChild(bottomBar);
     }
 
     // オーダー編成画面
@@ -5450,6 +6157,82 @@
     }
 
     // ───────────────────────────────────────────
+    // 高校生らしい部活イベント画面描画
+    // ───────────────────────────────────────────
+    function renderEventScene(container) {
+        const data = ClubState.currentEventData;
+        if (!data) {
+            ClubState.viewPhase = 'dashboard';
+            renderClubUI();
+            return;
+        }
+
+        const dialoguesHtml = (data.dialogues || []).map((d) => {
+            const isCaptain = d.speaker.includes('主将') || (ClubState.members.find((m) => m.isPlayer) && d.speaker === ClubState.members.find((m) => m.isPlayer).name);
+            const icon = isCaptain ? '🥋' : '👤';
+            return `
+                <div class="event-dialogue-item ${isCaptain ? 'is-captain' : ''}">
+                    <div class="event-speaker-badge">
+                        <span class="speaker-icon">${icon}</span>
+                        <span class="speaker-name">${escapeHtml(d.speaker)}</span>
+                    </div>
+                    <div class="event-dialogue-bubble">
+                        ${escapeHtml(d.text)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="ceremony-container event-scene-container">
+                <div class="ceremony-opening-banner event-scene-banner">
+                    <span class="ceremony-season-pill">${escapeHtml(data.seasonTag || '高校生イベント')}</span>
+                    <h1 class="ceremony-main-title">${escapeHtml(data.title)}</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 剣道部 ｜ ${ClubState.year}年目 ${ClubState.month}月 ${ClubState.week}週</div>
+                </div>
+
+                <div class="ceremony-card event-scene-card">
+                    <div class="ceremony-art-wrap event-art-wrap">
+                        <img class="ceremony-art-img" src="${escapeHtml(data.image)}" alt="${escapeHtml(data.fallbackTitle || data.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="ceremony-art-fallback event-art-fallback" style="display:none;">
+                            <span class="art-fallback-icon">${data.fallbackIcon || '🥋'}</span>
+                            <span class="art-fallback-title">${escapeHtml(data.fallbackTitle || data.title)}</span>
+                        </div>
+                        <div class="ceremony-tagline-overlay">${escapeHtml(data.tagline || '')}</div>
+                    </div>
+
+                    <div class="ceremony-scroll-body event-scroll-body">
+                        <div class="event-narration-box">
+                            <div class="narration-header">📖 【情景】</div>
+                            <p class="narration-content">${data.narration || ''}</p>
+                        </div>
+
+                        ${dialoguesHtml ? `
+                            <div class="event-dialogues-box">
+                                <div class="dialogues-header">💬 【部員たちの声】</div>
+                                <div class="event-dialogues-list">
+                                    ${dialoguesHtml}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="event-bonus-card">
+                            <div class="event-bonus-header">✨ 【イベント効果】</div>
+                            <div class="event-bonus-desc">${escapeHtml(data.effectsDesc || '')}</div>
+                        </div>
+
+                        <div class="ceremony-actions event-actions">
+                            <button type="button" class="btn-ceremony-launch pulse-gold btn-event-complete" onclick="window.KendoClub.completeEvent();">
+                                🥋 稽古へ戻る（効果を反映）
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ───────────────────────────────────────────
     // マンツーマン指名特訓：実戦稽古（試合）
     // ───────────────────────────────────────────
     function startSpecialPracticeBout(targetMemberId) {
@@ -5615,7 +6398,13 @@
                     ClubState.activityLog.unshift(logEntry);
                     playStatUpSound();
 
-                    advanceCalendarWeek();
+                    if (ClubState.pendingEventData) {
+                        ClubState.currentEventData = ClubState.pendingEventData;
+                        ClubState.pendingEventData = null;
+                        ClubState.viewPhase = 'event_scene';
+                    } else {
+                        advanceCalendarWeek();
+                    }
                     saveClubData();
 
                     if (window.KendoBGM && window.KendoBGM.stop) {
@@ -6502,8 +7291,8 @@
             ClubState.currentMatchData = null;
             ClubState.viewPhase = 'dashboard';
 
-            // 次の週へ進める
-            advanceCalendarWeek();
+            // 大会終了後はまず必ず練習メニューの画面に戻すため、イベントの即時遷移は保留(deferEvent: true)
+            advanceCalendarWeek(true);
             saveClubData();
             renderClubUI();
         },
@@ -6595,6 +7384,38 @@
 
         growStat: function (m, category, key, baseGain) {
             return growStat(m, category, key, baseGain);
+        },
+
+        completeEvent: function () {
+            completeClubEvent();
+        },
+
+        launchPendingEvent: function () {
+            if (!ClubState.pendingEventData) return;
+            ClubState.currentEventData = ClubState.pendingEventData;
+            ClubState.pendingEventData = null;
+            ClubState.viewPhase = 'event_scene';
+            saveClubData();
+            renderClubUI();
+        },
+
+        triggerEventById: function (eventId) {
+            const ev = CLUB_EVENTS.find(e => e.id === eventId);
+            if (ev) {
+                triggerClubEvent(ev);
+                saveClubData();
+                renderClubUI();
+                return true;
+            }
+            return false;
+        },
+
+        getEvents: function () {
+            return CLUB_EVENTS;
+        },
+
+        clearMobilePortal: function () {
+            clearMobilePortal();
         },
     };
 
