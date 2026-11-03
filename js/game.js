@@ -5512,6 +5512,9 @@ function playRound(playerAction) {
     state.playerStunned = false;
     state.enemyStunned = false;
 
+    const prevPlayerKiai = state.playerKiai;
+    const prevEnemyKiai = state.enemyKiai;
+
     if (playerAction === '突き') state.playerKiai = 0;
     if (enemyAction === '突き') state.enemyKiai = 0;
 
@@ -5760,10 +5763,6 @@ function playRound(playerAction) {
         const pStr = getFighterStats('player').str;
         const eStr = getFighterStats('enemy').str;
         const eSpi = getFighterStats('enemy').spi;
-        // 腕力(str)が高い場合、相手の気合も削る
-        if (pStr > eStr && state.enemyKiai > 0 && Math.random() < 0.6) {
-            state.enemyKiai -= 1;
-        }
         // 敵の気魄(spi)による踏みとどまり判定
         const eResistChance = eSpi >= 14 ? (eSpi - 10) * 0.06 : 0;
         const eDidResist = Math.random() < eResistChance;
@@ -6201,11 +6200,11 @@ function playRound(playerAction) {
                 );
                 calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `💪 相手の力押し込み (1点)`, isCritical: true };
             } else {
-                // 鍔迫り合い中の互角交錯 → 相打ち1ダメージ＆間合いが離れる
+                // 鍔迫り合い中の互角交錯 → 相打ち1ダメージ＆間合いが離れる（双方攻撃ヒットのため気合0）
                 state.playerHealth -= 1;
                 state.enemyHealth -= 1;
-                gainKiai('player', 1);
-                gainKiai('enemy', 1);
+                state.playerKiai = 0;
+                state.enemyKiai = 0;
                 playerOutcome = 'mutual_hit';
                 enemyOutcome = 'mutual_hit';
                 message += `⚔️ 引き技の相打ち！互いに「${pMoveName}」を打ち合い、双方に1ダメージ＆間合いが離れた！`;
@@ -6304,6 +6303,23 @@ function playRound(playerAction) {
                 isCritical: isBoosted,
             };
         }
+    }
+
+    // 相手の攻撃や崩しが成功したら、やられたほうの気合は0にする
+    const playerGotHit = playerOutcome === 'hit' || playerOutcome === 'mutual_hit' || state.playerGuardBroken;
+    const enemyGotHit = enemyOutcome === 'hit' || enemyOutcome === 'mutual_hit' || state.enemyGuardBroken;
+
+    if (playerGotHit) {
+        if (state.playerKiai > 0 || (prevPlayerKiai > 0 && playerAction !== '突き')) {
+            popups.push({ who: 'player', text: '気合 0！', styleClass: 'popup-break' });
+        }
+        state.playerKiai = 0;
+    }
+    if (enemyGotHit) {
+        if (state.enemyKiai > 0 || (prevEnemyKiai > 0 && enemyAction !== '突き')) {
+            popups.push({ who: 'enemy', text: '気合 0！', styleClass: 'popup-break' });
+        }
+        state.enemyKiai = 0;
     }
 
     state.playerAnimState = playerAnim;
