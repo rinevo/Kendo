@@ -3073,13 +3073,13 @@
 
     function getIndividualRankLabel(roundIdx, totalRounds) {
         if (totalRounds <= 4) {
-            // 4回戦制（地区予選）
+            // 4回戦制（都道県個人予選：16名制。1回戦→2回戦(準々決勝)→準決勝→決勝）
             if (roundIdx === 0) return '初戦敗退';
-            if (roundIdx === 1) return '2回戦敗退';
+            if (roundIdx === 1) return 'ベスト8';
             if (roundIdx === 2) return 'ベスト4';
             return '準優勝';
         } else {
-            // 5回戦制（全国大会）
+            // 5回戦制（全国個人大会：32名制。1回戦→2回戦→3回戦(準々決勝)→準決勝→決勝）
             if (roundIdx === 0) return '初戦敗退';
             if (roundIdx === 1) return '2回戦敗退';
             if (roundIdx === 2) return 'ベスト8';
@@ -4644,7 +4644,7 @@
                     const r = p.achievedRank || '初戦敗退';
                     if (r === '準優勝') return '準優勝';
                     if (r === 'ベスト4' && best !== '準優勝') return 'ベスト4';
-                    if (r === 'ベスト8' && best !== '準優勝' && best !== 'ベスト4') return 'ベスト8';
+                    if ((r === 'ベスト8' || (match.type === 'interhigh_district' && r === '2回戦敗退')) && best !== '準優勝' && best !== 'ベスト4') return 'ベスト8';
                     if (r === '2回戦敗退' && best === '初戦敗退') return '2回戦敗退';
                     return best;
                 }, '初戦敗退');
@@ -4692,9 +4692,12 @@
                 // 敗退
                 let rankName = '初戦敗退';
                 if (match.type === 'district') {
-                    if (match.currentRoundIdx === 1) rankName = 'ベスト4';
+                    // 8校トーナメント（準々決勝・準決勝・決勝）
+                    if (match.currentRoundIdx === 0) rankName = 'ベスト8';
+                    else if (match.currentRoundIdx === 1) rankName = 'ベスト4';
                     else if (match.currentRoundIdx === 2) rankName = '準優勝';
                 } else {
+                    // 全国選抜（47校トーナメント）
                     if (match.currentRoundIdx === 1) rankName = '2回戦敗退';
                     else if (match.currentRoundIdx === 2) rankName = 'ベスト8';
                     else if (match.currentRoundIdx === 3) rankName = 'ベスト4';
@@ -4795,10 +4798,10 @@
 
     function prepareCeremonyResultData(match, rankLabel, growthResults = []) {
         const type = match.type;
-        const isWin = rankLabel === '優勝';
+        const isWin = rankLabel === '優勝' || rankLabel === 'win';
         const isRunnerUp = rankLabel === '準優勝';
         const isBest4 = rankLabel === 'ベスト4';
-        const isBest8 = rankLabel === 'ベスト8';
+        const isBest8 = rankLabel === 'ベスト8' || (type === 'interhigh_district' && rankLabel === '2回戦敗退');
 
         let rankKey = 'loss';
         if (isWin) rankKey = 'win';
@@ -5428,8 +5431,8 @@
         let enemyPatterns = [];
         if (stance === 'jodan') {
             enemyPatterns = [
-                { stance: 'jodan', hint: `🔥【上段の構え】${targetMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（小手で迎撃せよ）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
-                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は中段に戻りつつ「面」か「小手」を狙っている…`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
+                { stance: 'jodan', hint: `🔥【上段の構え】${targetMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
+                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は中段に戻りつつ「面」か「小手」を狙っている…（「防御」や「胴」が有効）`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
             ];
         } else if (stance === 'waki') {
             enemyPatterns = [
@@ -5463,6 +5466,7 @@
                 playerData: {
                     name: playerMember.name,
                     schoolName: ClubState.schoolName,
+                    prefecture: ClubState.prefecture,
                     roleTitle: '主将',
                     maxHealth: playerMember.maxHealth || 6,
                     initialKiai: 0,
@@ -5477,6 +5481,7 @@
                     id: `practice_${targetMember.id}`,
                     name: `${ClubState.schoolName}・${targetMember.name}`,
                     schoolName: ClubState.schoolName,
+                    prefecture: ClubState.prefecture,
                     shortName: targetMember.name,
                     role: targetMember.grade ? `${targetMember.grade}年` : '部員',
                     rank: '',
@@ -6075,8 +6080,8 @@
             let enemyPatterns = [];
             if (enemyMember.stance === 'jodan' || enemyMember.favStance === 'jodan') {
                 enemyPatterns = [
-                    { stance: 'jodan', hint: `🔥【上段の構え】${enemyMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（小手で迎撃せよ）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
-                    { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は中段に戻りつつ「面」か「小手」を狙っている…`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
+                    { stance: 'jodan', hint: `🔥【上段の構え】${enemyMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
+                    { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は中段に戻りつつ「面」か「小手」を狙っている…（「防御」や「胴」が有効）`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
                 ];
             } else if (enemyMember.stance === 'waki' || enemyMember.favStance === 'waki') {
                 enemyPatterns = [
@@ -6105,6 +6110,10 @@
                 tareLine: 'rgba(232, 121, 249, 0.65)',
             };
 
+            const enemyPref = isIntraClub
+                ? ClubState.prefecture
+                : (curBout.pref || boutsData.pref || (enemyMember && enemyMember.pref) || (curBout.enemyFighter && curBout.enemyFighter.pref) || (match.type === 'district' || match.type === 'interhigh_district' ? ClubState.prefecture : ''));
+
             let tourneyTypeTheme = 'district';
             if (match.type === 'national' || match.type === 'interhigh_national') {
                 tourneyTypeTheme = 'national';
@@ -6121,6 +6130,7 @@
                     playerData: {
                         name: playerMember.name,
                         schoolName: ClubState.schoolName,
+                        prefecture: ClubState.prefecture,
                         roleTitle: isIndividual
                             ? (playerMember.isPlayer ? '主将' : (playerMember.grade ? `${playerMember.grade}年` : ''))
                             : (playerMember.isPlayer && curBout.posName === '大将' ? '大将（主将）' : curBout.posName),
@@ -6137,6 +6147,7 @@
                         id: `opp_${enemyMember.name}`,
                         name: enemyNameLabel,
                         schoolName: enemySchool,
+                        prefecture: enemyPref,
                         shortName: enemyMember.name,
                         role: isIndividual
                             ? (isIntraClub ? (enemyMember.isPlayer ? '主将' : (enemyMember.grade ? `${enemyMember.grade}年` : '')) : '')
@@ -6333,7 +6344,7 @@
                     ClubState.qualifiedForInterhigh = true;
                 } else if (rankLabel === 'ベスト4') {
                     ClubState.stats.interhighDistrict.best4++;
-                } else {
+                } else if (rankLabel === 'ベスト8' || rankLabel === '2回戦敗退') {
                     ClubState.stats.interhighDistrict.best8++;
                 }
 
@@ -6356,7 +6367,7 @@
                 if (isWin) ClubState.stats.interhighNational.win++;
                 else if (rankLabel === '準優勝') ClubState.stats.interhighNational.runnerUp++;
                 else if (rankLabel === 'ベスト4') ClubState.stats.interhighNational.best4++;
-                else ClubState.stats.interhighNational.best8++;
+                else if (rankLabel === 'ベスト8') ClubState.stats.interhighNational.best8++;
 
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 8月1週】全国高校総体（インターハイ）個人戦 終了。最高成績：${rankLabel}！`);
 
@@ -6369,7 +6380,7 @@
                     ClubState.qualifiedForNational = true;
                 } else if (rankLabel === '準優勝') ClubState.stats.district.runnerUp++;
                 else if (rankLabel === 'ベスト4') ClubState.stats.district.best4++;
-                else ClubState.stats.district.best8++;
+                else if (rankLabel === 'ベスト8') ClubState.stats.district.best8++;
 
                 ClubState.activityLog.unshift(`🏆【${ClubState.year}年目 12月3週】${ClubState.prefecture}大会（選抜予選） 終了。成績：${rankLabel}！${isWin ? '全国選抜大会への出場が決定！' : ''}`);
 
@@ -6380,7 +6391,7 @@
                 if (isWin) ClubState.stats.national.win++;
                 else if (rankLabel === '準優勝') ClubState.stats.national.runnerUp++;
                 else if (rankLabel === 'ベスト4') ClubState.stats.national.best4++;
-                else ClubState.stats.national.best8++;
+                else if (rankLabel === 'ベスト8') ClubState.stats.national.best8++;
 
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 3月4週】全国高校選抜大会 終了。成績：${rankLabel}！`);
             }
@@ -6524,6 +6535,14 @@
 
         applyTournamentRankBonus: function (member, rankLabel, isNational, isIndividual) {
             return applyTournamentRankBonus(member, rankLabel, isNational, isIndividual);
+        },
+
+        prepareCeremonyResultData: function (match, rankLabel, growthResults = []) {
+            return prepareCeremonyResultData(match, rankLabel, growthResults);
+        },
+
+        getIndividualRankLabel: function (roundIdx, totalRounds) {
+            return getIndividualRankLabel(roundIdx, totalRounds);
         },
 
         getRealClubMember: function (target) {

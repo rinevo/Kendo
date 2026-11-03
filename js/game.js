@@ -22,7 +22,7 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】健太は竹刀を頭上に振りかぶり、渾身の「上段面(2ダメ)」を狙っている！（弱点の「小手」なら2ダメ、または「胴」が有効！）',
+                hint: '🔥【上段の構え】健太は竹刀を頭上に振りかぶり、渾身の「上段面(2ダメ)」を狙っている！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）',
                 isDanger: true,
                 weights: { 面: 68, 小手: 20, 胴: 12, 防御: 0, 崩し: 0, 突き: 0 },
             },
@@ -102,13 +102,13 @@ const ENEMY_ROSTER = [
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】鬼塚が竹刀を頭上に掲げた！強烈な「上段面(2ダメ)」か「胴」が来るぞ！（弱点の「小手」で手元を射抜け！）',
+                hint: '🔥【上段の構え】鬼塚が竹刀を頭上に掲げた！強烈な「上段面(2ダメ)」か「胴」が来るぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
                 isDanger: true,
                 weights: { 面: 48, 胴: 36, 崩し: 10, 小手: 6, 防御: 0, 突き: 0 },
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】鬼塚は上段から「上段面(2ダメ)」と「崩し」で粉砕する気配！（「小手」なら+1ボーナスダメージ！）',
+                hint: '🔥【上段の構え】鬼塚は上段から「上段面(2ダメ)」と「崩し」で粉砕する気配！（「胴」で面を抜くか、「小手」で崩しを迎撃せよ！）',
                 isDanger: true,
                 weights: { 面: 45, 崩し: 35, 胴: 15, 小手: 5, 防御: 0, 突き: 0 },
             },
@@ -145,7 +145,7 @@ const ENEMY_ROSTER = [
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】霞がすっと諸手上段に構えた！「上段面(2ダメ)」と「胴」の二段変化を狙っているぞ！（手元の「小手」が好機！）',
+                hint: '🔥【上段の構え】霞がすっと諸手上段に構えた！「上段面(2ダメ)」と「胴」の二段変化を狙っているぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
                 isDanger: true,
                 weights: { 面: 45, 胴: 42, 小手: 13, 防御: 0, 崩し: 0, 突き: 0 },
             },
@@ -4571,9 +4571,17 @@ function updateUI() {
         const pSchool = pData.schoolName
             || (window.KendoClub && window.KendoClub.getState && window.KendoClub.getState().schoolName)
             || '';
+        const pPref = pData.prefecture
+            || (window.KendoClub && window.KendoClub.getState && window.KendoClub.getState().prefecture)
+            || '';
+        let pSchoolLabel = pSchool;
+        if (pSchool && pPref && !pSchool.includes(pPref)) {
+            pSchoolLabel = `${pSchool}（${pPref}）`;
+        }
         if (playerSchoolText) {
-            playerSchoolText.textContent = pSchool;
-            playerSchoolText.style.display = pSchool ? 'block' : 'none';
+            playerSchoolText.textContent = pSchoolLabel;
+            playerSchoolText.title = pSchoolLabel;
+            playerSchoolText.style.display = pSchoolLabel ? 'block' : 'none';
         }
         if (playerNameText) {
             playerNameText.textContent = pData.name || 'あなた';
@@ -4601,6 +4609,7 @@ function updateUI() {
     if (isCustomMatch && state.customMatch.enemy) {
         const eData = state.customMatch.enemy;
         let eSchool = eData.schoolName || '';
+        let ePref = eData.prefecture || eData.pref || '';
         let eName = eData.shortName || eData.name || '';
         // eSchool が空で eData.name に「学校名・名前」形式がある場合は分離
         if (!eSchool && eData.name && eData.name.includes('・')) {
@@ -4608,9 +4617,25 @@ function updateUI() {
             eSchool = parts[0];
             eName = parts.slice(1).join('・');
         }
+        // ePref の取得補完
+        if (!ePref && window.KendoClub && window.KendoClub.getState) {
+            const cs = window.KendoClub.getState();
+            if (state.customMatch.isIntraClub || state.customMatch.isSpecialPractice) {
+                ePref = cs.prefecture || '';
+            } else if (cs.currentMatchData && cs.currentMatchData.activeBouts && cs.currentMatchData.activeBouts.pref) {
+                ePref = cs.currentMatchData.activeBouts.pref;
+            } else if (cs.currentMatchData && (cs.currentMatchData.type === 'district' || cs.currentMatchData.type === 'interhigh_district')) {
+                ePref = cs.prefecture || '';
+            }
+        }
+        let eSchoolLabel = eSchool;
+        if (eSchool && ePref && !eSchool.includes(ePref)) {
+            eSchoolLabel = `${eSchool}（${ePref}）`;
+        }
         if (enemySchoolText) {
-            enemySchoolText.textContent = eSchool;
-            enemySchoolText.style.display = eSchool ? 'block' : 'none';
+            enemySchoolText.textContent = eSchoolLabel;
+            enemySchoolText.title = eSchoolLabel;
+            enemySchoolText.style.display = eSchoolLabel ? 'block' : 'none';
         }
         if (enemyNameText) {
             enemyNameText.textContent = eName;
