@@ -1698,6 +1698,7 @@
         isRestPosture: false,           // 休養後に納刀状態で待機するフラグ
         specialPracticeAttacks: null,   // マンツーマン特別指導時の主将・指名部員のランダム攻撃情報
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
+        captainAutoMode: false,      // 全国制覇特典：主将の試合も自動化（オート観戦・即時判定）フラグ
         history: [],                 // 歴代年表 [{ year, captainName, districtResult, nationalResult, interhighDistrictResult, interhighNationalResult }]
         stats: {
             district: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
@@ -1742,6 +1743,7 @@
                 selectedPracticeMenu: ClubState.selectedPracticeMenu,
                 memberGridScrollLeft: ClubState.memberGridScrollLeft,
                 isRestPosture: !!ClubState.isRestPosture,
+                captainAutoMode: !!ClubState.captainAutoMode,
                 history: ClubState.history,
                 stats: ClubState.stats,
             };
@@ -1808,6 +1810,7 @@
             if (data.selectedPracticeMenu) ClubState.selectedPracticeMenu = data.selectedPracticeMenu;
             ClubState.memberGridScrollLeft = typeof data.memberGridScrollLeft === 'number' ? data.memberGridScrollLeft : -1;
             ClubState.isRestPosture = !!data.isRestPosture;
+            ClubState.captainAutoMode = !!data.captainAutoMode;
             if (Array.isArray(data.history)) ClubState.history = data.history;
             if (data.stats) {
                 ClubState.stats = data.stats;
@@ -2241,6 +2244,23 @@
 
         saveClubData();
         renderClubUI();
+    }
+
+    // 個人戦または団体戦の全国大会で優勝したことがあるか（全国覇者実績）を判定
+    function hasWonNationalChampionship() {
+        if (ClubState.stats) {
+            if ((ClubState.stats.national && ClubState.stats.national.win > 0) ||
+                (ClubState.stats.interhighNational && ClubState.stats.interhighNational.win > 0)) {
+                return true;
+            }
+        }
+        if (Array.isArray(ClubState.history)) {
+            return ClubState.history.some((h) =>
+                h.nationalResult === '優勝' || h.nationalResult === 'win' ||
+                h.interhighNationalResult === '優勝' || h.interhighNationalResult === 'win'
+            );
+        }
+        return false;
     }
 
     // 直近の大会成績に応じた新1年生の入部数レンジ（下限・上限）を算出
@@ -4982,6 +5002,11 @@
                 <div class="history-header">
                     <h2>🏆 ${ClubState.schoolName} 歴代戦績表</h2>
                     <p>${ClubState.prefecture}代表 高校剣道部の栄光の軌跡</p>
+                    ${hasWonNationalChampionship() ? `
+                        <div class="champion-history-badge">
+                            👑 全国覇者校（🏆 特典: 主将の試合自動化 解放中）
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div class="stats-summary-grid">
@@ -5072,7 +5097,8 @@
         const boutsData = match.activeBouts;
         const curBout = boutsData.bouts[boutsData.currentBoutIndex];
 
-        if (!ClubState.isAutoSpectating || !curBout || curBout.played || curBout.isPlayerBout) {
+        const canAutoCaptain = hasWonNationalChampionship() && ClubState.captainAutoMode;
+        if (!ClubState.isAutoSpectating || !curBout || curBout.played || (curBout.isPlayerBout && !canAutoCaptain)) {
             ClubState.isAutoSpectating = false;
             return;
         }
@@ -5124,19 +5150,67 @@
 
         if (!boutsData.isFinished && curBout) {
             if (curBout.isPlayerBout && !curBout.played) {
-                actionControlHtml = `
-                    <div class="bout-control-box highlight">
-                        <span class="bout-prompt">【${curBout.posName}】あなたの出番です！気迫を込めて立ち合え！</span>
-                        <div class="sim-btn-group">
-                            <button type="button" class="btn-enter-player-bout" onclick="window.KendoClub.launchPlayerBout()">
-                                ⚔️ 立ち合い開始
-                            </button>
-                            <button type="button" class="btn-sim-next" onclick="window.KendoClub.stepSimBout()">
-                                ⚡ 結果を即時判定
-                            </button>
+                const isChampion = hasWonNationalChampionship();
+                if (isChampion) {
+                    if (ClubState.isAutoSpectating && ClubState.captainAutoMode) {
+                        actionControlHtml = `
+                            <div class="bout-control-box auto-spectate-box champion-box">
+                                <span class="bout-prompt">👑【${curBout.posName}】主将の出番（自動観戦中） — <strong id="autoSpectateCountdown">3秒後</strong>に立ち合い開始…</span>
+                                <div class="sim-btn-group">
+                                    <button type="button" class="btn-enter-player-bout" onclick="window.KendoClub.launchPlayerBout()">
+                                        ⚔️ 自分で立ち合う
+                                    </button>
+                                    <button type="button" class="btn-sim-spectate pulse-btn" onclick="window.KendoClub.launchSpectateBoutImmediate()">
+                                        ▶️ 今すぐ自動観戦
+                                    </button>
+                                    <button type="button" class="btn-sim-pause" onclick="window.KendoClub.pauseAutoSpectating()">
+                                        ⏸️ 観戦を一時停止
+                                    </button>
+                                    <button type="button" class="btn-sim-skip" onclick="window.KendoClub.simulatePlayerBoutInstant()">
+                                        ⚡ 結果を即時判定
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        actionControlHtml = `
+                            <div class="bout-control-box highlight champion-box">
+                                <div class="champion-badge-row">
+                                    <span class="champion-badge">🏆 全国制覇特典</span>
+                                    <span class="bout-prompt">【${curBout.posName}】主将の出番です！立ち合い方法を選択してください</span>
+                                    <button type="button" class="btn-toggle-auto ${ClubState.captainAutoMode ? 'active' : ''}" onclick="window.KendoClub.toggleCaptainAutoMode()">
+                                        ${ClubState.captainAutoMode ? '⚙️ 主将自動化: ON' : '⚙️ 主将自動化: OFF'}
+                                    </button>
+                                </div>
+                                <div class="sim-btn-group">
+                                    <button type="button" class="btn-enter-player-bout highlight-gold" onclick="window.KendoClub.launchPlayerBout()">
+                                        ⚔️ 自分で立ち合う
+                                    </button>
+                                    <button type="button" class="btn-sim-spectate pulse-btn" onclick="window.KendoClub.launchSpectateBoutImmediate()">
+                                        👀 主将を自動観戦
+                                    </button>
+                                    <button type="button" class="btn-sim-next" onclick="window.KendoClub.simulatePlayerBoutInstant()">
+                                        ⚡ 結果を即時判定
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    actionControlHtml = `
+                        <div class="bout-control-box highlight">
+                            <span class="bout-prompt">【${curBout.posName}】あなたの出番です！気迫を込めて立ち合え！</span>
+                            <div class="sim-btn-group">
+                                <button type="button" class="btn-enter-player-bout" onclick="window.KendoClub.launchPlayerBout()">
+                                    ⚔️ 立ち合い開始
+                                </button>
+                                <button type="button" class="btn-sim-next" onclick="window.KendoClub.stepSimBout()">
+                                    ⚡ 結果を即時判定
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             } else if (!curBout.played) {
                 // 仲間部員の試合：自動操作（観戦有無を選択可能）
                 let promptMsg = `【${curBout.posName}】仲間部員【${curBout.myMember.name}】の立ち合い（自動操作）`;
@@ -6787,7 +6861,22 @@
             const curBout = boutsData.bouts[boutsData.currentBoutIndex];
             if (curBout && !curBout.played) {
                 if (curBout.isPlayerBout) {
-                    window.KendoClub.launchPlayerBout();
+                    if (hasWonNationalChampionship() && ClubState.captainAutoMode) {
+                        simulateAIBout(curBout);
+                        boutsData.currentBoutIndex++;
+                        if (boutsData.currentBoutIndex >= boutsData.bouts.length) {
+                            boutsData.isFinished = true;
+                            if (match.isIndividual) {
+                                evaluateIndividualRound(boutsData);
+                            } else {
+                                evaluateTeamMatch(boutsData);
+                            }
+                        }
+                        saveClubData();
+                        renderClubUI();
+                    } else {
+                        window.KendoClub.launchPlayerBout();
+                    }
                 } else {
                     simulateAIBout(curBout);
                     boutsData.currentBoutIndex++;
@@ -6805,6 +6894,36 @@
             }
         },
 
+        simulatePlayerBoutInstant: function () {
+            clearAutoSpectateTimers();
+            const match = ClubState.currentMatchData;
+            if (!match || !match.activeBouts || match.activeBouts.isFinished) return;
+
+            const boutsData = match.activeBouts;
+            const curBout = boutsData.bouts[boutsData.currentBoutIndex];
+            if (curBout && !curBout.played) {
+                simulateAIBout(curBout);
+                boutsData.currentBoutIndex++;
+                if (boutsData.currentBoutIndex >= boutsData.bouts.length) {
+                    boutsData.isFinished = true;
+                    if (match.isIndividual) {
+                        evaluateIndividualRound(boutsData);
+                    } else {
+                        evaluateTeamMatch(boutsData);
+                    }
+                }
+                saveClubData();
+                renderClubUI();
+            }
+        },
+
+        toggleCaptainAutoMode: function () {
+            if (!hasWonNationalChampionship()) return;
+            ClubState.captainAutoMode = !ClubState.captainAutoMode;
+            saveClubData();
+            renderClubUI();
+        },
+
         skipToPlayerOrEnd: function () {
             clearAutoSpectateTimers();
             const match = ClubState.currentMatchData;
@@ -6812,9 +6931,11 @@
 
             const boutsData = match.activeBouts;
             const totalBouts = boutsData.bouts.length;
+            const canAutoCaptain = hasWonNationalChampionship() && ClubState.captainAutoMode;
+
             while (boutsData.currentBoutIndex < totalBouts) {
                 const curBout = boutsData.bouts[boutsData.currentBoutIndex];
-                if (curBout.isPlayerBout && !curBout.played) {
+                if (curBout.isPlayerBout && !curBout.played && !canAutoCaptain) {
                     saveClubData();
                     renderClubUI();
                     return;
@@ -7107,9 +7228,11 @@
                             window.KendoGameEngine.showClubScreen();
                         }
 
-                        // リアルタイム観戦が有効で、次の試合が存在し、かつ次の試合が主将の出番でない場合
+                        // リアルタイム観戦が有効で、次の試合が存在し、かつ次の試合が手動操作を要求しない場合（主将自動化有効を含む）
                         const nextBout = boutsData.bouts[boutsData.currentBoutIndex];
-                        const shouldContinueSpectating = ClubState.isAutoSpectating && nextBout && !nextBout.played && !nextBout.isPlayerBout;
+                        const canAutoCaptain = hasWonNationalChampionship() && ClubState.captainAutoMode;
+                        const isNextAllowed = nextBout && !nextBout.played && (!nextBout.isPlayerBout || canAutoCaptain);
+                        const shouldContinueSpectating = ClubState.isAutoSpectating && isNextAllowed;
 
                         if (shouldContinueSpectating) {
                             renderClubUI();
@@ -7199,6 +7322,10 @@
                 else if (rankLabel === 'ベスト8') ClubState.stats.interhighNational.best8++;
 
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 8月1週】全国高校総体（インターハイ）個人戦 終了。最高成績：${rankLabel}！`);
+                if (isWin && (ClubState.stats.interhighNational.win + ClubState.stats.national.win) <= 1) {
+                    ClubState.activityLog.unshift(`🏆【全国制覇・覇者特典】主将の試合自動化（オート観戦・即時判定）が解放されました！`);
+                    ClubState.captainAutoMode = true;
+                }
 
             } else if (match.type === 'district') {
                 // 選抜地区大会（団体戦）
@@ -7223,6 +7350,10 @@
                 else if (rankLabel === 'ベスト8') ClubState.stats.national.best8++;
 
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 3月4週】全国高校選抜大会 終了。成績：${rankLabel}！`);
+                if (isWin && (ClubState.stats.interhighNational.win + ClubState.stats.national.win) <= 1) {
+                    ClubState.activityLog.unshift(`🏆【全国制覇・覇者特典】主将の試合自動化（オート観戦・即時判定）が解放されました！`);
+                    ClubState.captainAutoMode = true;
+                }
             }
 
             // 年度レコード（ClubState.history）の同期・更新
