@@ -3154,11 +3154,13 @@
     // ───────────────────────────────────────────
     function updateGlobalTournamentBackground(tourneyType) {
         if (!document.body) return;
-        document.body.classList.remove('bg-national', 'bg-district');
+        document.body.classList.remove('bg-national', 'bg-district', 'bg-dojo');
         if (tourneyType === 'national' || tourneyType === 'interhigh_national') {
             document.body.classList.add('bg-national');
         } else if (tourneyType === 'district' || tourneyType === 'interhigh_district') {
             document.body.classList.add('bg-district');
+        } else if (tourneyType === 'dojo') {
+            document.body.classList.add('bg-dojo');
         }
     }
 
@@ -5457,7 +5459,7 @@
                 isSpecialPractice: true,
                 roundName: 'マンツーマン特別指導',
                 boutPosName: '実戦特訓',
-                tournamentType: 'district',
+                tournamentType: 'dojo',
                 playerData: {
                     name: playerMember.name,
                     schoolName: ClubState.schoolName,
@@ -5515,6 +5517,40 @@
                     const pGrowth = applyBoutGrowth(realPlayer, pStats);
                     const tGrowth = applyBoutGrowth(realTarget, eStats);
 
+                    // 主将直伝 特別指導ボーナス（試合結果に関係なく、主将のほうが高いパラメータをランダムUP）
+                    const STAT_COMPARE_LIST = [
+                        { category: 'base', key: 'str', label: '腕力' },
+                        { category: 'base', key: 'agi', label: '敏捷' },
+                        { category: 'base', key: 'spi', label: '気魄' },
+                        { category: 'skill', key: 'men', label: '面' },
+                        { category: 'skill', key: 'kote', label: '小手' },
+                        { category: 'skill', key: 'do', label: '胴' },
+                        { category: 'skill', key: 'tsuki', label: '突き' },
+                    ];
+
+                    const mentorGains = [];
+                    STAT_COMPARE_LIST.forEach((item) => {
+                        const pVal = item.category === 'base' ? (realPlayer[item.key] || 0) : (realPlayer.skills ? realPlayer.skills[item.key] || 0 : 0);
+                        const tVal = item.category === 'base' ? (realTarget[item.key] || 0) : (realTarget.skills ? realTarget.skills[item.key] || 0 : 0);
+
+                        // 主将のほうが高いパラメータなら、勝敗に関係なく確実にランダムUP（+1〜+2）
+                        if (pVal > tVal) {
+                            const gainAmount = Math.random() < 0.4 ? 2 : 1;
+                            const curVal = item.category === 'base' ? (realTarget[item.key] || 0) : (realTarget.skills ? realTarget.skills[item.key] || 0 : 0);
+                            const finalVal = Math.min(STAT_HARD_MAX, curVal + gainAmount);
+                            const actual = finalVal - curVal;
+                            if (actual > 0) {
+                                if (item.category === 'base') {
+                                    realTarget[item.key] = finalVal;
+                                } else {
+                                    if (!realTarget.skills) realTarget.skills = { men: 8, kote: 8, do: 8, tsuki: 6 };
+                                    realTarget.skills[item.key] = finalVal;
+                                }
+                                mentorGains.push(`${item.label}+${actual}`);
+                            }
+                        }
+                    });
+
                     // 特訓効果として相手の調子を上向かせる
                     improveCondition(realTarget);
 
@@ -5523,7 +5559,10 @@
                         : (isEnemyWin ? `${realTarget.name}の一本勝ち（決まり手: ${result.winningMove || '面'}）` : '互角の引き分け');
 
                     const pSummary = pGrowth ? pGrowth.summary : '維持';
-                    const tSummary = tGrowth ? tGrowth.summary : '維持';
+                    const tBaseGains = (tGrowth && tGrowth.gainsText && tGrowth.gainsText !== '成長なし') ? [tGrowth.gainsText] : [];
+                    const allTargetGains = [...tBaseGains, ...mentorGains];
+                    const tFatigue = (tGrowth && tGrowth.fatigueAdded) || 8;
+                    const tSummary = `【成長】${allTargetGains.length > 0 ? allTargetGains.join(', ') : '維持'} (疲労+${tFatigue}%)`;
                     const dualText = realTarget.isClubDual ? `（${realTarget.originalClub}掛け持ち）` : '';
 
                     const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${realTarget.name}${dualText}へマンツーマン指名特訓を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;

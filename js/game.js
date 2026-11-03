@@ -6524,17 +6524,22 @@ window.KendoGameEngine = {
             spectateTurnTimer: null,
         };
 
+        const isSpecialPractice = !!options.isSpecialPractice || options.tournamentType === 'dojo';
         const arenaElem = document.getElementById('battleArena');
         if (arenaElem) {
-            arenaElem.classList.remove('bg-national', 'bg-district');
-            if (options.tournamentType) {
+            arenaElem.classList.remove('bg-national', 'bg-district', 'bg-dojo');
+            if (isSpecialPractice) {
+                arenaElem.classList.add('bg-dojo');
+            } else if (options.tournamentType) {
                 arenaElem.classList.add(`bg-${options.tournamentType}`);
             }
         }
 
         if (document.body) {
-            document.body.classList.remove('bg-national', 'bg-district');
-            if (options.tournamentType) {
+            document.body.classList.remove('bg-national', 'bg-district', 'bg-dojo');
+            if (isSpecialPractice) {
+                document.body.classList.add('bg-dojo');
+            } else if (options.tournamentType) {
                 document.body.classList.add(`bg-${options.tournamentType}`);
             }
         }
@@ -6666,10 +6671,10 @@ window.KendoGameEngine = {
         const arenaElem = document.getElementById('battleArena');
 
         if (arenaElem) {
-            arenaElem.classList.remove('bg-national', 'bg-district');
+            arenaElem.classList.remove('bg-national', 'bg-district', 'bg-dojo');
         }
         if (document.body) {
-            document.body.classList.remove('bg-national', 'bg-district');
+            document.body.classList.remove('bg-national', 'bg-district', 'bg-dojo');
         }
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'block';
@@ -6750,10 +6755,10 @@ window.KendoGameEngine = {
         const arenaElem = document.getElementById('battleArena');
 
         if (arenaElem) {
-            arenaElem.classList.remove('bg-national', 'bg-district');
+            arenaElem.classList.remove('bg-national', 'bg-district', 'bg-dojo');
         }
         if (document.body) {
-            document.body.classList.remove('bg-national', 'bg-district');
+            document.body.classList.remove('bg-national', 'bg-district', 'bg-dojo');
         }
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'none';

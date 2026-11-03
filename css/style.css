@@ -48,6 +48,13 @@ body.bg-district {
         linear-gradient(135deg, #020617 0%, var(--bg) 100%) !important;
 }
 
+body.bg-dojo {
+    background:
+        radial-gradient(circle at 50% 45%, rgba(15, 23, 42, 0.45), rgba(2, 6, 23, 0.88)),
+        url("../img/dojo-bg.png") center center / cover no-repeat fixed,
+        linear-gradient(135deg, #020617 0%, var(--bg) 100%) !important;
+}
+
 .top-link {
   margin-bottom: 16px;
 }
@@ -408,6 +415,12 @@ body.bg-district {
     background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.48) 0%, rgba(15, 23, 42, 0.15) 50%, rgba(15, 23, 42, 0.62) 100%),
         url("../img/arena-district-gym.png") center 52% / cover no-repeat !important;
+}
+
+.battle-arena.bg-dojo {
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.42) 0%, rgba(15, 23, 42, 0.16) 52%, rgba(15, 23, 42, 0.58) 100%),
+        url("../img/dojo-bg.png") center 58% / cover no-repeat !important;
 }
 
 .battle-arena.arena-critical-flash {
