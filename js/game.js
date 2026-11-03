@@ -65,7 +65,7 @@ const ENEMY_ROSTER = [
             },
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】佐々木は竹刀を低く構え、「後の先防御(気+2/HP+1)」か「抜き胴」を狙っている！（「崩し」で防御を割るか、「小手」が有効！）',
+                hint: '🌊【下段の構え】佐々木は竹刀を低く構え、「後の先防御(HP+1)」か「抜き胴」を狙っている！（「崩し」で防御を割るか、「小手」が有効！）',
                 isDanger: false,
                 weights: { 防御: 55, 小手: 25, 胴: 15, 面: 5, 崩し: 0, 突き: 0 },
             },
@@ -133,7 +133,7 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】霞は静かに竹刀を低く構え、「後の先防御(気+2/HP+1)」か意表を突く「抜き胴」を狙っている…',
+                hint: '🌊【下段の構え】霞は静かに竹刀を低く構え、「後の先防御(HP+1)」か意表を突く「抜き胴」を狙っている…',
                 isDanger: false,
                 weights: { 防御: 48, 胴: 28, 小手: 14, 面: 10, 崩し: 0, 突き: 0 },
             },
@@ -176,7 +176,7 @@ const ENEMY_ROSTER = [
             },
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】龍禅は泰然自若の下段の構え。「後の先防御(気+2/HP+1)」で受け流すか、守りを読む「崩し」を狙っている！',
+                hint: '🌊【下段の構え】龍禅は泰然自若の下段の構え。「後の先防御(HP+1)」で受け流すか、守りを読む「崩し」を狙っている！',
                 isDanger: true,
                 weights: { 防御: 42, 崩し: 28, 小手: 18, 面: 12, 胴: 0, 突き: 0 },
             },
@@ -4430,7 +4430,7 @@ function updateStanceBarUI() {
         if (style === 'jodan') {
             stanceDescText.textContent = '🔥 上段の構え：「面」の威力+1（通常2ダメ・相面も一方的に制覇）！※「防御」不可＆相手の小手・突き被弾時+1ダメ';
         } else if (style === 'waki') {
-            stanceDescText.textContent = '🌊 下段の構え：「防御」成功で気合+2＆体力+1回復！相手の「崩し」を「胴（抜き胴）」で迎撃時2ダメ！※通常の面は気合+0';
+            stanceDescText.textContent = '🌊 下段の構え：「防御」成功で体力+1回復！相手の「崩し」を「胴（抜き胴）」で迎撃時2ダメ！※通常の面は気合+0';
         } else {
             stanceDescText.textContent = '⚖️ 中段の構え：攻守バランスの取れた王道の構え（全コマンド使用可）';
         }
@@ -4734,9 +4734,9 @@ function updateUI() {
     } else if (isJodan) {
         btnDefend.textContent = '🛡️ 防御 (上段中は不可)';
     } else if (inTsuba) {
-        btnDefend.textContent = isWaki ? '🌊 密着受け (気+2/HP+1)' : '🛡️ 密着ガード';
+        btnDefend.textContent = isWaki ? '🌊 密着受け (HP+1)' : '🛡️ 密着ガード';
     } else {
-        btnDefend.textContent = isWaki ? '🌊 後の先防御 (気+2/HP+1)' : '🛡️ 防御';
+        btnDefend.textContent = isWaki ? '🌊 後の先防御 (HP+1)' : '🛡️ 防御';
     }
 
     btnTsuki.disabled = state.playerKiai < MAX_KIAI || state.gameOver;
@@ -5831,7 +5831,7 @@ function playRound(playerAction) {
     // 4. 防御 vs 基本打突（応じ技準備！）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
         roundPlayerBlocked = true;
-        const kiaiBonus = isWaki ? 2 : 1;
+        const kiaiBonus = 1;
         gainKiai('player', kiaiBonus);
         let healed = 0;
         const pMaxHealth = getPlayerMaxHealth();
@@ -5842,25 +5842,25 @@ function playRound(playerAction) {
         state.playerCounterReady = true;
         playerOutcome = 'block_success';
         message += isWaki
-            ? `🌊 下段の構えの「${pMoveName}」で相手の「${eMoveName}」を鮮やかに受け流した！気合+2${healed ? '＆体力+1回復' : ''}＆次ターン「🔥応じ技（2倍）」！`
+            ? `🌊 下段の構えの「${pMoveName}」で相手の「${eMoveName}」を鮮やかに受け流した！気合+1${healed ? '＆体力+1回復' : ''}＆次ターン「🔥応じ技（2倍）」！`
             : `🛡️ 相手の「${eMoveName}」を${pMoveName}で封じた！気合+1＆次ターン「🔥応じ技（威力2倍）」チャンス！`;
         statusType = 'victory';
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
         popups.push(
             { who: 'player', text: `🛡️ ${pMoveName}成功！`, styleClass: 'popup-block' },
-            ...(isWaki ? [{ who: 'player', text: healed ? '💚 HP+1 & 気合+2' : '🌊 気合+2', styleClass: 'popup-heal' }] : []),
+            ...(isWaki && healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'player', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
         );
         calloutData = {
             winner: null,
             mainText: isWaki ? '🌊 後の先の受け！' : '見事な受け！',
-            subText: isWaki ? `💚 気合+2${healed ? '・HP+1' : ''}＆次打2倍` : '🔥 次ターン 応じ技(2倍)',
+            subText: isWaki ? (healed ? '💚 HP+1＆次打2倍' : '🔥 次ターン 応じ技(2倍)') : '🔥 次ターン 応じ技(2倍)',
             isGuard: true,
         };
     } else if (isBasic(playerAction) && enemyAction === '防御') {
         roundEnemyBlocked = true;
-        const eKiaiBonus = eWaki ? 2 : 1;
+        const eKiaiBonus = 1;
         gainKiai('enemy', eKiaiBonus);
         let eHealed = 0;
         const eMax = state.enemyMaxHealth || getCurrentEnemy().maxHealth;
@@ -5871,20 +5871,20 @@ function playRound(playerAction) {
         state.enemyCounterReady = true;
         enemyOutcome = 'block_success';
         message += eWaki
-            ? `🌊 相手の下段の構え「${eMoveName}」に「${pMoveName}」を受け流された！相手は気合+2${eHealed ? '＆体力+1回復' : ''}＆次ターン「🔥応じ技」の構え！`
+            ? `🌊 相手の下段の構え「${eMoveName}」に「${pMoveName}」を受け流された！相手は気合+1${eHealed ? '＆体力+1回復' : ''}＆次ターン「🔥応じ技」の構え！`
             : `🛡️ 相手に「${pMoveName}」を受け止められた！相手が「🔥応じ技」の構えに入った！`;
         statusType = 'neutral';
         impactSound = 'block';
         zoomTargets.push(enemySpriteBox);
         popups.push(
             { who: 'enemy', text: `🛡️ ${eMoveName}成功！`, styleClass: 'popup-block' },
-            ...(eWaki ? [{ who: 'enemy', text: eHealed ? '💚 HP+1 & 気合+2' : '🌊 気合+2', styleClass: 'popup-heal' }] : []),
+            ...(eWaki && eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'enemy', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
         );
         calloutData = {
             winner: null,
             mainText: eWaki ? '🌊 下段の構えで受け流された！' : '受け止められた！',
-            subText: eWaki ? `⚠️ 相手 気合+2${eHealed ? '・HP+1' : ''}＆応じ構え` : '⚠️ 相手が応じ技の構え',
+            subText: eWaki ? (eHealed ? '⚠️ 相手 HP+1＆応じ構え' : '⚠️ 相手が応じ技の構え') : '⚠️ 相手が応じ技の構え',
             isGuard: true,
         };
     }
