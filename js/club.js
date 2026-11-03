@@ -1077,8 +1077,14 @@
 
         ClubState.currentEventData = null;
         ClubState.viewPhase = 'dashboard';
-        saveClubData();
-        renderClubUI();
+
+        if (ClubState.advanceWeekOnEventComplete) {
+            ClubState.advanceWeekOnEventComplete = false;
+            advanceCalendarWeek();
+        } else {
+            saveClubData();
+            renderClubUI();
+        }
     }
 
     // ───────────────────────────────────────────
@@ -1687,6 +1693,7 @@
         newTeamCeremonyData: null,   // 新主将就任・新体制始動画面データ
         currentEventData: null,      // 高校生部活ライフイベント画面データ
         pendingEventData: null,      // 保留中の高校生部活ライフイベント（大会直後等、ダッシュボード確認後に表示）
+        advanceWeekOnEventComplete: false, // 練習実行後に保留イベントを開いた場合、イベント完了時に週を進めるフラグ
         currentMatchData: null,      // 進行中の大会試合
         selectedSpecialTargetId: null, // 前回選択した特別指導対象部員ID
         selectedPracticeMenu: null,    // 現在選択中の練習メニュー (クリック後に 'basics' | 'suburi' | 'kakari' | 'zazen' | 'rest' | 'special')
@@ -1738,6 +1745,7 @@
                 newTeamCeremonyData: ClubState.newTeamCeremonyData,
                 currentEventData: ClubState.currentEventData,
                 pendingEventData: ClubState.pendingEventData,
+                advanceWeekOnEventComplete: !!ClubState.advanceWeekOnEventComplete,
                 currentMatchData: ClubState.currentMatchData,
                 selectedSpecialTargetId: ClubState.selectedSpecialTargetId,
                 selectedPracticeMenu: ClubState.selectedPracticeMenu,
@@ -1802,6 +1810,7 @@
             ClubState.newTeamCeremonyData = data.newTeamCeremonyData || null;
             ClubState.currentEventData = data.currentEventData || null;
             ClubState.pendingEventData = data.pendingEventData || null;
+            ClubState.advanceWeekOnEventComplete = !!data.advanceWeekOnEventComplete;
             ClubState.currentMatchData = data.currentMatchData || null;
             if (ClubState.currentMatchData && ClubState.currentMatchData.bracket) {
                 reconcileBracketData(ClubState.currentMatchData.bracket);
@@ -2658,6 +2667,7 @@
         if (ClubState.pendingEventData) {
             ClubState.currentEventData = ClubState.pendingEventData;
             ClubState.pendingEventData = null;
+            ClubState.advanceWeekOnEventComplete = true; // 練習実行後に保留イベントを開いたため、イベント完了時に週を進める
             ClubState.viewPhase = 'event_scene';
             saveClubData();
             renderClubUI();
@@ -6475,6 +6485,7 @@
                     if (ClubState.pendingEventData) {
                         ClubState.currentEventData = ClubState.pendingEventData;
                         ClubState.pendingEventData = null;
+                        ClubState.advanceWeekOnEventComplete = true; // 特訓実行後に保留イベントを開いたため、イベント完了時に週を進める
                         ClubState.viewPhase = 'event_scene';
                     } else {
                         advanceCalendarWeek();
