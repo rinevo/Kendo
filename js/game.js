@@ -239,6 +239,8 @@ const state = {
     playerAnimState: 'sageto',
     enemyAnimState: 'sageto',
     enemyIntent: null,
+    playerActionHistory: [],
+    enemyLearnedPattern: null,
     animResetTimer: null,
     ceremonyTimers: [],
     customMatch: null,
@@ -4818,6 +4820,106 @@ function updateStatus(message, type = 'neutral') {
     statusText.className = `status-text ${type}`;
 }
 
+// プレイヤーの行動履歴からワンパターンな戦術を解析し、見切り対策を算出
+function analyzePlayerPattern(history, enemyData) {
+    if (!history || history.length < 2) return null;
+
+    const enemyStats = getFighterStats('enemy') || {};
+    const spi = (enemyData && enemyData.spi) || enemyStats.spi || 10;
+    const agi = (enemyData && enemyData.agi) || enemyStats.agi || 10;
+
+    // 相手の洞察力（精神力 spi・敏捷 agi）およびランクに応じた見切り発動率
+    let learnChance = 0.85;
+    const spiBonus = Math.max(0, (spi - 10) * 0.025);
+    const agiBonus = Math.max(0, (agi - 10) * 0.02);
+    learnChance = Math.min(0.98, 0.85 + spiBonus + agiBonus);
+
+    // クラシック5人掛けの1人目（初心者・森）でも連続ワンパターンなら75%で見切る
+    if (state.stageIndex === 0 && !(state.customMatch && state.customMatch.active)) {
+        learnChance = 0.75;
+    }
+
+    const n = history.length;
+    const last1 = history[n - 1];
+    const last2 = history[n - 2];
+
+    // 1. 下段・連続防御パターン（「防御」の乱用・下段待ち）
+    // 直近2手が連続「防御」、または直近3手で2回以上「防御」
+    const recentDefends = history.slice(-3).filter((h) => h.action === '防御').length;
+    const isWakiStance = state.playerStanceStyle === 'waki' || last1.stance === 'waki';
+    if ((last1.action === '防御' && last2.action === '防御') || (recentDefends >= 2 && last1.action === '防御')) {
+        if (Math.random() < learnChance) {
+            return {
+                type: 'defend_spam',
+                counterMove: '崩し',
+                stance: 'chudan',
+                hint: isWakiStance
+                    ? `⚠️【見切り】${enemyData.shortName}はあなたの「下段・防御」の待ちを見抜いた！「崩し」でガードを粉砕しに来るぞ！（「基本打突」で迎撃せよ！）`
+                    : `⚠️【見切り】${enemyData.shortName}はあなたの守り癖を完全に読んだ！「崩し」で体勢を崩しにかかるぞ！（「基本打突」で出鼻を挫け！）`,
+                weights: { 崩し: 75, 小手: 15, 面: 10, 防御: 0, 突き: 0, 胴: 0 },
+            };
+        }
+    }
+
+    // 2. 「面」の連打（面のワンパターン攻撃）
+    const recentMen = history.slice(-3).filter((h) => h.action === '面').length;
+    if (recentMen >= 2 && last1.action === '面') {
+        if (Math.random() < learnChance) {
+            return {
+                type: 'men_spam',
+                counterMove: '胴',
+                stance: 'waki',
+                hint: `⚠️【見切り】${enemyData.shortName}はあなたの「面」の連打を完全に読んだ！「抜き胴」や「応じ技」で迎撃されるぞ！（「小手」か「防御」に変えろ！）`,
+                weights: { 胴: 65, 防御: 25, 小手: 10, 面: 0, 崩し: 0, 突き: 0 },
+            };
+        }
+    }
+
+    // 3. 「小手」の連打（小手のワンパターン攻撃）
+    const recentKote = history.slice(-3).filter((h) => h.action === '小手').length;
+    if (recentKote >= 2 && last1.action === '小手') {
+        if (Math.random() < learnChance) {
+            return {
+                type: 'kote_spam',
+                counterMove: '面',
+                stance: 'chudan',
+                hint: `⚠️【見切り】${enemyData.shortName}は手元への「小手」を予測！上から叩き割る「面」を狙っているぞ！（「胴」か「防御」で迎え撃て！）`,
+                weights: { 面: 72, 胴: 15, 防御: 13, 小手: 0, 崩し: 0, 突き: 0 },
+            };
+        }
+    }
+
+    // 4. 「胴」の連打（胴のワンパターン攻撃）
+    const recentDo = history.slice(-3).filter((h) => h.action === '胴').length;
+    if (recentDo >= 2 && last1.action === '胴') {
+        if (Math.random() < learnChance) {
+            return {
+                type: 'do_spam',
+                counterMove: '小手',
+                stance: 'chudan',
+                hint: `⚠️【見切り】${enemyData.shortName}はあなたの「胴」の軌道を見切った！手元を捉える鋭い「小手」を狙っている！（「面」で上から制せ！）`,
+                weights: { 小手: 70, 面: 20, 防御: 10, 胴: 0, 崩し: 0, 突き: 0 },
+            };
+        }
+    }
+
+    // 5. 気合MAX時の必殺突き一点読み
+    if (state.playerKiai >= MAX_KIAI) {
+        const pastTsuki = history.some((h) => h.action === '突き');
+        if (pastTsuki && Math.random() < learnChance) {
+            return {
+                type: 'tsuki_spam',
+                counterMove: '突き',
+                stance: 'chudan',
+                hint: `⚠️【見切り】${enemyData.shortName}はあなたの必殺「突き」を完全に警戒！相打ち狙いの「突き」か出鼻を挫く「小手」が来るぞ！`,
+                weights: { 突き: 50, 小手: 30, 崩し: 20, 面: 0, 胴: 0, 防御: 0 },
+            };
+        }
+    }
+
+    return null;
+}
+
 // 敵AIの次ターンの気配（剣士ごとの思考傾向）を決定
 function decideEnemyIntent() {
     const enemyData = getCurrentEnemy();
@@ -4898,34 +5000,57 @@ function decideEnemyIntent() {
             isDanger: true,
             weights: { 面: 42, 胴: 35, 小手: 18, 崩し: 5, 防御: 0, 突き: 0 },
         };
-    } else if ((state.playerCounterReady || state.playerKiai >= MAX_KIAI) && !state.enemyGuardBroken) {
-        if (Math.random() < 0.65) {
-            const useWaki = enemyData.id === 'sasaki' || enemyData.id === 'kasumi' || enemyData.id === 'ryuzen';
-            intent = {
-                stance: useWaki ? 'waki' : 'chudan',
-                hint: useWaki
-                    ? `🌊【下段の構え】${enemyData.shortName}はあなたの強打を警戒し、下段の構えの「後の先防御」か「小手」を狙っている！（「崩し」の好機！）`
-                    : `🛡️【中段の構え】${enemyData.shortName}はあなたの攻めを警戒し、守りを固めつつ「小手」を狙っている…（「崩し」や「面」の好機！）`,
-                isDanger: false,
-                weights: { 防御: 50, 小手: 30, 面: 10, 胴: 10, 崩し: 0, 突き: 0 },
-            };
-        } else {
-            intent = {
-                stance: 'chudan',
-                hint: `👁️【中段の構え】${enemyData.shortName}は先手を取ろうと、出端の「小手」や「崩し」を狙っている…`,
-                isDanger: false,
-                weights: { 小手: 45, 崩し: 30, 胴: 15, 面: 10, 防御: 0, 突き: 0 },
-            };
-        }
     } else {
-        const patterns = enemyData.patterns;
-        const picked = patterns[Math.floor(Math.random() * patterns.length)];
-        intent = {
-            stance: picked.stance || 'chudan',
-            hint: picked.hint,
-            isDanger: picked.isDanger,
-            weights: { ...picked.weights },
-        };
+        // プレイヤーの直近の行動パターンを学習・見切り
+        const learnedPattern = (!state.enemyGuardBroken && !state.enemyStunned)
+            ? analyzePlayerPattern(state.playerActionHistory, enemyData)
+            : null;
+
+        if (learnedPattern) {
+            intent = {
+                stance: learnedPattern.stance || 'chudan',
+                hint: learnedPattern.hint,
+                isDanger: true,
+                weights: { ...learnedPattern.weights },
+            };
+            // 初回見切り時または対策パターン変化時に演出ポップアップ
+            const prevType = state.enemyLearnedPattern ? state.enemyLearnedPattern.type : null;
+            if (prevType !== learnedPattern.type && state.round > 0) {
+                spawnFloatingPopup('enemy', '👁️ 見切った！', 'popup-break');
+            }
+            state.enemyLearnedPattern = learnedPattern;
+        } else {
+            state.enemyLearnedPattern = null;
+            if ((state.playerCounterReady || state.playerKiai >= MAX_KIAI) && !state.enemyGuardBroken) {
+                if (Math.random() < 0.65) {
+                    const useWaki = enemyData.id === 'sasaki' || enemyData.id === 'kasumi' || enemyData.id === 'ryuzen';
+                    intent = {
+                        stance: useWaki ? 'waki' : 'chudan',
+                        hint: useWaki
+                            ? `🌊【下段の構え】${enemyData.shortName}はあなたの強打を警戒し、下段の構えの「後の先防御」か「小手」を狙っている！（「崩し」の好機！）`
+                            : `🛡️【中段の構え】${enemyData.shortName}はあなたの攻めを警戒し、守りを固めつつ「小手」を狙っている…（「崩し」や「面」の好機！）`,
+                        isDanger: false,
+                        weights: { 防御: 50, 小手: 30, 面: 10, 胴: 10, 崩し: 0, 突き: 0 },
+                    };
+                } else {
+                    intent = {
+                        stance: 'chudan',
+                        hint: `👁️【中段の構え】${enemyData.shortName}は先手を取ろうと、出端の「小手」や「崩し」を狙っている…`,
+                        isDanger: false,
+                        weights: { 小手: 45, 崩し: 30, 胴: 15, 面: 10, 防御: 0, 突き: 0 },
+                    };
+                }
+            } else {
+                const patterns = enemyData.patterns;
+                const picked = patterns[Math.floor(Math.random() * patterns.length)];
+                intent = {
+                    stance: picked.stance || 'chudan',
+                    hint: picked.hint,
+                    isDanger: picked.isDanger,
+                    weights: { ...picked.weights },
+                };
+            }
+        }
     }
 
     // 相手が体勢崩れ（操作スキップ）中の場合は一切行動できず「スキップ」のみ
@@ -5363,6 +5488,17 @@ function playRound(playerAction) {
         enemyAction = 'スキップ';
     }
     state.round += 1;
+
+    // プレイヤーの行動履歴を記録（直近5件まで保持）
+    if (!state.playerActionHistory) state.playerActionHistory = [];
+    state.playerActionHistory.push({
+        round: state.round,
+        stance: state.playerStanceStyle,
+        action: playerAction,
+    });
+    if (state.playerActionHistory.length > 5) {
+        state.playerActionHistory.shift();
+    }
 
     // このターン開始時点の鍔迫り合い・応じ技バフ・スタン状態を保持し、消費する
     const inTsuba = state.tsubazeriai;
@@ -6461,6 +6597,8 @@ function resetGame() {
     state.round = 0;
     state.gameOver = false;
     state.lastOutcome = null;
+    state.playerActionHistory = [];
+    state.enemyLearnedPattern = null;
 
     // 試合開始前（待機状態）はBGMを停止（審判の「始め！」で再生開始）
     if (window.KendoBGM && window.KendoBGM.stop) {
@@ -6524,6 +6662,10 @@ window.KendoGameEngine = {
 
     playRound: function (action) {
         return playRound(action);
+    },
+
+    analyzePlayerPattern: function (history, enemyData) {
+        return analyzePlayerPattern(history, enemyData);
     },
 
     // 団体戦モード等からプレイヤー戦または観戦を呼び出す

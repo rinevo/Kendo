@@ -3371,9 +3371,12 @@
         if (!container) return;
 
         // 既存の部員一覧の横スクロール位置があれば退避保存
+        // ※コンテナが表示状態かつレイアウト済みで、正のスクロール値を持つ場合のみ更新（非表示時やレイアウト未完了による0リセット破壊を防止）
         const existingGrid = container.querySelector('.club-members-grid');
-        if (existingGrid) {
-            ClubState.memberGridScrollLeft = existingGrid.scrollLeft;
+        if (existingGrid && container.style.display !== 'none' && existingGrid.clientWidth > 0) {
+            if (existingGrid.scrollLeft > 0) {
+                ClubState.memberGridScrollLeft = existingGrid.scrollLeft;
+            }
         }
 
         // 大会中（開会式・スコアボード・結果画面・表彰式）は全体の背景（body）にも大会画像を反映
@@ -3392,7 +3395,8 @@
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('club');
             renderSetupScreen(container);
         } else if (ClubState.viewPhase === 'captain_select') {
-            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('farewell');
+            // 3年生引退式から新主将交代までは一連のシーンとしてBGM（ceremony）を継続再生
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
             renderCaptainSelectScreen(container);
             startClubMiniCharaLoop();
         } else if (ClubState.viewPhase === 'order_edit') {
@@ -4025,19 +4029,49 @@
             </div>
         `;
 
-        // 部員一覧グリッドのスクロール位置を同期的に復元し、スクロールリスナーを登録
+        // 部員一覧グリッドのスクロール位置を同期および非同期（レイアウト確定後）で確実に復元し、スクロールリスナーを登録
         const memberGrid = container.querySelector('.club-members-grid');
         if (memberGrid) {
-            // ゲーム開始時または初期値(-1)の場合は右端（大将が見える位置）を初期値にする
-            if (ClubState.memberGridScrollLeft === null || ClubState.memberGridScrollLeft === undefined || ClubState.memberGridScrollLeft < 0) {
-                memberGrid.scrollLeft = memberGrid.scrollWidth;
-                ClubState.memberGridScrollLeft = memberGrid.scrollLeft;
+            let isRestoringScroll = true;
+
+            const applyScrollPos = () => {
+                if (!memberGrid) return;
+                const maxScroll = Math.max(0, memberGrid.scrollWidth - memberGrid.clientWidth);
+                if (ClubState.memberGridScrollLeft === null || ClubState.memberGridScrollLeft === undefined || ClubState.memberGridScrollLeft < 0) {
+                    // 初期状態（-1）は大将・出場オーダーが見える右端へスクロール
+                    memberGrid.scrollLeft = memberGrid.scrollWidth;
+                    ClubState.memberGridScrollLeft = memberGrid.scrollLeft;
+                } else {
+                    // 記憶されたスクロール位置を復元（レイアウト幅に応じた上限クランプ）
+                    const targetLeft = Math.min(ClubState.memberGridScrollLeft, maxScroll > 0 ? maxScroll : ClubState.memberGridScrollLeft);
+                    memberGrid.scrollLeft = targetLeft;
+                }
+            };
+
+            // 1. 同期的に復元
+            applyScrollPos();
+
+            // 2. ブラウザのレイアウト・画像・カード幅の解決確定後に再適用（2重ガード）
+            if (typeof requestAnimationFrame !== 'undefined') {
+                requestAnimationFrame(() => {
+                    applyScrollPos();
+                    setTimeout(() => {
+                        applyScrollPos();
+                        isRestoringScroll = false;
+                    }, 60);
+                });
             } else {
-                memberGrid.scrollLeft = ClubState.memberGridScrollLeft;
+                setTimeout(() => {
+                    applyScrollPos();
+                    isRestoringScroll = false;
+                }, 60);
             }
 
             memberGrid.addEventListener('scroll', () => {
-                ClubState.memberGridScrollLeft = memberGrid.scrollLeft;
+                // 復元処理中や非表示中の意図しない0リセットイベントを無視
+                if (!isRestoringScroll && memberGrid.clientWidth > 0) {
+                    ClubState.memberGridScrollLeft = memberGrid.scrollLeft;
+                }
             }, { passive: true });
         }
     }
@@ -5426,6 +5460,12 @@
 
         ClubState.selectedSpecialTargetId = targetMember.id;
 
+        // 試合画面へ遷移する直前に、現在の部員一覧の横スクロール位置を確実に記録
+        const curGrid = document.querySelector('.club-members-grid');
+        if (curGrid && curGrid.clientWidth > 0) {
+            ClubState.memberGridScrollLeft = curGrid.scrollLeft;
+        }
+
         // 特訓相手部員の得意構えに応じたAIパターン
         const stance = targetMember.favStance || targetMember.stance || 'chudan';
         let enemyPatterns = [];
@@ -6543,6 +6583,10 @@
 
         getIndividualRankLabel: function (roundIdx, totalRounds) {
             return getIndividualRankLabel(roundIdx, totalRounds);
+        },
+
+        renderClubUI: function () {
+            renderClubUI();
         },
 
         getRealClubMember: function (target) {

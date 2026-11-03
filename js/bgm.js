@@ -41,7 +41,10 @@
             loop: false, // 大会優勝・表彰状表示画面は1回のみ再生（ループなし）
         },
         tournament: null,
-        farewell: null,
+        farewell: {
+            url: 'bgm/The_Sunlit_Dojo.mp3',
+            loop: false, // 3年生引退・新主将指名シーン
+        },
     };
 
     // デフォルト音量 (0.0 〜 1.0)
