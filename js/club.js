@@ -800,6 +800,7 @@
         {
             id: 'slump_night_talk',
             category: 'conditional',
+            triggerRate: 0.10, // 稽古後 約10%
             condition: (state) => state.members.some((m) => m.condition === 'worst' || m.condition === 'poor'),
             title: '🌙 月明かりの居残り稽古！スランプを打ち破る一本',
             seasonTag: '🌙 静夜の絆',
@@ -828,6 +829,7 @@
         {
             id: 'manager_onigiri',
             category: 'conditional',
+            triggerRate: 0.10, // 稽古後 約10%
             condition: (state) => {
                 const totalFatigue = state.members.reduce((acc, m) => acc + (m.fatigue || 0), 0);
                 return (totalFatigue / Math.max(1, state.members.length)) >= 45;
@@ -855,6 +857,7 @@
         {
             id: 'cross_club_training',
             category: 'conditional',
+            triggerRate: 0.10, // 稽古後 約10%
             condition: (state) => state.members.some((m) => m.isClubDual),
             title: '🤝 助っ人部員が伝授！他部直伝のフィジカルトレーニング',
             seasonTag: '🤝 異種目コラボ特訓',
@@ -879,7 +882,8 @@
         {
             id: 'legendary_ob_visit',
             category: 'conditional',
-            condition: () => Math.random() < 0.08,
+            triggerRate: 0.08, // 今まで通り 約8%
+            condition: (state) => state.members && state.members.length > 0,
             title: '🥋 かつて全国を制した伝説のOB先輩が電撃来訪！',
             seasonTag: '🥋 伝説の襲来',
             image: 'img/event/legendary_ob_visit.png',
@@ -1031,21 +1035,25 @@
         if (seasonalEvent) {
             pickedEvent = seasonalEvent;
         } else {
-            // 2. 条件付きイベントのチェック（今年度未発生 ＆ 条件合致した候補からランダムに1件）
+            // 2. 条件付きイベントのチェック（発生条件を満たした上で、個別確率10% [OBは8%] で抽選・年1回制限なし）
             const matchedConditionals = CLUB_EVENTS.filter((e) => {
-                if (e.category !== 'conditional' || typeof e.condition !== 'function') return false;
-                if (hasEventTriggeredThisYear(e.id)) return false;
-                try {
-                    return e.condition(ClubState);
-                } catch (err) {
-                    return false;
+                if (e.category !== 'conditional') return false;
+                if (typeof e.condition === 'function') {
+                    try {
+                        if (!e.condition(ClubState)) return false;
+                    } catch (err) {
+                        return false;
+                    }
                 }
+                const rate = typeof e.triggerRate === 'number' ? e.triggerRate : 0.10;
+                return Math.random() < rate;
             });
+
             if (matchedConditionals.length > 0) {
                 pickedEvent = getRandomItem(matchedConditionals);
-            } else if (Math.random() < 0.25) {
-                // 3. 日常ランダムイベントのチェック (通常週の約25%で発生 ＆ 今年度未発生のものから抽選)
-                const dailyEvents = CLUB_EVENTS.filter((e) => e.category === 'daily' && !hasEventTriggeredThisYear(e.id));
+            } else if (Math.random() < 0.10) {
+                // 3. 日常ランダムイベントのチェック (通常週の約10%で発生・年1回制限なし)
+                const dailyEvents = CLUB_EVENTS.filter((e) => e.category === 'daily');
                 if (dailyEvents.length > 0) {
                     pickedEvent = getRandomItem(dailyEvents);
                 }
@@ -1053,7 +1061,10 @@
         }
 
         if (pickedEvent) {
-            markEventTriggeredThisYear(pickedEvent.id);
+            // 年1回制限の記録は季節固定イベントのみ
+            if (pickedEvent.category === 'seasonal') {
+                markEventTriggeredThisYear(pickedEvent.id);
+            }
             if (deferImmediateLaunch) {
                 // 大会終了直後など：即時遷移させず保留し、まず練習メニュー画面を表示
                 ClubState.pendingEventData = buildEventData(pickedEvent);
@@ -7569,7 +7580,9 @@
         triggerEventById: function (eventId) {
             const ev = CLUB_EVENTS.find(e => e.id === eventId);
             if (ev) {
-                markEventTriggeredThisYear(ev.id);
+                if (ev.category === 'seasonal') {
+                    markEventTriggeredThisYear(ev.id);
+                }
                 triggerClubEvent(ev);
                 saveClubData();
                 renderClubUI();
