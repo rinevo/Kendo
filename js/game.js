@@ -2232,12 +2232,8 @@ const playerCtx = setupSmoothCanvas(playerCanvas);
 const enemyCtx = setupSmoothCanvas(enemyCanvas);
 
 const battleArena = document.getElementById('battleArena');
-const playerHealthTrail = document.getElementById('playerHealthTrail');
-const enemyHealthTrail = document.getElementById('enemyHealthTrail');
-const playerHealthBar = document.getElementById('playerHealthBar');
-const enemyHealthBar = document.getElementById('enemyHealthBar');
-const playerHealthText = document.getElementById('playerHealthText');
-const enemyHealthText = document.getElementById('enemyHealthText');
+const playerHealthPips = document.getElementById('playerHealthPips');
+const enemyHealthPips = document.getElementById('enemyHealthPips');
 
 const playerRadarBox = document.getElementById('playerRadarBox');
 const enemyRadarBox = document.getElementById('enemyRadarBox');
@@ -5629,6 +5625,29 @@ function renderCounterPips(container, count, maxStacks = 3) {
     });
 }
 
+function renderHealthPips(container, hp, maxHp) {
+    if (!container) return;
+    const count = Math.max(0, Math.min(hp, maxHp));
+    let pips = container.querySelectorAll('.health-pip');
+    if (pips.length !== maxHp) {
+        container.innerHTML = '';
+        for (let i = 0; i < maxHp; i++) {
+            const pip = document.createElement('span');
+            pip.className = 'health-pip';
+            container.appendChild(pip);
+        }
+        pips = container.querySelectorAll('.health-pip');
+    }
+    const isLow = count <= 2 && count > 0;
+    const isCritical = count === 1;
+    pips.forEach((pip, idx) => {
+        const isFilled = idx < count;
+        pip.classList.toggle('filled', isFilled);
+        pip.classList.toggle('low', isFilled && isLow);
+        pip.classList.toggle('critical', isFilled && isCritical);
+    });
+}
+
 function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai, stanceStyle = 'chudan', who = 'player') {
     if (badgeEl) badgeEl.className = 'stance-badge';
     if (spriteBoxEl) {
@@ -6145,18 +6164,8 @@ function updateUI() {
     updateStageBarUI();
     updateStanceBarUI();
 
-    if (playerHealthBar) {
-        playerHealthBar.style.width = `${playerPct}%`;
-        playerHealthBar.classList.toggle('low', pHp <= 2);
-    }
-    if (enemyHealthBar) {
-        enemyHealthBar.style.width = `${enemyPct}%`;
-        enemyHealthBar.classList.toggle('low', eHp <= 2);
-    }
-    if (playerHealthTrail) playerHealthTrail.style.width = `${playerPct}%`;
-    if (enemyHealthTrail) enemyHealthTrail.style.width = `${enemyPct}%`;
-    if (playerHealthText) playerHealthText.textContent = `体力: ${pHp} / ${pMax}`;
-    if (enemyHealthText) enemyHealthText.textContent = `体力: ${eHp} / ${eMax}`;
+    renderHealthPips(playerHealthPips, pHp, pMax);
+    renderHealthPips(enemyHealthPips, eHp, eMax);
 
     // 選手カード内ミニレーダーチャートの描画
     if (playerRadarBox) playerRadarBox.innerHTML = generateFighterRadarSvg('player');
