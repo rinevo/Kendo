@@ -103,6 +103,9 @@ const ENEMY_ROSTER = [
         shortName: '健太',
         name: '門下生・健太',
         rank: '初段',
+        trialTitle: '第一の試練：無垢なる熱意',
+        illustration: 'img/story/trial1_kenta.png',
+        avatarEmoji: '👦',
         styleTag: '素直な面打ち',
         maxHealth: 4,
         initialKiai: 0,
@@ -113,6 +116,15 @@ const ENEMY_ROSTER = [
         specialTechnique: 'hien_men',
         kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「お願いします！まずは真っ直ぐ面で勝負です！」',
+        preMatchDialog: [
+            { speaker: 'enemy', name: '門下生・健太', text: '先輩！いよいよ五人掛けの試練ですね！手加減は無用です、僕の真っ直ぐな面を受けてみてください！' },
+            { speaker: 'player', name: 'あなた', text: '受けて立とう。迷わず全力で飛び込んできなさい！' },
+        ],
+        postMatchDialog: {
+            victory: '参りました……！やっぱり先輩の踏み込みは一味違います。僕の気合も乗せて、次へ進んでください！',
+            defeat: 'やりました！……でも先輩、少し焦りが見えましたよ。もう一度気合を入れ直してください！',
+        },
+        tributeQuote: '先輩、免許皆伝おめでとうございます！僕、一生ついていきます！',
         armorTheme: {
             doStops: ['#14161b', '#252932', '#475569', '#22262e', '#111318'],
             muneFill: '#1e293b',
@@ -146,6 +158,9 @@ const ENEMY_ROSTER = [
         shortName: '佐々木',
         name: '小手名人・佐々木',
         rank: '三段',
+        trialTitle: '第二の試練：静寂の見切り',
+        illustration: 'img/story/trial2_sasaki.png',
+        avatarEmoji: '👓',
         styleTag: '出ばな小手と下段の構えの受け',
         maxHealth: 5,
         initialKiai: 0,
@@ -156,6 +171,15 @@ const ENEMY_ROSTER = [
         specialTechnique: 'dengeki_kote',
         kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「手元の隙は見逃さん。出ばな小手と下段の構えの妙技、受けてみよ！」',
+        preMatchDialog: [
+            { speaker: 'enemy', name: '小手名人・佐々木', text: '健太を抜いたか。だが勢いだけで越えられるほど甘くはないよ。君の手元の隙、出ばな小手で見極めさせてもらう。' },
+            { speaker: 'player', name: 'あなた', text: '佐々木先輩……。間合いの駆け引きと後の先、勉強させていただきます！' },
+        ],
+        postMatchDialog: {
+            victory: '見事だ……。私の見切りを上回る鋭い打突だった。次は鬼塚先輩だ、力負けするなよ。',
+            defeat: '手元が浮いたね。焦りは禁物だ。息を整えて出直しておいで。',
+        },
+        tributeQuote: '私の見切りすら超えてみせた。君の剣は本物だ、胸を張りたまえ。',
         armorTheme: {
             doStops: ['#082f49', '#0369a1', '#38bdf8', '#075985', '#0c4a6e'],
             muneFill: '#0f172a',
@@ -189,6 +213,9 @@ const ENEMY_ROSTER = [
         shortName: '鬼塚',
         name: '剛剣・鬼塚',
         rank: '四段',
+        trialTitle: '第三の試練：剛毅なる気魄',
+        illustration: 'img/story/trial3_onizuka.png',
+        avatarEmoji: '🦁',
         styleTag: '剛剣上段と豪快な崩し',
         maxHealth: 6,
         initialKiai: 1,
@@ -199,6 +226,15 @@ const ENEMY_ROSTER = [
         specialTechnique: 'gouriki_men',
         kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「小細工は無用！火の上段と体当たりの『崩し』で叩き割ってくれるわ！」',
+        preMatchDialog: [
+            { speaker: 'enemy', name: '剛剣・鬼塚', text: 'ガハハ！よくぞ佐々木を破った！だが小細工はここまでだ！火の上段と体当たり、骨ごと叩き割ってやるぜ！' },
+            { speaker: 'player', name: 'あなた', text: '気迫なら引けを取りません！真っ向から打ち破ってみせます！' },
+        ],
+        postMatchDialog: {
+            victory: 'ぐっ……見事な一撃だ！俺の気合に一歩も引かなかったな。お前の腹、完全に据わってやがる！',
+            defeat: 'どうした、腰が引けてたぞ！覚悟を決めなきゃ俺の上段は破れねえぞ！',
+        },
+        tributeQuote: 'ガハハ！あの師範代を倒すとはな！最高の立ち合い、胸が熱くなったぜ！',
         armorTheme: {
             doStops: ['#450a0a', '#991b1b', '#ef4444', '#7f1d1d', '#3b0707'],
             muneFill: '#291010',
@@ -232,6 +268,9 @@ const ENEMY_ROSTER = [
         shortName: '霞',
         name: '幻影・霞',
         rank: '五段',
+        trialTitle: '第四の試練：鏡花水月の惑い',
+        illustration: 'img/story/trial4_kasumi.png',
+        avatarEmoji: '🦊',
         styleTag: '三構え変化と応じ技',
         maxHealth: 5,
         initialKiai: 0,
@@ -242,6 +281,15 @@ const ENEMY_ROSTER = [
         specialTechnique: 'gen_do',
         kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「中段・上段・下段の構え…見えている太刀筋だけが真実とは限りませんよ…」',
+        preMatchDialog: [
+            { speaker: 'enemy', name: '幻影・霞', text: '剛を越えた次は、柔の深淵です。三つの構え、虚と実……あなたの瞳には、真実の太刀筋が視えていますか？' },
+            { speaker: 'player', name: 'あなた', text: '惑わされません。心を静かに澄ませて立ち合います。' },
+        ],
+        postMatchDialog: {
+            victory: '……ふふ、見事に幻を払われましたね。迷いのない太刀筋でした。さあ……いよいよ龍禅先生のお出ましです。',
+            defeat: '目に見える太刀筋に心を奪われていては、師範代には届きませんよ。',
+        },
+        tributeQuote: '静かなる明鏡止水の剣……心より敬服いたします。おめでとうございます。',
         armorTheme: {
             doStops: ['#2e1065', '#581c87', '#a855f7', '#4c1d95', '#1e1b4b'],
             muneFill: '#1e1b4b',
@@ -275,6 +323,9 @@ const ENEMY_ROSTER = [
         shortName: '龍禅',
         name: '師範代・龍禅',
         rank: '範士八段',
+        trialTitle: '最終試練：不動心の極致',
+        illustration: 'img/story/trial5_ryuzen.png',
+        avatarEmoji: '🐉',
         styleTag: '三位一体の構え・諸手突き',
         maxHealth: 7,
         initialKiai: 1,
@@ -285,6 +336,15 @@ const ENEMY_ROSTER = [
         specialTechnique: 'tensho_tsuki',
         kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「よくぞここまで勝ち上がった。天地水の三つの構え、全力で超えてみせよ！」',
+        preMatchDialog: [
+            { speaker: 'enemy', name: '師範代・龍禅', text: 'よくぞ四人を乗り越え、ここまで辿り着いた。もはや言葉は不要。お前の磨き上げた剣の全て――この龍禅が全身全霊で受け止めよう。……構えよッ！' },
+            { speaker: 'player', name: 'あなた', text: '道場の教え、そして己の剣の集大成……全力で打ち込ませていただきます！' },
+        ],
+        postMatchDialog: {
+            victory: '……見事！我が太刀筋を越え、理合を貫いたな。晴れやかなる一本であった！',
+            defeat: '迷いがあれば剣も曇る。己の信じた道をもう一度研ぎ澄ませてまいれ。',
+        },
+        tributeQuote: '免許皆伝を授く。『交剣知愛』の心を胸に、新時代の道を切り拓くがよい！',
         armorTheme: {
             doStops: ['#422006', '#a16207', '#facc15', '#854d0e', '#271202'],
             muneFill: '#1c1917',
@@ -369,6 +429,7 @@ const state = {
     matchPhase: 'pre_match',
     round: 0,
     gameOver: false,
+    preMatchStorySeen: false,
     playerAnimState: 'sageto',
     enemyAnimState: 'sageto',
     enemyIntent: null,
@@ -2168,6 +2229,175 @@ const stanceSelectorWrap = document.getElementById('stanceSelectorWrap');
 const stanceSelectorBar = document.getElementById('stanceSelectorBar');
 const stanceDescText = document.getElementById('stanceDescText');
 const actionButtons = [btnMen, btnKote, btnDo, btnTsuki, btnDefend, btnBreak, btnSpecial];
+
+// 💬 勝ち抜きストーリー会話ダイアログ & 📜 免許皆伝モーダル DOM
+const storyDialogueModal = document.getElementById('storyDialogueModal');
+const dialogueTrialBadge = document.getElementById('dialogueTrialBadge');
+const dialogueAvatar = document.getElementById('dialogueAvatar');
+const dialogueSpeaker = document.getElementById('dialogueSpeaker');
+const dialogueText = document.getElementById('dialogueText');
+const dialogueIllustWrap = document.getElementById('dialogueIllustWrap');
+const dialogueIllustImg = document.getElementById('dialogueIllustImg');
+const menkyoKaidenModal = document.getElementById('menkyoKaidenModal');
+const menkyoIllustWrap = document.getElementById('menkyoIllustWrap');
+const menkyoIllustImg = document.getElementById('menkyoIllustImg');
+const menkyoFellowsTributes = document.getElementById('menkyoFellowsTributes');
+const menkyoStats = document.getElementById('menkyoStats');
+
+let storyDialogueQueue = [];
+let currentStoryDialogueIndex = 0;
+let storyDialogueOnComplete = null;
+let currentStoryTrialTitle = '';
+let currentStoryAvatar = '🥋';
+let currentStoryIllustration = '';
+
+// ストーリー会話ダイアログの表示
+function showStoryDialogue(dialogItems, trialTitle, avatarEmoji, onComplete, illustrationUrl) {
+    if (!storyDialogueModal || !dialogItems || dialogItems.length === 0) {
+        if (typeof onComplete === 'function') onComplete();
+        return;
+    }
+    storyDialogueQueue = Array.isArray(dialogItems) ? dialogItems : [dialogItems];
+    currentStoryDialogueIndex = 0;
+    currentStoryTrialTitle = trialTitle || '五人掛けの試練';
+    currentStoryAvatar = avatarEmoji || '🥋';
+    currentStoryIllustration = illustrationUrl || '';
+    storyDialogueOnComplete = onComplete;
+
+    if (dialogueIllustWrap && dialogueIllustImg) {
+        if (currentStoryIllustration) {
+            dialogueIllustImg.src = currentStoryIllustration;
+            dialogueIllustWrap.style.display = 'block';
+        } else {
+            dialogueIllustWrap.style.display = 'none';
+        }
+    }
+
+    storyDialogueModal.style.display = 'flex';
+    renderCurrentStoryDialogue();
+}
+
+// 現在のセリフをレンダリング
+function renderCurrentStoryDialogue() {
+    if (!storyDialogueQueue || currentStoryDialogueIndex >= storyDialogueQueue.length) {
+        closeStoryDialogue();
+        return;
+    }
+    const item = storyDialogueQueue[currentStoryDialogueIndex];
+    if (dialogueTrialBadge) dialogueTrialBadge.textContent = currentStoryTrialTitle;
+    if (dialogueAvatar) {
+        dialogueAvatar.textContent = (item.speaker === 'player') ? '🥋' : currentStoryAvatar;
+    }
+    if (dialogueSpeaker) {
+        dialogueSpeaker.textContent = item.name || (item.speaker === 'player' ? 'あなた' : '相手');
+        dialogueSpeaker.className = `dialogue-speaker ${item.speaker === 'player' ? 'speaker-player' : 'speaker-enemy'}`;
+    }
+    if (dialogueText) {
+        dialogueText.textContent = item.text || '……';
+    }
+}
+
+// 次のセリフへ進む
+function advanceStoryDialogue() {
+    if (!storyDialogueModal || storyDialogueModal.style.display === 'none') return;
+    currentStoryDialogueIndex++;
+    if (currentStoryDialogueIndex < storyDialogueQueue.length) {
+        renderCurrentStoryDialogue();
+    } else {
+        closeStoryDialogue();
+    }
+}
+
+// 会話をスキップ
+function skipStoryDialogue() {
+    closeStoryDialogue();
+}
+
+// ダイアログを閉じる
+function closeStoryDialogue() {
+    if (storyDialogueModal) {
+        storyDialogueModal.style.display = 'none';
+    }
+    if (dialogueIllustWrap) {
+        dialogueIllustWrap.style.display = 'none';
+    }
+    currentStoryIllustration = '';
+    const cb = storyDialogueOnComplete;
+    storyDialogueOnComplete = null;
+    storyDialogueQueue = [];
+    if (typeof cb === 'function') {
+        cb();
+    }
+}
+
+// 📜 免許皆伝エピローグモーダルの表示
+function showMenkyoKaidenModal() {
+    if (!menkyoKaidenModal) return;
+    if (window.KendoBGM && window.KendoBGM.play) {
+        window.KendoBGM.play('gold');
+    }
+    if (menkyoFellowsTributes) {
+        menkyoFellowsTributes.innerHTML = '';
+        ENEMY_ROSTER.forEach((enemy) => {
+            const card = document.createElement('div');
+            card.className = 'tribute-card';
+            card.innerHTML = `
+                <div class="tribute-author">
+                    <span>${enemy.avatarEmoji || '🥋'}</span>
+                    <span>${enemy.role}・${enemy.shortName}</span>
+                </div>
+                <p class="tribute-text">「${enemy.tributeQuote || 'お見事！'}」</p>
+            `;
+            menkyoFellowsTributes.appendChild(card);
+        });
+    }
+
+    if (menkyoStats) {
+        const totalRounds = (state.boutStats && state.boutStats.rounds) ? state.boutStats.rounds : state.round;
+        menkyoStats.innerHTML = `
+            <div class="menkyo-stats-title">🏆 試練達成戦績</div>
+            <div>撃破人数: 5人（先鋒・健太 / 次鋒・佐々木 / 中堅・鬼塚 / 副将・霞 / 大将・龍禅）</div>
+            <div>最終決まり手: ${state.lastWinningMove || '面'}あり</div>
+            <div>免許皆伝位: 龍神館道場 師範代之皆伝</div>
+        `;
+    }
+
+    menkyoKaidenModal.style.display = 'flex';
+}
+
+function closeMenkyoModal() {
+    if (menkyoKaidenModal) {
+        menkyoKaidenModal.style.display = 'none';
+    }
+    // 先鋒からリセット
+    state.stageIndex = 0;
+    state.clearedStages.clear();
+    resetGame();
+}
+
+// キーボードによる軽快なダイアログ送り（Space / Enter / Escape）
+window.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+        if (storyDialogueModal && storyDialogueModal.style.display !== 'none') {
+            e.preventDefault();
+            advanceStoryDialogue();
+        }
+    } else if (e.key === 'Escape') {
+        if (storyDialogueModal && storyDialogueModal.style.display !== 'none') {
+            e.preventDefault();
+            skipStoryDialogue();
+        } else if (menkyoKaidenModal && menkyoKaidenModal.style.display !== 'none') {
+            e.preventDefault();
+            closeMenkyoModal();
+        }
+    }
+});
+
+// グローバル公開
+window.advanceStoryDialogue = advanceStoryDialogue;
+window.skipStoryDialogue = skipStoryDialogue;
+window.closeMenkyoModal = closeMenkyoModal;
+window.showMenkyoKaidenModal = showMenkyoKaidenModal;
 
 let refereeHideTimer = null;
 let pendingImpactTimer = null;
@@ -4605,9 +4835,10 @@ function hideSpecialCutin() {
 // ダメージやバフのフローティングポップアップを表示
 function spawnFloatingPopup(who, text, styleClass = 'popup-dmg', offsetY = 0) {
     const layer = who === 'player' ? playerPopupLayer : enemyPopupLayer;
-    if (!layer) return;
+    if (!layer || !text) return;
     const el = document.createElement('div');
-    el.className = `floating-popup ${styleClass}`;
+    const isLongText = (typeof text === 'string' && text.length >= 8);
+    el.className = `floating-popup ${styleClass}${isLongText ? ' popup-text-compact' : ''}`;
     el.textContent = text;
     if (offsetY !== 0) {
         el.style.marginTop = `${offsetY}px`;
@@ -6289,6 +6520,30 @@ function getActionAnim(action, techType = null) {
 // 試合開始の礼法シーケンス（提げ刀 → お互いに礼 → 竹刀を構えて蹲踞 → 「始め！」で立ち上がり戦闘開始）
 function startMatchCeremony() {
     if (state.matchPhase !== 'pre_match') return;
+
+    const isFiveManMode = !(state.customMatch && state.customMatch.active);
+    const enemyData = getCurrentEnemy();
+
+    // 勝ち抜き五人掛けモードで、まだこの試合の事前ストーリーを見ていない場合
+    if (isFiveManMode && !state.preMatchStorySeen && enemyData.preMatchDialog) {
+        state.preMatchStorySeen = true;
+        showStoryDialogue(
+            enemyData.preMatchDialog,
+            enemyData.trialTitle,
+            enemyData.avatarEmoji,
+            () => {
+                proceedOpeningCeremony();
+            },
+            enemyData.illustration
+        );
+        return;
+    }
+
+    proceedOpeningCeremony();
+}
+
+function proceedOpeningCeremony() {
+    if (state.matchPhase !== 'pre_match') return;
     hideSpeechBubbles();
     ensureAudio();
     warmupVoices();
@@ -6493,6 +6748,38 @@ function startClosingCeremony() {
                         cb(resultData);
                     }
                 }, 1500);
+            }
+        } else {
+            // 勝ち抜き五人掛けモード（クラシック）の勝敗決着時
+            const enemyData = getCurrentEnemy();
+            const isVictory = state.lastOutcome === 'victory';
+            const postQuote = isVictory
+                ? (enemyData.postMatchDialog ? enemyData.postMatchDialog.victory : null)
+                : (enemyData.postMatchDialog ? enemyData.postMatchDialog.defeat : null);
+
+            if (postQuote) {
+                const dialogItem = [{
+                    speaker: 'enemy',
+                    name: enemyData.name,
+                    text: postQuote,
+                }];
+                setTimeout(() => {
+                    showStoryDialogue(
+                        dialogItem,
+                        isVictory ? `勝負あり（${enemyData.shortName}戦）` : `一本取られ（${enemyData.shortName}戦）`,
+                        enemyData.avatarEmoji,
+                        () => {
+                            // 龍禅（大将）を撃破して完全制覇した場合
+                            const allCleared = state.clearedStages.size === ENEMY_ROSTER.length;
+                            if (isVictory && allCleared && state.stageIndex === ENEMY_ROSTER.length - 1) {
+                                setTimeout(() => {
+                                    showMenkyoKaidenModal();
+                                }, 350);
+                            }
+                        },
+                        enemyData.illustration
+                    );
+                }, 400);
             }
         }
     };
@@ -6986,7 +7273,7 @@ function playRound(playerAction) {
         shakeTargets.push({ el: enemySpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
             ...(actualBreakDmg > 0 ? [{ who: 'enemy', text: actualBreakDmg >= 2 ? '-2 剛腕崩し！' : '-1', styleClass: actualBreakDmg >= 2 ? 'popup-crit' : 'popup-dmg' }] : [{ who: 'enemy', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
-            ...(eDidResist ? [{ who: 'enemy', text: '⚡ 不動心・踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
+            ...(eDidResist ? [{ who: 'enemy', text: '⚡ 不動心耐え！', styleClass: 'popup-counter' }] : [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
@@ -7017,8 +7304,8 @@ function playRound(playerAction) {
         zoomTargets.push(enemySpriteBox);
         shakeTargets.push({ el: playerSpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
-            ...(actualBreakDmg > 0 ? [{ who: 'player', text: actualBreakDmg >= 2 ? '-2 相手の剛腕崩し！' : '-1', styleClass: actualBreakDmg >= 2 ? 'popup-crit' : 'popup-dmg' }] : [{ who: 'player', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
-            ...(didResist ? [{ who: 'player', text: '⚡ 不動心・踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
+            ...(actualBreakDmg > 0 ? [{ who: 'player', text: actualBreakDmg >= 2 ? '-2 剛腕崩し！' : '-1', styleClass: actualBreakDmg >= 2 ? 'popup-crit' : 'popup-dmg' }] : [{ who: 'player', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
+            ...(didResist ? [{ who: 'player', text: '⚡ 不動心耐え！', styleClass: 'popup-counter' }] : [{ who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
@@ -7048,7 +7335,7 @@ function playRound(playerAction) {
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
         popups.push(
-            { who: 'player', text: `🛡️ ${pMoveName}成功！`, styleClass: 'popup-block' },
+            { who: 'player', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
             ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'player', text: newStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newStacks}！`, styleClass: 'popup-counter' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
@@ -7080,9 +7367,9 @@ function playRound(playerAction) {
         impactSound = 'block';
         zoomTargets.push(enemySpriteBox);
         popups.push(
-            { who: 'enemy', text: `🛡️ ${eMoveName}成功！`, styleClass: 'popup-block' },
+            { who: 'enemy', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
             ...(eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
-            { who: 'enemy', text: newEStacks >= 3 ? '⚡ 相手見切り極致！' : `⚡ 相手見切りLv${newEStacks}！`, styleClass: 'popup-counter' },
+            { who: 'enemy', text: newEStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newEStacks}！`, styleClass: 'popup-counter' },
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         const eStackLabel = newEStacks >= 3 ? '⚠️ 相手が見切り極致' : `⚠️ 相手見切りLv${newEStacks}`;
@@ -7155,7 +7442,7 @@ function playRound(playerAction) {
         if (isBoosted) doArenaFlash = true;
 
         if (didMitigate) {
-            const mitigateText = (strDiff >= agiDiff) ? '💪 剛腕受け！ (-1軽減)' : '⚡ 身のこなし！ (-1軽減)';
+            const mitigateText = (strDiff >= agiDiff) ? '💪 剛腕受け！(-1)' : '⚡ 身のこなし！(-1)';
             popups.push({ who: 'enemy', text: mitigateText, styleClass: 'popup-counter' });
         }
         if (dmg > 0) {
@@ -7227,7 +7514,7 @@ function playRound(playerAction) {
         if (isBoosted) doArenaFlash = true;
 
         if (didMitigate) {
-            const mitigateText = (strDiff >= agiDiff) ? '💪 剛腕受け！ (-1軽減)' : '⚡ 身のこなし！ (-1軽減)';
+            const mitigateText = (strDiff >= agiDiff) ? '💪 剛腕受け！(-1)' : '⚡ 身のこなし！(-1)';
             popups.push({ who: 'player', text: mitigateText, styleClass: 'popup-counter' });
         }
         if (dmg > 0) {
@@ -7455,7 +7742,7 @@ function playRound(playerAction) {
                     popups.push({ who: 'player', text: '💥 剛腕会心！', styleClass: 'popup-crit' });
                 }
                 if (isAgiDodge) {
-                    popups.push({ who: 'enemy', text: '⚡ 紙一重の体捌き！ (-1軽減)', styleClass: 'popup-counter' });
+                    popups.push({ who: 'enemy', text: '⚡ 紙一重！(-1)', styleClass: 'popup-counter' });
                 }
                 if (dmg > 0) {
                     popups.push({ who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : `-${dmg}`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' });
@@ -7548,10 +7835,10 @@ function playRound(playerAction) {
                 if (isBoosted) doArenaFlash = true;
 
                 if (isStrCrit) {
-                    popups.push({ who: 'enemy', text: '💥 相手の剛腕会心！', styleClass: 'popup-crit' });
+                    popups.push({ who: 'enemy', text: '💥 剛腕会心！', styleClass: 'popup-crit' });
                 }
                 if (isAgiDodge) {
-                    popups.push({ who: 'player', text: '⚡ 紙一重の体捌き！ (-1軽減)', styleClass: 'popup-counter' });
+                    popups.push({ who: 'player', text: '⚡ 紙一重！(-1)', styleClass: 'popup-counter' });
                 }
                 if (dmg > 0) {
                     popups.push({ who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : `-${dmg}`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' });
@@ -7889,6 +8176,7 @@ function resetGame() {
     hideRefereeCallout();
     hideClashMeter();
     hideSpecialCutin();
+    closeStoryDialogue();
     if (playerPopupLayer) playerPopupLayer.innerHTML = '';
     if (enemyPopupLayer) enemyPopupLayer.innerHTML = '';
     timeState.hitStopUntil = 0;
@@ -7914,6 +8202,7 @@ function resetGame() {
     state.matchPhase = 'pre_match';
     state.round = 0;
     state.gameOver = false;
+    state.preMatchStorySeen = false;
     state.lastOutcome = null;
     state.playerActionHistory = [];
     state.enemyLearnedPattern = null;

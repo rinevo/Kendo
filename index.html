@@ -93,8 +93,8 @@
                     <div class="mode-card-badge">部活動・チーム育成</div>
                     <div class="mode-card-icon">🥋</div>
                     <h2 class="mode-card-title">全国制覇モード</h2>
-                    <p class="mode-card-tagline">世代を紡ぎ仲間と共に目指す日本一！</p>
-                    <p class="mode-card-desc">高校剣道部の3年生主将として仲間を鍛え上げ、夏のインターハイ（個人戦）や春の全国選抜（団体戦）での全国制覇を目指す育成シミュレーション。</p>
+                    <p class="mode-card-tagline">廃部からの再起！仲間と共に目指す日本一！</p>
+                    <p class="mode-card-desc">かつて強豪だったが廃部していた剣道部。1年生主将として埃をかぶった道場を再建し、仲間や助っ人と共にゼロから全国制覇を目指す育成シミュレーション。</p>
                     <div class="mode-card-features">
                         <span>⚔️ 個人戦 ＆ 👥 団体戦</span>
                         <span>👑 世代交代・新主将指名</span>
@@ -314,6 +314,62 @@
 
     <!-- モバイル固定ボトムバー用ポータル（Containing Blockの影響を排除するためbody直下に配置） -->
     <div id="clubMobilePortal"></div>
+
+    <!-- 💬 勝ち抜きストーリー会話ダイアログ -->
+    <div id="storyDialogueModal" class="story-dialogue-modal" style="display: none;" onclick="advanceStoryDialogue()">
+        <div class="dialogue-card" onclick="event.stopPropagation()">
+            <div class="dialogue-header">
+                <span class="dialogue-trial-badge" id="dialogueTrialBadge">第一の試練</span>
+                <button type="button" class="dialogue-skip-btn" onclick="skipStoryDialogue()">⏩ スキップ</button>
+            </div>
+            <!-- 🎨 ストーリー対峙イラストバナー -->
+            <div class="dialogue-illustration-wrap" id="dialogueIllustWrap" style="display: none;">
+                <img id="dialogueIllustImg" src="" alt="試練イラスト" class="dialogue-illustration">
+            </div>
+            <div class="dialogue-body">
+                <div class="dialogue-avatar" id="dialogueAvatar">🥋</div>
+                <div class="dialogue-content">
+                    <div class="dialogue-speaker" id="dialogueSpeaker">健太</div>
+                    <div class="dialogue-text" id="dialogueText">……</div>
+                </div>
+            </div>
+            <div class="dialogue-footer">
+                <span class="dialogue-tap-guide">タップ または Space / Enter で次へ ▶</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📜 免許皆伝・五人掛け完全制覇エピローグモーダル -->
+    <div id="menkyoKaidenModal" class="menkyo-modal" style="display: none;">
+        <div class="menkyo-backdrop" onclick="closeMenkyoModal()"></div>
+        <div class="menkyo-scroll">
+            <div class="menkyo-header">
+                <div class="menkyo-crest">⚔️</div>
+                <h2 class="menkyo-title">免許皆伝之証</h2>
+                <p class="menkyo-subtitle">龍神館道場・五人掛け試練 完遂</p>
+            </div>
+            <!-- 🎨 免許皆伝授与式イラスト -->
+            <div class="menkyo-illustration-wrap" id="menkyoIllustWrap">
+                <img id="menkyoIllustImg" src="img/story/menkyo_kaiden.png" alt="免許皆伝授与式" class="menkyo-illustration">
+            </div>
+            <div class="menkyo-body">
+                <p class="menkyo-prose" id="menkyoProse">
+                    五本の太刀筋を越え、己の迷いに打ち克ちたり。<br>
+                    本日ここに、我が道場の最高位『免許皆伝』を授く。<br>
+                    勝敗の彼方に相手を敬う「交剣知愛」の心を忘れず、新時代の剣を拓くべし。
+                </p>
+                <div class="menkyo-fellows-tributes" id="menkyoFellowsTributes">
+                    <!-- 仲間たちの寄せ書き祝福コメント -->
+                </div>
+                <div class="menkyo-stats" id="menkyoStats">
+                    <!-- 勝ち抜き総ターン数・決まり手内訳 -->
+                </div>
+            </div>
+            <div class="menkyo-actions">
+                <button type="button" class="start-btn menkyo-btn" onclick="closeMenkyoModal()">🏆 試練を終える</button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/bgm.js"></script>
     <script src="js/game.js"></script>

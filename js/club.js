@@ -393,25 +393,27 @@
             id: 'suburi',
             name: '素振り・基本打ち込み',
             icon: '⚔️',
-            desc: '竹刀を振り込み、打突の重さと面のキレを鍛える。腕力・面が向上。疲労【中】',
+            desc: '竹刀を振り込み、打突の重さと面のキレ・鋭い突きを鍛える。腕力・面・突きが向上。疲労【中】',
             fatigueCost: 15,
             apply: (m) => {
                 growStat(m, 'base', 'str', 1 + (Math.random() < 0.4 ? 1 : 0));
                 growStat(m, 'skill', 'men', 1 + (Math.random() < 0.5 ? 1 : 0));
                 if (Math.random() < 0.3) growStat(m, 'skill', 'kote', 1);
+                if (Math.random() < 0.35) growStat(m, 'skill', 'tsuki', 1);
             },
         },
         {
             id: 'kakari',
             name: '追い込み・掛かり稽古',
             icon: '🔥',
-            desc: '息を極限まで切らして打ち込む猛稽古。気魄・技全般が大幅向上。疲労【大】',
+            desc: '息を極限まで切らして打ち込む猛稽古。気魄・面・胴・突きなど技全般が大幅向上。疲労【大】',
             fatigueCost: 24,
             apply: (m) => {
                 growStat(m, 'base', 'spi', 2 + (Math.random() < 0.3 ? 1 : 0));
                 growStat(m, 'base', 'str', 1);
                 growStat(m, 'skill', 'men', 1);
                 growStat(m, 'skill', 'do', 1);
+                growStat(m, 'skill', 'tsuki', 1);
                 if (Math.random() < 0.35 && m.maxHealth < HEALTH_HARD_MAX) m.maxHealth += 1;
             },
         },
@@ -1565,15 +1567,15 @@
     }
 
     function createMember(name, grade, isPlayer = false, chosenArchetype = null) {
-        const archetype = chosenArchetype || (isPlayer
-            ? MEMBER_ARCHETYPES.find(a => a.id === 'allround')
-            : getRandomItem(MEMBER_ARCHETYPES));
+        const archetype = chosenArchetype || getRandomItem(MEMBER_ARCHETYPES);
 
         const stance = archetype.stance || 'chudan';
         const sMod = archetype.statMod || {};
         const skMod = archetype.skillMod || {};
 
-        const baseHp = Math.min(8, Math.max(3, 4 + (grade >= 2 ? 1 : 0) + (sMod.hp || 0) + (Math.random() < 0.3 ? 1 : 0)));
+        const baseHp = grade === 1
+            ? Math.min(3, Math.max(1, 1 + (sMod.hp || 0) + Math.floor(Math.random() * 2)))
+            : Math.min(8, Math.max(3, 4 + (grade >= 2 ? 1 : 0) + (sMod.hp || 0) + (Math.random() < 0.3 ? 1 : 0)));
         const baseStr = Math.max(4, 8 + grade * 2 + (sMod.str || 0) + Math.floor(Math.random() * 3));
         const baseAgi = Math.max(4, 8 + grade * 2 + (sMod.agi || 0) + Math.floor(Math.random() * 3));
         const baseSpi = Math.max(4, 8 + grade * 2 + (sMod.spi || 0) + Math.floor(Math.random() * 3));
@@ -1628,7 +1630,9 @@
         const sMod = tpl.statMod || {};
         const skMod = tpl.skillMod || {};
 
-        const baseHp = Math.min(8, Math.max(3, 4 + (grade >= 2 ? 1 : 0) + (sMod.hp || 0)));
+        const baseHp = grade === 1
+            ? Math.min(3, Math.max(1, 1 + (sMod.hp || 0) + Math.floor(Math.random() * 2)))
+            : Math.min(8, Math.max(3, 4 + (grade >= 2 ? 1 : 0) + (sMod.hp || 0)));
         const baseStr = Math.max(4, 7 + grade * 2 + (sMod.str || 0) + Math.floor(Math.random() * 2));
         const baseAgi = Math.max(4, 7 + grade * 2 + (sMod.agi || 0) + Math.floor(Math.random() * 2));
         const baseSpi = Math.max(4, 7 + grade * 2 + (sMod.spi || 0) + Math.floor(Math.random() * 2));
@@ -1687,43 +1691,44 @@
         }
     }
 
-    // 初期チーム生成（主将＝3年生、他に3年・2年・1年が在籍し個性多彩）
+    // 初期チーム生成（廃部からの再建：主将＝1年生、他に新入1年生が1〜3名ランダム在籍し、2・3年生は0名）
     function createInitialTeam(schoolName, pref, captainName) {
         const members = [];
-        // 主将（3年生プレイヤー）
-        const captain = createMember(captainName, 3, true, MEMBER_ARCHETYPES.find(a => a.id === 'allround'));
-        captain.str += 2;
-        captain.agi += 2;
-        captain.spi += 2;
+        // 主将（1年生プレイヤー・廃部を再建した創部主将：全7種からランダム選定）
+        const captainArchetype = getRandomItem(MEMBER_ARCHETYPES);
+        const captain = createMember(captainName, 1, true, captainArchetype);
+        captain.str += 1;
+        captain.agi += 1;
+        captain.spi += 3; // ゼロから再建する強い信念
         members.push(captain);
 
-        // 3年生 2名（剛腕、不動心）
-        members.push(createMember(generateRandomName(), 3, false, MEMBER_ARCHETYPES.find(a => a.id === 'power')));
-        members.push(createMember(generateRandomName(), 3, false, MEMBER_ARCHETYPES.find(a => a.id === 'spirit')));
+        // 主将以外の1年生部員：1〜3名をランダム決定（主将と異なるアーキタイプを優先）
+        const extraCount = 1 + Math.floor(Math.random() * 3); // 1, 2, 3 のいずれか
+        const poolArchetypes = MEMBER_ARCHETYPES.filter(a => a.id !== captainArchetype.id);
+        const shuffledArchs = [...poolArchetypes].sort(() => Math.random() - 0.5);
 
-        // 2年生 2名（韋駄天、カウンター）
-        members.push(createMember(generateRandomName(), 2, false, MEMBER_ARCHETYPES.find(a => a.id === 'speed')));
-        members.push(createMember(generateRandomName(), 2, false, MEMBER_ARCHETYPES.find(a => a.id === 'counter')));
+        for (let i = 0; i < extraCount; i++) {
+            const arch = shuffledArchs[i] || poolArchetypes[i % poolArchetypes.length];
+            members.push(createMember(generateRandomName(), 1, false, arch));
+        }
 
-        // 1年生 2名（突き特化、大器晩成原石）
-        members.push(createMember(generateRandomName(), 1, false, MEMBER_ARCHETYPES.find(a => a.id === 'tsuki')));
-        members.push(createMember(generateRandomName(), 1, false, MEMBER_ARCHETYPES.find(a => a.id === 'talent')));
-
-        // 初期メンバー7名全員に重複のない防具テーマを確実に割り当て
+        // 初期メンバー（2〜4名）全員に重複のない防具テーマを確実に割り当て
         members.forEach((m, idx) => {
             m.armorTheme = null;
             const used = members.slice(0, idx).map(other => other.armorTheme && other.armorTheme.themeId).filter(Boolean);
             assignMemberArmorTheme(m, used);
         });
 
-        // 先鋒〜大将の初期オーダー（新1年生は全員控え、2・3年生をレギュラー、主将を大将に配置）
-        const order = [
-            members[3].id, // 2年（先鋒）
-            members[4].id, // 2年（次鋒）
-            members[1].id, // 3年（中堅）
-            members[2].id, // 3年（副将）
-            captain.id,    // 3年主将（大将）
-        ];
+        // 5人制固定オーダー [先鋒, 次鋒, 中堅, 副将, 大将]
+        // 大将(4)に主将を配置し、残りの部員を戦力順に副将(3)→中堅(2)→次鋒(1)→先鋒(0)の順に割り当てる
+        const nonCaptains = members.filter(m => !m.isPlayer).sort((a, b) => getMemberCombatPower(b) - getMemberCombatPower(a));
+        const order = [null, null, null, null, captain.id];
+        const slotPriority = [3, 2, 1, 0]; // 副将, 中堅, 次鋒, 先鋒
+        nonCaptains.forEach((m, idx) => {
+            if (idx < slotPriority.length) {
+                order[slotPriority[idx]] = m.id;
+            }
+        });
 
         return { members, order };
     }
@@ -2413,6 +2418,15 @@
     // 9月1週：3年生引退 ＆ 新主将指名
     function triggerRetireAndCaptainSelection() {
         const retiredMembers = ClubState.members.filter((m) => m.grade >= 3);
+        if (retiredMembers.length === 0) {
+            // 3年生が0名の場合（1年目：廃部から立ち上げた創部初期）
+            const logMsg = `🍁【${ClubState.year}年目 9月1週】先輩のいない新生${ClubState.schoolName}剣道部！引退する部員はおらず、創設メンバー全員で冬の全国選抜地区予選へ挑みます！`;
+            ClubState.activityLog.unshift(logMsg);
+            saveClubData();
+            renderClubUI();
+            return;
+        }
+
         const retiredNames = retiredMembers.map((m) => m.name);
         // 3年生を名簿から削除
         ClubState.members = ClubState.members.filter((m) => m.grade < 3);
@@ -2420,7 +2434,8 @@
         const logMsg = `🍂【${ClubState.year}年目 9月1週】3年生（${retiredNames.join('・')}）が夏の大会を終えて引退しました。新チーム始動のため、新主将を指名してください。`;
         ClubState.activityLog.unshift(logMsg);
 
-        sanitizeOrder();
+        // 3年生引退に伴う欠員発生：既存の部員を副将、中堅、次鋒、先鋒の順で戦力順に割り当て
+        reassignOrderOnVacancy();
 
         // 🍂 3年生引退セレモニー画面へ
         ClubState.retireCeremonyData = {
@@ -2433,34 +2448,80 @@
         renderClubUI();
     }
 
-    // オーダー整合性チェック（新1年生および助っ人は初期値で控えとし、正規部員の上級生優先で埋める）
-    function sanitizeOrder() {
-        const validIds = new Set(ClubState.members.map((m) => m.id));
-        const newOrder = ClubState.order.filter((id) => validIds.has(id));
+    // 欠員発生時：大将（主将）を保護し、主将以外の部員を副将(3)→中堅(2)→次鋒(1)→先鋒(0)の順に戦力順で割り当てる
+    function reassignOrderOnVacancy() {
+        const captain = ClubState.members.find((m) => m.isPlayer);
+        const captainId = captain ? captain.id : null;
+        const otherMembers = ClubState.members
+            .filter((m) => !m.isPlayer)
+            .sort((a, b) => {
+                const diff = getMemberCombatPower(b) - getMemberCombatPower(a);
+                if (Math.abs(diff) > 0.001) return diff;
+                if (b.grade !== a.grade) return b.grade - a.grade;
+                return (a.id || '').localeCompare(b.id || '');
+            });
 
-        const usedIds = new Set(newOrder);
-
-        // 1. 足りない枠は未配置の正規上級生（2年生・3年生、助っ人以外）から優先して埋める
-        const seniors = ClubState.members.filter((m) => m.grade >= 2 && !m.isClubDual && !usedIds.has(m.id));
-        seniors.forEach((m) => {
-            if (newOrder.length < 5) {
-                newOrder.push(m.id);
-                usedIds.add(m.id);
+        const newOrder = [null, null, null, null, captainId];
+        const slotPriority = [3, 2, 1, 0]; // 副将, 中堅, 次鋒, 先鋒
+        otherMembers.forEach((m, idx) => {
+            if (idx < slotPriority.length) {
+                newOrder[slotPriority[idx]] = m.id;
             }
         });
 
-        // 2. それでも部員不足で5枠に満たない場合のみ、正規の1年生（助っ人以外）を補填する
-        if (newOrder.length < 5) {
-            const freshmen = ClubState.members.filter((m) => m.grade === 1 && !m.isClubDual && !usedIds.has(m.id));
-            freshmen.forEach((m) => {
-                if (newOrder.length < 5) {
-                    newOrder.push(m.id);
-                    usedIds.add(m.id);
-                }
-            });
+        ClubState.order = newOrder;
+        sanitizeOrder();
+    }
+
+    // オーダー整合性チェック（5スロット固定 [先鋒, 次鋒, 中堅, 副将, 大将] を保護し、大将に主将、不足枠は欠員(null)とする）
+    function sanitizeOrder() {
+        const validIds = new Set(ClubState.members.map((m) => m.id));
+        const captain = ClubState.members.find((m) => m.isPlayer);
+        const captainId = captain ? captain.id : null;
+
+        // 固定長5のオーダー枠を確保
+        const curOrder = Array.isArray(ClubState.order) ? ClubState.order : [];
+        const newOrder = [null, null, null, null, null];
+
+        // 1. 既存のオーダーから有効なメンバーIDをスロットごとに引き継ぐ
+        for (let i = 0; i < 5; i++) {
+            const id = curOrder[i];
+            if (id && validIds.has(id)) {
+                newOrder[i] = id;
+            }
         }
 
-        // ※ 助っ人（isClubDual）は初期値で必ず控え。ユーザーがオーダー編成で手動配置した場合のみ newOrder に入る。
+        // 2. 主将（プレイヤー）を確実に大将(4)に割り当てる
+        if (captainId) {
+            // 大将以外のスロットに主将がいればクリア
+            for (let i = 0; i < 4; i++) {
+                if (newOrder[i] === captainId) newOrder[i] = null;
+            }
+            newOrder[4] = captainId;
+        }
+
+        const usedIds = new Set(newOrder.filter(Boolean));
+
+        // 3. 空きスロット（欠員枠）がある場合、未配置の部員を戦力順に副将(3)→中堅(2)→次鋒(1)→先鋒(0)の順で配置
+        const slotPriority = [3, 2, 1, 0]; // 副将, 中堅, 次鋒, 先鋒
+        const unassignedMembers = ClubState.members
+            .filter((m) => !m.isPlayer && !usedIds.has(m.id))
+            .sort((a, b) => {
+                const diff = getMemberCombatPower(b) - getMemberCombatPower(a);
+                if (Math.abs(diff) > 0.001) return diff;
+                if (b.grade !== a.grade) return b.grade - a.grade;
+                return (a.id || '').localeCompare(b.id || '');
+            });
+
+        slotPriority.forEach((slotIdx) => {
+            if (newOrder[slotIdx] === null && unassignedMembers.length > 0) {
+                const nextMember = unassignedMembers.shift();
+                newOrder[slotIdx] = nextMember.id;
+                usedIds.add(nextMember.id);
+            }
+        });
+
+        // ※ 5名に満たない場合でも配列長は5を維持し、欠員枠は null のままとする
         ClubState.order = newOrder;
     }
 
@@ -2594,25 +2655,15 @@
         // 選出メンバーを戦力順（降順：1位〜5位）にソート
         const sortedSelected = sortByPowerDesc(selected);
 
-        // 大将〜先鋒の割り当て（POS_NAMES: ['先鋒', '次鋒', '中堅', '副将', '大将']）
-        // 大将（インデックス4）：戦力1位（最強）
-        // 副将（インデックス3）：戦力2位
-        // 中堅（インデックス2）：戦力3位
-        // 次鋒（インデックス1）：戦力4位
-        // 先鋒（インデックス0）：戦力5位
-        const newOrder = [];
-        if (sortedSelected.length >= 5) {
-            newOrder[4] = sortedSelected[0].id; // 大将 (1位)
-            newOrder[3] = sortedSelected[1].id; // 副将 (2位)
-            newOrder[2] = sortedSelected[2].id; // 中堅 (3位)
-            newOrder[1] = sortedSelected[3].id; // 次鋒 (4位)
-            newOrder[0] = sortedSelected[4].id; // 先鋒 (5位)
-        } else {
-            // 部員が5人未満の場合も戦力上位が大将側になるように配置
-            for (let i = 0; i < sortedSelected.length; i++) {
-                newOrder.unshift(sortedSelected[i].id);
+        // 大将〜先鋒の割り当て（大将に主将、残りを戦力順に副将、中堅、次鋒、先鋒へ配置）
+        const newOrder = [null, null, null, null, captain ? captain.id : null];
+        const nonCaptains = sortedSelected.filter(m => !captain || m.id !== captain.id);
+        const slotPriority = [3, 2, 1, 0]; // 副将, 中堅, 次鋒, 先鋒
+        nonCaptains.forEach((m, idx) => {
+            if (idx < slotPriority.length) {
+                newOrder[slotPriority[idx]] = m.id;
             }
-        }
+        });
 
         ClubState.order = newOrder;
         sanitizeOrder();
@@ -4234,6 +4285,10 @@
             const ceremonyScene = isWinner ? 'victory' : 'ceremony';
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
             renderTournamentCeremony(container);
+        } else if (ClubState.viewPhase === 'prologue_story') {
+            stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
+            renderPrologueStory(container);
         } else if (ClubState.viewPhase === 'freshman_welcome') {
             stopClubMiniCharaLoop();
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
@@ -4242,6 +4297,10 @@
             stopClubMiniCharaLoop();
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
             renderRetireCeremony(container);
+        } else if (ClubState.viewPhase === 'club_ending') {
+            stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('victory');
+            renderClubEndingScreen(container);
         } else if (ClubState.viewPhase === 'new_team_ceremony') {
             stopClubMiniCharaLoop();
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('victory');
@@ -4278,8 +4337,8 @@
                 <div class="setup-card">
                     <div class="setup-header">
                         <span class="setup-icon">⚔️</span>
-                        <h2>高校剣道部 創設</h2>
-                        <p class="setup-sub">あなたは3年生主将として部を率い、夏のインターハイ・春の全国選抜での日本一を目指します。</p>
+                        <h2>高校剣道部 復活・再始動</h2>
+                        <p class="setup-sub">かつて強豪だったが廃部していた名門剣道部。高校に入学したあなたは1年生主将として部を再建。わずかな仲間と他部からの助っ人と共に、ゼロから全国制覇を目指します。</p>
                     </div>
 
                     <form class="setup-form" onsubmit="event.preventDefault(); window.KendoClub.submitSetup();">
@@ -4296,7 +4355,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="inpCaptainName">🧑‍🎓 3年生 主将の名前（あなたの名前）</label>
+                            <label for="inpCaptainName">🧑‍🎓 1年生 主将の名前（あなたの名前）</label>
                             <input type="text" id="inpCaptainName" value="${defaultCaptain}" required maxlength="10" />
                         </div>
 
@@ -4305,7 +4364,7 @@
                             <ul>
                                 <li><strong>6月1週</strong>：インターハイ都道府県個人予選！上位2名が全国大会へ！</li>
                                 <li><strong>8月1週</strong>：インターハイ（全国高校総体）個人戦！全国の猛者と勝負！</li>
-                                <li><strong>9月1週</strong>：3年生引退。2年生から次期主将を指名して歴史を紡ぐ！</li>
+                                <li><strong>9月1週</strong>：3年生引退期。新主将を指名して次世代へ続けるか、引退してゲームを終了するか選択可能！</li>
                                 <li><strong>12月3週</strong>：選抜地区予選（団体戦）。優勝校のみ全国選抜へ！</li>
                                 <li><strong>3月4週</strong>：全国高校剣道選抜大会（47都道府県代表団体戦）！</li>
                                 <li><strong>4月1週</strong>：進級＆大会実績に応じた新入部員が入部。</li>
@@ -4314,7 +4373,7 @@
                         </div>
 
                         <button type="submit" class="btn-setup-start">
-                            🥋 剣道部を創設して開始する
+                            🥋 廃部を復活させ、全国制覇へ出陣
                         </button>
                     </form>
                 </div>
@@ -4360,6 +4419,11 @@
                 </div>
                 <div class="candidate-grid">
                     ${candidateCards}
+                </div>
+                <div class="captain-select-footer-actions">
+                    <button type="button" class="btn-ending-link" onclick="window.KendoClub.showClubEnding()">
+                        🎓 次期主将を指名せず、ここでゲームを終了する（集大成の記録を見る）
+                    </button>
                 </div>
             </div>
         `;
@@ -4529,7 +4593,7 @@
                         <div class="empty-slot-body">
                             <span class="empty-icon">⚠️</span>
                             <p>選手が不足しています<br><span class="empty-sub">（大会出場には5名必要）</span></p>
-                            <button type="button" class="btn-slot-recruit" onclick="window.KendoClub.recruitDualClubMember()">
+                            <button type="button" class="btn-slot-recruit" onclick="window.KendoClub.recruitDualClubMember(${idx})">
                                 🏃 他部から助っ人を勧誘
                             </button>
                         </div>
@@ -4816,7 +4880,7 @@
                                 <span class="q-icon">🏃</span>
                                 <span class="q-text">すり足</span>
                             </button>
-                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：筋力・面＋">
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：筋力・面・突き＋">
                                 <span class="q-icon">⚔️</span>
                                 <span class="q-text">素振り</span>
                             </button>
@@ -4984,7 +5048,7 @@
                             ` : ''}
                         </div>
                         <div class="order-empty-action">
-                            <button type="button" class="btn-slot-recruit" onclick="window.KendoClub.recruitDualClubMember()">
+                            <button type="button" class="btn-slot-recruit" onclick="window.KendoClub.recruitDualClubMember(${idx})">
                                 🏃 他部から勧誘
                             </button>
                         </div>
@@ -6261,9 +6325,12 @@
                             </div>
                         </div>
 
-                        <div class="ceremony-actions">
+                        <div class="ceremony-actions retire-actions-split">
                             <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromRetireCeremonyToCaptainSelect()">
-                                👑 新主将の指名へ進む
+                                👑 次期主将を指名してゲームを続ける（次世代へ）
+                            </button>
+                            <button type="button" class="btn-ceremony-end" onclick="window.KendoClub.showClubEnding()">
+                                🎓 主将引退・ゲーム終了（集大成の記録を見る）
                             </button>
                         </div>
                     </div>
@@ -6349,6 +6416,301 @@
 
     function proceedFromNewTeamCeremonyToDashboard() {
         ClubState.newTeamCeremonyData = null;
+        ClubState.viewPhase = 'dashboard';
+        saveClubData();
+        renderClubUI();
+    }
+
+    // ───────────────────────────────────────────
+    // 🎓 ゲーム終了・エピローグ画面描画
+    // ───────────────────────────────────────────
+    function showClubEnding() {
+        ClubState.viewPhase = 'club_ending';
+        saveClubData();
+        renderClubUI();
+    }
+
+    function renderClubEndingScreen(container) {
+        const dStats = ClubState.stats.district || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+        const nStats = ClubState.stats.national || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+        const ihDStats = ClubState.stats.interhighDistrict || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+        const ihNStats = ClubState.stats.interhighNational || { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+
+        const isIhChampion = (ihNStats.win || 0) > 0;
+        const isTeamChampion = (nStats.win || 0) > 0;
+        const isSupreme = isIhChampion && isTeamChampion;
+
+        // 引退した3年生または現メンバー
+        const retiredData = ClubState.retireCeremonyData;
+        const finalMembers = (retiredData && retiredData.retiredMembers && retiredData.retiredMembers.length > 0)
+            ? retiredData.retiredMembers
+            : ClubState.members;
+        const captain = finalMembers.find((m) => m.isPlayer) || finalMembers[0];
+        const captainName = captain ? captain.name : '主将';
+
+        // 歴代年表行
+        const historyRows = (ClubState.history || []).map((h) => {
+            const ihDist = h.interhighDistrictResult || '不出場';
+            const ihNat = h.interhighNationalResult || '不出場';
+            const dist = h.districtResult || '不出場';
+            const nat = h.nationalResult || '不出場';
+            return `
+                <tr>
+                    <td class="td-year">第${h.year}期</td>
+                    <td class="td-cap">${escapeHtml(h.captainName || '')}</td>
+                    <td class="${ihDist === '優勝' ? 'text-gold font-bold' : ''}">${escapeHtml(ihDist)}</td>
+                    <td class="${ihNat === '優勝' ? 'text-crown font-bold' : (ihNat === '準優勝' ? 'text-gold' : '')}">${escapeHtml(ihNat)}</td>
+                    <td class="${dist === '優勝' ? 'text-gold font-bold' : ''}">${escapeHtml(dist)}</td>
+                    <td class="${nat === '優勝' ? 'text-crown font-bold' : ''}">${escapeHtml(nat)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // メンバーカード
+        const memberCardsHtml = finalMembers.map((m) => {
+            const stanceLabel = m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇構え' : '中段';
+            return `
+                <div class="ending-member-card">
+                    <div class="ending-member-header">
+                        <span class="em-name">${escapeHtml(m.name)}</span>
+                        <span class="em-role">${m.isPlayer ? '👑 主将' : (m.isClubDual ? `助っ人(${m.originalClub})` : '部員')}</span>
+                    </div>
+                    <div class="ending-member-stats">
+                        <span class="em-stat-badge">構え: ${stanceLabel}</span>
+                        <span class="em-stat-badge">戦力: ${Math.round(getMemberCombatPower(m))}</span>
+                    </div>
+                    <div class="ending-member-skills">
+                        <span>面:${m.skills.men}</span>
+                        <span>小手:${m.skills.kote}</span>
+                        <span>胴:${m.skills.do}</span>
+                        <span>突:${m.skills.tsuki}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="ceremony-container ceremony-ending-view">
+                <div class="ceremony-closing-banner ceremony-ending-banner">
+                    <span class="ceremony-season-pill">🎓 第${ClubState.year}期 集大成 ｜ 栄光の軌跡</span>
+                    <h1 class="ceremony-main-title">🎓 部活動完結・旅立ちの時</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)}（${escapeHtml(ClubState.prefecture)}） ｜ 創設主将：${escapeHtml(captainName)}</div>
+                </div>
+
+                <div class="ceremony-card">
+                    <div class="ceremony-art-wrap">
+                        <img class="ceremony-art-img" src="img/ceremony/club_ending.png" alt="部活動完結" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="ceremony-art-fallback" style="display:none;">
+                            <span class="art-fallback-icon">🎓</span>
+                            <span class="art-fallback-title">部活動完結</span>
+                        </div>
+                        <div class="ceremony-tagline-overlay">〜竹刀に刻んだ汗と涙、仲間と共に駆け抜けた青春の集大成〜</div>
+                    </div>
+
+                    <div class="ceremony-scroll-body">
+                        <!-- エピローグメッセージ -->
+                        <div class="ceremony-speech-box ending-speech-box">
+                            <div class="speech-header">📜 【初代主将・引退の辞】</div>
+                            <p class="speech-content">
+                                高校に入学した春、南京錠の外された埃だらけの道場から始まった私たちの剣道。<br>
+                                部員も足りず、他部の助っ人に助けられながら、一本の竹刀に青春のすべてを注ぎ込んできました。<br>
+                                仲間と共に流した涙も、共に笑い合った日々も、すべてが一生の宝物です。<br>
+                                ここに私たちの高校剣道部は一つの大きな節目を迎えます。共に駆け抜けてくれた仲間、そして応援してくださった全ての方に――心からの礼を！
+                            </p>
+                        </div>
+
+                        <!-- 栄光の実績バッジ -->
+                        <div class="ending-honors-wrap">
+                            <div class="ending-honors-title">🏆 【獲得した栄冠・覇者の証】</div>
+                            <div class="ending-honors-grid">
+                                ${isSupreme ? `
+                                <div class="honor-badge-item badge-supreme">
+                                    <span class="h-icon">👑</span>
+                                    <span class="h-title">完全全国制覇</span>
+                                    <span class="h-desc">個人・団体ともに日本の頂点を極めた伝説の代</span>
+                                </div>` : ''}
+                                ${isIhChampion ? `
+                                <div class="honor-badge-item badge-ih">
+                                    <span class="h-icon">🥇</span>
+                                    <span class="h-title">インターハイ個人日本一</span>
+                                    <span class="h-desc">夏の全国高校総体で個人優勝を達成</span>
+                                </div>` : ''}
+                                ${isTeamChampion ? `
+                                <div class="honor-badge-item badge-team">
+                                    <span class="h-icon">🏆</span>
+                                    <span class="h-title">全国選抜団体日本一</span>
+                                    <span class="h-desc">春日井の舞台で47代表の頂点に君臨</span>
+                                </div>` : ''}
+                                ${(!isIhChampion && !isTeamChampion) ? `
+                                <div class="honor-badge-item badge-pride">
+                                    <span class="h-icon">🥋</span>
+                                    <span class="h-title">不屈の挑戦者</span>
+                                    <span class="h-desc">廃部の道場を蘇らせ、全国へ挑み続けた不滅の闘志</span>
+                                </div>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- 総合成績統計 -->
+                        <div class="ending-stats-summary-box">
+                            <div class="ending-stats-title">📊 【通算公式大会 成績サマリー】</div>
+                            <div class="ending-stats-grid">
+                                <div class="e-stat-card">
+                                    <span class="es-label">活動期間</span>
+                                    <span class="es-val">${ClubState.year} 年間</span>
+                                </div>
+                                <div class="e-stat-card">
+                                    <span class="es-label">IH都道県予選</span>
+                                    <span class="es-val">優勝 ${ihDStats.win}回 / 準優 ${ihDStats.runnerUp}回</span>
+                                </div>
+                                <div class="e-stat-card">
+                                    <span class="es-label">全国高校総体(IH)</span>
+                                    <span class="es-val">優勝 ${ihNStats.win}回 / 準優 ${ihNStats.runnerUp}回</span>
+                                </div>
+                                <div class="e-stat-card">
+                                    <span class="es-label">選抜地区予選(団体)</span>
+                                    <span class="es-val">優勝 ${dStats.win}回 / 準優 ${dStats.runnerUp}回</span>
+                                </div>
+                                <div class="e-stat-card">
+                                    <span class="es-label">全国選抜大会(団体)</span>
+                                    <span class="es-val">優勝 ${nStats.win}回 / 準優 ${nStats.runnerUp}回</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 歴代年表 -->
+                        <div class="ending-history-box">
+                            <div class="ending-history-title">📜 【年度別 公式大会戦績年表】</div>
+                            <div class="history-table-wrap">
+                                <table class="history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>年度</th>
+                                            <th>主将</th>
+                                            <th>IH個人予選</th>
+                                            <th>全国総体個人</th>
+                                            <th>選抜団体予選</th>
+                                            <th>全国高校選抜</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${historyRows || '<tr><td colspan="6" class="text-muted">戦績データなし</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 最終代のメンバー一覧 -->
+                        <div class="ending-members-box">
+                            <div class="ending-members-title">👥 【共に戦い抜いた最終メンバー】</div>
+                            <div class="ending-members-grid">
+                                ${memberCardsHtml}
+                            </div>
+                        </div>
+
+                        <!-- アクションボタン -->
+                        <div class="ceremony-actions ending-actions-wrap">
+                            <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoGameEngine.showModeSelect()">
+                                🏠 タイトル（モード選択）へ戻る
+                            </button>
+                            <button type="button" class="btn-ceremony-restart" onclick="window.KendoClub.startNewGame(false)">
+                                🔄 新たな学校で新チームを創部する
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ───────────────────────────────────────────
+    // 🌸 創部プロローグ・廃部復活ストーリー画面描画
+    // ───────────────────────────────────────────
+    function renderPrologueStory(container) {
+        const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+        const otherMembers = ClubState.members.filter((m) => !m.isPlayer);
+        const firstMate = otherMembers[0];
+        const secondMate = otherMembers[1];
+
+        const totalCount = ClubState.members.length;
+        const needHelpers = Math.max(0, 5 - totalCount);
+
+        container.innerHTML = `
+            <div class="ceremony-container ceremony-prologue-view">
+                <div class="ceremony-opening-banner ceremony-gold-banner">
+                    <span class="ceremony-season-pill">🌸 創部第1期 4月1週（1年生だけの挑戦）</span>
+                    <h1 class="ceremony-main-title">🌸 甦る名門！1年生主将と、埃を払った道場</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 武道場 ｜ 創設主将：${escapeHtml(captain ? captain.name : 'あなた')}（1年）</div>
+                </div>
+
+                <div class="ceremony-card">
+                    <div class="ceremony-art-wrap">
+                        <img class="ceremony-art-img" src="img/story/prologue_revival.png" alt="廃部道場の復活" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="ceremony-art-fallback" style="display:none;">
+                            <span class="art-fallback-icon">🥋</span>
+                            <span class="art-fallback-title">廃部からの再興</span>
+                        </div>
+                        <div class="ceremony-tagline-overlay">〜閉ざされていた扉が今、開かれる。先輩なき道場から始まる、俺たちの全国制覇〜</div>
+                    </div>
+
+                    <div class="ceremony-scroll-body">
+                        <div class="ceremony-speech-box">
+                            <div class="speech-header">📜 【情景：錆びた鍵と、舞い上がる埃】</div>
+                            <p class="speech-content">
+                                高校に入学したばかりの春、校舎の片隅で重い南京錠が掛けられていた武道場。<br>
+                                ギィと錆びた音を立てて扉を開けると、そこには舞い上がる埃の粒子と、差し込む春の柔らかな日差し。<br>
+                                奥の壁には、かつて全国を制覇した黄金期の歴代木札と、色褪せつつも威厳を放つ優勝旗が静かに眠っていた。<br><br>
+                                「先輩たちは一人もいない。部員もまだ俺たち${totalCount}人だけだ。<br>
+                                だけど……ここから俺たちの全国制覇を始めよう！<br>
+                                まずは他部から助っ人を集めて、5人のチームを作るんだ！」
+                            </p>
+                        </div>
+
+                        <div class="prologue-dialogues-box">
+                            <div class="prologue-dialogue-item">
+                                <span class="p-speaker captain">🥋 主将 ${escapeHtml(captain ? captain.name : 'あなた')} (1年)</span>
+                                <span class="p-text">「今日からここが俺たちの道場だ！先輩がいないなら、俺たち1年だけで新しい歴史を作ればいい！」</span>
+                            </div>
+                            <div class="prologue-dialogue-item">
+                                <span class="p-speaker senior">⚔️ ${escapeHtml(firstMate ? firstMate.name : '仲間')} (1年・同期)</span>
+                                <span class="p-text">「ああ！でも団体戦には5人必要だ。陸上部や柔道部に声をかけて、助っ人を頼んでみよう！」</span>
+                            </div>
+                            ${secondMate ? `
+                            <div class="prologue-dialogue-item">
+                                <span class="p-speaker rookie">🌱 ${escapeHtml(secondMate.name)} (1年・同期)</span>
+                                <span class="p-text">「掛け持ちでも一緒に竹刀を振ってくれる仲間を集めましょう！俺たちの手で全国へ行くんだ！」</span>
+                            </div>` : ''}
+                        </div>
+
+                        <div class="newteam-meta-box">
+                            <div class="newteam-meta-title">⚔️ 【新生剣道部 創設メンバー】</div>
+                            <div class="newteam-meta-grid">
+                                <div class="meta-item">
+                                    <span class="meta-label">創設主将</span>
+                                    <span class="meta-val">👑 ${escapeHtml(captain ? captain.name : 'あなた')} (1年)</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">初期部員</span>
+                                    <span class="meta-val">全${totalCount}名（1年生のみ / 上級生: 0名）</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">団体戦枠</span>
+                                    <span class="meta-val">${needHelpers > 0 ? `⚠️ あと${needHelpers}名不足（他部から助っ人勧誘可能）` : '✅ 5名揃いました！'}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ceremony-actions">
+                            <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromPrologueToDashboard()">
+                                🏠 道場の埃を払い、稽古を始める（道場へ）
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function proceedFromPrologueToDashboard() {
         ClubState.viewPhase = 'dashboard';
         saveClubData();
         renderClubUI();
@@ -6689,9 +7051,9 @@
             const initTeam = createInitialTeam(sName, pref, cName);
             ClubState.members = initTeam.members;
             ClubState.order = initTeam.order;
-            ClubState.activityLog = [`${ClubState.schoolName}剣道部（${ClubState.prefecture}）創立！3年生主将【${cName}】を中心に全国制覇へ始動！`];
+            ClubState.activityLog = [`${ClubState.schoolName}剣道部（${ClubState.prefecture}）再建！1年生主将【${cName}】が埃をかぶった道場を復活させ、全国制覇への第一歩を踏み出しました！`];
             ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
-            ClubState.viewPhase = 'dashboard';
+            ClubState.viewPhase = 'prologue_story';
 
             saveClubData();
             renderClubUI();
@@ -6796,15 +7158,31 @@
             startSpecialPracticeBout(memberId);
         },
 
-        recruitDualClubMember: function () {
+        recruitDualClubMember: function (targetSlot = null) {
             if (ClubState.members.length >= 5) {
                 alert('すでに5名以上の部員が在籍しているため、助っ人の勧誘はできません。');
                 return;
             }
             const recruit = createDualClubMember();
             ClubState.members.push(recruit);
+
+            let slotName = '控え';
+            if (typeof targetSlot === 'number' && targetSlot >= 0 && targetSlot < 5) {
+                // ボタンを押した枠に助っ人を設定
+                ClubState.order[targetSlot] = recruit.id;
+                slotName = POS_NAMES[targetSlot];
+            } else {
+                // スロット未指定の場合：欠員枠があれば副将(3)→中堅(2)→次鋒(1)→先鋒(0)の空き枠に配置
+                const slotPriority = [3, 2, 1, 0];
+                const emptySlot = slotPriority.find((s) => !ClubState.order[s]);
+                if (emptySlot !== undefined) {
+                    ClubState.order[emptySlot] = recruit.id;
+                    slotName = POS_NAMES[emptySlot];
+                }
+            }
+
             sanitizeOrder();
-            ClubState.activityLog.unshift(`🤝【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】部員不足を補うため、${recruit.originalClub}から【${recruit.name}】を掛け持ちの助っ人として勧誘・入部させました！（初期配置：控え）`);
+            ClubState.activityLog.unshift(`🤝【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】部員不足を補うため、${recruit.originalClub}から【${recruit.name}】を掛け持ちの助っ人として勧誘・入部させました！（配置：${slotName}）`);
             saveClubData();
             renderClubUI();
         },
@@ -7568,6 +7946,14 @@
 
         proceedFromNewTeamCeremonyToDashboard: function () {
             proceedFromNewTeamCeremonyToDashboard();
+        },
+
+        proceedFromPrologueToDashboard: function () {
+            proceedFromPrologueToDashboard();
+        },
+
+        showClubEnding: function () {
+            showClubEnding();
         },
 
         previewOpening: function (type = 'interhigh_district') {
