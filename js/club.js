@@ -2937,47 +2937,103 @@
         return getRandomItem(pool);
     }
 
-    // 個人戦用 対戦相手剣士の生成
+    // 個人戦用 対戦相手剣士の生成（高校3年間鍛え上げた3年生中心）
     const FIGHTER_TITLES = [
         '疾風の小手使い', '剛腕の上段', '冷静沈着な間合いの鬼', '名門の切り札',
         '電光石火の飛び込み面', '不抜の守護神', '変幻自在の技巧派', '無心の剣客',
-        '熱血のポイントゲッター', '重厚なる中段', '後の先を極めし者', '名門校の主将'
+        '熱血のポイントゲッター', '重厚なる中段', '後の先を極めし者', '名門校の主将',
+        '歴戦の業師', '県下屈指の剛剣', '不動の絶対エース', '閃光の連撃手'
     ];
 
-    function generateOpponentIndividual(schoolName, pref, powerGrade = 2, roundIdx = 0) {
+    function generateOpponentIndividual(schoolName, pref, isNationalOrGrade = false, seedTier = 0, matchIdx = 0) {
+        // 後方互換：第3引数が数値の場合は powerGrade >= 3 を全国扱い
+        const isNational = typeof isNationalOrGrade === 'boolean'
+            ? isNationalOrGrade
+            : (Number(isNationalOrGrade) >= 3);
+
         const stances = ['chudan', 'chudan', 'jodan', 'waki'];
         const stance = getRandomItem(stances);
-        const gradeBonus = Math.floor(roundIdx * 0.8);
-        const baseHp = 4 + (powerGrade >= 3 ? 1 : 0) + (Math.random() < 0.5 ? 1 : 0);
-        const str = 10 + (powerGrade + gradeBonus) * 2 + Math.floor(Math.random() * 4);
-        const agi = 10 + (powerGrade + gradeBonus) * 2 + Math.floor(Math.random() * 4);
-        const spi = 10 + (powerGrade + gradeBonus) * 2 + Math.floor(Math.random() * 4);
+
+        // 学年：高校3年間鍛え上げた3年生が中心（90%で3年、10%で天才2年）
+        const grade = (Math.random() < 0.90) ? 3 : 2;
+        const gradeLabel = grade === 3 ? '3年' : '2年';
+
+        // 必殺技（得意技）の選定
+        const specialTech = getRandomSpecialTechnique(stance);
+        const reqStatMap = {
+            hien_men: 'men', gouriki_men: 'men', tenkou_men: 'men',
+            dengeki_kote: 'kote', kasumi_kote: 'kote',
+            hayate_do: 'do', gen_do: 'do',
+            shiden_tsuki: 'tsuki', tensho_tsuki: 'tsuki'
+        };
+        const favTechStat = reqStatMap[specialTech] || 'men';
+
+        let baseHp = 5;
+        let str = 50;
+        let agi = 50;
+        let spi = 50;
+        let baseSkill = 46;
+
+        if (!isNational) {
+            // ── 都道府県個人予選（高校3年間鍛え上げた3年生） ──
+            // 1年目6月（入部2ヶ月・能力13前後）のプレイヤーにとって1回戦突破は極めて困難
+            // seedTier: 0 = 1回戦標準代表, 1 = ベスト4候補, 2 = 決勝候補（第1/第2シード）
+            const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
+            baseHp = 5 + (tierBonus >= 1 ? 1 : 0) + (Math.random() < 0.4 ? 1 : 0);
+
+            // 能力値：初戦で48〜56、シード上位で64〜78
+            const baseStatVal = 48 + tierBonus * 12 + Math.floor(Math.random() * 8);
+            str = Math.min(85, baseStatVal + Math.floor(Math.random() * 5) - 2);
+            agi = Math.min(85, baseStatVal + Math.floor(Math.random() * 5) - 2);
+            spi = Math.min(85, baseStatVal + Math.floor(Math.random() * 5) - 2);
+            baseSkill = 44 + tierBonus * 12 + Math.floor(Math.random() * 6);
+        } else {
+            // ── インターハイ全国総体（全国各県のトップ3年生） ──
+            const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
+            baseHp = 7 + (tierBonus >= 1 && Math.random() < 0.6 ? 1 : 0);
+
+            // 能力値：全国1回戦で72〜78、全国決勝クラスで90〜98
+            const baseStatVal = 72 + tierBonus * 10 + Math.floor(Math.random() * 7);
+            str = Math.min(99, baseStatVal + Math.floor(Math.random() * 5) - 2);
+            agi = Math.min(99, baseStatVal + Math.floor(Math.random() * 5) - 2);
+            spi = Math.min(99, baseStatVal + Math.floor(Math.random() * 5) - 2);
+            baseSkill = 68 + tierBonus * 11 + Math.floor(Math.random() * 6);
+        }
+
+        // 技パラメータ（得意技には +8〜12 の重点ボーナスを付与し、必殺技が確実に解放される）
+        const skills = {
+            men: Math.min(99, baseSkill + Math.floor(Math.random() * 4)),
+            kote: Math.min(99, baseSkill + Math.floor(Math.random() * 4)),
+            do: Math.min(99, Math.max(10, baseSkill - 2 + Math.floor(Math.random() * 4))),
+            tsuki: Math.min(99, Math.max(10, baseSkill - 3 + Math.floor(Math.random() * 4))),
+        };
+        const favBonus = 8 + Math.floor(Math.random() * 6);
+        skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
 
         const surname = getRandomItem(SURNAMES);
         const title = getRandomItem(FIGHTER_TITLES);
+        const roleLabel = `${gradeLabel} 個人代表`;
 
         return {
             name: surname,
             fullName: `${surname}`,
             schoolName: schoolName,
             pref: pref,
-            role: '個人代表',
+            grade: grade,
+            role: roleLabel,
             title: title,
-            shortDesc: `${pref}・${schoolName}代表。「${title}」の異名をとる強豪剣士。`,
-            hp: Math.min(8, baseHp),
+            shortDesc: isNational
+                ? `${pref}・${schoolName}${gradeLabel}代表。「${title}」の異名をとる全国屈指の猛者。`
+                : `${pref}・${schoolName}${gradeLabel}。「${title}」の異名をとる、高校3年間鍛え上げた強豪剣士。`,
+            hp: Math.min(8, Math.max(3, baseHp)),
             str: str,
             agi: agi,
             spi: spi,
-            skills: {
-                men: 10 + (powerGrade + gradeBonus) * 2,
-                kote: 10 + (powerGrade + gradeBonus) * 2,
-                do: 9 + (powerGrade + gradeBonus) * 2,
-                tsuki: 8 + (powerGrade + gradeBonus) * 2,
-            },
-            specialTechnique: getRandomSpecialTechnique(stance),
+            skills: skills,
+            specialTechnique: specialTech,
             stance: stance,
             face: window.FaceGenerator ? window.FaceGenerator.generateFace({
-                seed: `${schoolName}_${pref}_${roundIdx}_${surname}`,
+                seed: `${schoolName}_${pref}_${matchIdx}_${surname}`,
                 name: surname
             }) : null,
         };
@@ -3109,22 +3165,43 @@
             rounds[0].matches[seed2MatchIdx].playerA = p2;
         }
 
-        // 残りの枠にライバル選手を配置
+        // 残りの枠にライバル選手を配置（高校3年間鍛え上げた3年生中心）
         for (let m = 0; m < firstRoundMatches; m++) {
             const matchNode = rounds[0].matches[m];
+
+            // トーナメント山に応じたシード階層の算出
+            let defaultSeedTier = 0;
+            if (isNational) {
+                // 32名（16試合）
+                if (m === firstRoundMatches - 1 || m === Math.floor(firstRoundMatches / 2) - 1) {
+                    defaultSeedTier = 2; // 第1・第2シード枠（全国頂点候補）
+                } else if (m % 4 === 3) {
+                    defaultSeedTier = 1; // 各ブロックのシード強豪
+                }
+            } else {
+                // 16名（8試合）
+                if (m === firstRoundMatches - 1) {
+                    defaultSeedTier = 2; // 反対山の大本命（第1シード）
+                } else if (m === 3 || m === 2 || m === 6) {
+                    defaultSeedTier = 1; // 準決勝・ベスト4候補
+                }
+            }
 
             if (!matchNode.playerA) {
                 const oppPref = isNational ? getRandomItem(otherPrefs) : pref;
                 const oppSchool = `${getRandomItem(SCHOOL_PREFIXES)}高校`;
-                const fighter = generateOpponentIndividual(oppSchool, oppPref, isNational ? 3 : 2, 0);
+                const fighter = generateOpponentIndividual(oppSchool, oppPref, isNational, defaultSeedTier, m * 2);
                 matchNode.playerA = {
                     id: `opp_${oppSchool}_${fighter.name}_${m}a`,
                     name: fighter.name,
                     schoolName: fighter.schoolName,
                     pref: fighter.pref,
+                    grade: fighter.grade,
+                    role: fighter.role,
                     isMyClub: false,
                     isPlayer: false,
                     title: fighter.title,
+                    shortDesc: fighter.shortDesc,
                     hp: fighter.hp,
                     str: fighter.str,
                     agi: fighter.agi,
@@ -3140,15 +3217,21 @@
             if (!matchNode.playerB) {
                 const oppPref = isNational ? getRandomItem(otherPrefs) : pref;
                 const oppSchool = `${getRandomItem(SCHOOL_PREFIXES)}高校`;
-                const fighter = generateOpponentIndividual(oppSchool, oppPref, isNational ? 3 : 2, 0);
+                // 自校選手と直接当たる枠（Match 0 の B枠、Match (firstRoundMatches / 2) の B枠）は 1回戦標準代表（seedTier = 0）
+                const isDirectOpponentOfMyClub = (m === 0 || m === Math.floor(firstRoundMatches / 2));
+                const slotTier = isDirectOpponentOfMyClub ? 0 : defaultSeedTier;
+                const fighter = generateOpponentIndividual(oppSchool, oppPref, isNational, slotTier, m * 2 + 1);
                 matchNode.playerB = {
                     id: `opp_${oppSchool}_${fighter.name}_${m}b`,
                     name: fighter.name,
                     schoolName: fighter.schoolName,
                     pref: fighter.pref,
+                    grade: fighter.grade,
+                    role: fighter.role,
                     isMyClub: false,
                     isPlayer: false,
                     title: fighter.title,
+                    shortDesc: fighter.shortDesc,
                     hp: fighter.hp,
                     str: fighter.str,
                     agi: fighter.agi,
@@ -3346,42 +3429,117 @@
         renderClubUI();
     }
 
-    function generateOpponentTeam(schoolName, pref, powerGrade = 2) {
+    // 団体戦用 対戦相手校チームの生成（高校2年間鍛え上げた2年生中心の新チーム）
+    function generateOpponentTeam(schoolName, pref, stageIdxOrGrade = 0, isNationalFlag = false) {
+        // 後方互換：第4引数がブール値、または第3引数が4以上なら全国扱い
+        const isNational = (typeof isNationalFlag === 'boolean')
+            ? isNationalFlag
+            : (Number(stageIdxOrGrade) >= 4);
+
+        // ラウンド進行度（0: 1回戦/準々決勝, 1: 準決勝, 2: 決勝 など）
+        const roundStep = (typeof isNationalFlag === 'boolean')
+            ? Math.max(0, Number(stageIdxOrGrade) || 0)
+            : Math.max(0, (Number(stageIdxOrGrade) || 1) - 1);
+
         const members = [];
+
+        // ポジションごとの特性（先鋒: 俊敏, 次鋒: 粘り, 中堅: 主力, 副将: 剛腕実力者, 大将: 新主将エース）
+        const posConfigs = [
+            { posName: '先鋒', gradeChance2: 0.80, statBias: { str: 0, agi: 2, spi: -1, hp: 0 }, baseSkillOffset: -2 },
+            { posName: '次鋒', gradeChance2: 0.85, statBias: { str: 0, agi: 0, spi: 1, hp: 1 }, baseSkillOffset: -2 },
+            { posName: '中堅', gradeChance2: 1.00, statBias: { str: 1, agi: 1, spi: 2, hp: 0 }, baseSkillOffset: 1 },
+            { posName: '副将', gradeChance2: 1.00, statBias: { str: 2, agi: 0, spi: 2, hp: 1 }, baseSkillOffset: 2 },
+            { posName: '大将', gradeChance2: 1.00, statBias: { str: 3, agi: 2, spi: 4, hp: 1 }, baseSkillOffset: 5 },
+        ];
+
         for (let i = 0; i < 5; i++) {
+            const pConf = posConfigs[i] || posConfigs[0];
             const stances = ['chudan', 'chudan', 'jodan', 'waki'];
             const stance = getRandomItem(stances);
-            const baseHp = 4 + (powerGrade >= 3 ? 1 : 0) + (Math.random() < 0.4 ? 1 : 0);
-            const str = 9 + powerGrade * 2 + Math.floor(Math.random() * 4);
-            const agi = 9 + powerGrade * 2 + Math.floor(Math.random() * 4);
-            const spi = 9 + powerGrade * 2 + Math.floor(Math.random() * 4);
+
+            // 学年：2年生中心（先鋒・次鋒は稀に有望な1年生）
+            const isGrade2 = Math.random() < pConf.gradeChance2;
+            const grade = isGrade2 ? 2 : 1;
+            const gradeLabel = grade === 2 ? '2年' : '1年';
+
+            const specialTech = getRandomSpecialTechnique(stance);
+            const reqStatMap = {
+                hien_men: 'men', gouriki_men: 'men', tenkou_men: 'men',
+                dengeki_kote: 'kote', kasumi_kote: 'kote',
+                hayate_do: 'do', gen_do: 'do',
+                shiden_tsuki: 'tsuki', tensho_tsuki: 'tsuki'
+            };
+            const favTechStat = reqStatMap[specialTech] || 'men';
+
+            let baseHp = 4;
+            let baseStat = 38;
+            let baseSkill = 35;
+
+            if (!isNational) {
+                // ── 地区大会（12月新人戦・選抜地区予選） ──
+                // 1年目冬（プレイ開始約34週・部員能力22〜28）にとって1回戦は極めて困難
+                // roundStep: 0 (準々決勝/1回戦), 1 (準決勝), 2 (決勝)
+                const stepBonus = Math.min(2, roundStep);
+                // 1回戦で先鋒〜次鋒は36〜42、大将は46〜54。決勝では先鋒48〜54、大将62〜70
+                baseStat = 36 + stepBonus * 7 + (i >= 2 ? 4 : 0) + (i === 4 ? 4 : 0) + Math.floor(Math.random() * 5);
+                baseSkill = 33 + stepBonus * 6 + (i >= 2 ? 3 : 0) + (i === 4 ? 4 : 0) + Math.floor(Math.random() * 4);
+                baseHp = 4 + (stepBonus >= 1 || i >= 3 ? 1 : 0) + (i === 4 && Math.random() < 0.5 ? 1 : 0);
+            } else {
+                // ── 全国選抜大会（3月・全国の強豪2年生チーム） ──
+                // roundStep: 0 (1回戦), 1 (2回戦), 2 (準々決勝), 3 (準決勝), 4 (決勝)
+                const stepBonus = Math.min(4, roundStep);
+                baseStat = 52 + stepBonus * 6 + (i >= 2 ? 4 : 0) + (i === 4 ? 6 : 0) + Math.floor(Math.random() * 5);
+                baseSkill = 48 + stepBonus * 6 + (i >= 2 ? 3 : 0) + (i === 4 ? 5 : 0) + Math.floor(Math.random() * 4);
+                baseHp = 5 + (stepBonus >= 2 || i >= 2 ? 1 : 0) + (i === 4 ? 1 : 0);
+            }
+
+            // ポジション補正と学年補正（1年の場合は少し控えめ）
+            const gradeMod = grade === 1 ? -3 : 0;
+            const str = Math.min(99, Math.max(10, baseStat + pConf.statBias.str + gradeMod + Math.floor(Math.random() * 3)));
+            const agi = Math.min(99, Math.max(10, baseStat + pConf.statBias.agi + gradeMod + Math.floor(Math.random() * 3)));
+            const spi = Math.min(99, Math.max(10, baseStat + pConf.statBias.spi + gradeMod + Math.floor(Math.random() * 3)));
+            const finalBaseSkill = Math.min(99, Math.max(10, baseSkill + pConf.baseSkillOffset + gradeMod));
+
+            const skills = {
+                men: Math.min(99, finalBaseSkill + Math.floor(Math.random() * 3)),
+                kote: Math.min(99, finalBaseSkill + Math.floor(Math.random() * 3)),
+                do: Math.min(99, Math.max(10, finalBaseSkill - 1 + Math.floor(Math.random() * 3))),
+                tsuki: Math.min(99, Math.max(10, finalBaseSkill - 2 + Math.floor(Math.random() * 3))),
+            };
+
+            // 中堅・副将・大将、あるいは上位ラウンドでは得意技にボーナスを付与して必殺技を解放
+            if (i >= 2 || roundStep >= 1 || isNational) {
+                const favBonus = 6 + Math.floor(Math.random() * 5);
+                skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
+            }
 
             const memberName = getRandomItem(SURNAMES);
+            const memberRole = `${gradeLabel}・${POS_NAMES[i]}`;
+
             members.push({
                 name: memberName,
-                role: POS_NAMES[i],
-                hp: Math.min(8, baseHp),
+                grade: grade,
+                role: memberRole,
+                hp: Math.min(8, Math.max(3, baseHp + pConf.statBias.hp)),
                 str: str,
                 agi: agi,
                 spi: spi,
-                skills: {
-                    men: 9 + powerGrade * 2,
-                    kote: 9 + powerGrade * 2,
-                    do: 8 + powerGrade * 2,
-                    tsuki: 7 + powerGrade * 2,
-                },
-                specialTechnique: getRandomSpecialTechnique(stance),
+                skills: skills,
+                specialTechnique: specialTech,
                 stance: stance,
                 face: window.FaceGenerator ? window.FaceGenerator.generateFace({
-                    seed: `${schoolName}_${pref}_${i}_${memberName}`,
+                    seed: `${schoolName}_${pref}_${i}_${roundStep}_${memberName}`,
                     name: memberName
                 }) : null,
             });
         }
+
         return {
             schoolName: schoolName,
             pref: pref,
-            shortDesc: `${pref}の強豪。隙のない布陣で一本を狙う。`,
+            shortDesc: isNational
+                ? `${pref}代表の精鋭高校。高校2年間鍛え抜かれた盤石の新チーム布陣。`
+                : `${pref}の強豪高校。2年間鍛え上げた2年生主力の粘り強い布陣。`,
             members: members,
         };
     }
@@ -3395,7 +3553,7 @@
             return {
                 roundIndex: idx,
                 roundName: rName,
-                oppTeam: generateOpponentTeam(oppSchool, pref, idx + 1),
+                oppTeam: generateOpponentTeam(oppSchool, pref, idx, false),
             };
         });
 
@@ -3426,7 +3584,7 @@
             return {
                 roundIndex: idx,
                 roundName: rName,
-                oppTeam: generateOpponentTeam(oppSchool, p, idx + 2),
+                oppTeam: generateOpponentTeam(oppSchool, p, idx, true),
             };
         });
 
@@ -7788,7 +7946,11 @@
             let enemyNameLabel = enemySchool ? `${enemySchool}・${enemyMember.name}` : enemyMember.name;
             let enemyIntroQuote = isIntraClub
                 ? `「主将、全力を尽くして一本を狙います！」`
-                : (isIndividual ? `「${enemyMember.title || '個人代表'}の意地、見せてやる！」` : `「${boutsData.schoolName || enemySchool}の誇りにかけて、一本も譲らん！」`);
+                : (isIndividual
+                    ? (enemyMember.grade === 3
+                        ? `「高校3年間、この日のために鍛え上げてきた！簡単には通さんぞ！」`
+                        : `「${enemyMember.title || '個人代表'}の意地、見せてやる！」`)
+                    : `「2年間積み上げてきた我らの剣道、受けてみろ！」`);
 
             const enemyArmorTheme = enemyMember.armorTheme || {
                 doStops: ['#3b0764', '#581c87', '#7e22ce', '#3b0764', '#1e1b4b'],
@@ -7842,8 +8004,8 @@
                         prefecture: enemyPref,
                         shortName: enemyMember.name,
                         role: isIndividual
-                            ? (isIntraClub ? (enemyMember.isPlayer ? '主将' : (enemyMember.grade ? `${enemyMember.grade}年` : '')) : '')
-                            : sanitizePosName(curBout.posName),
+                            ? (isIntraClub ? (enemyMember.isPlayer ? '主将' : (enemyMember.grade ? `${enemyMember.grade}年` : '')) : (enemyMember.role || (enemyMember.grade ? `${enemyMember.grade}年 個人代表` : '3年 個人代表')))
+                            : sanitizePosName(enemyMember.role || curBout.posName),
                         rank: isIndividual
                             ? (enemyMember.title && !['代表剣士', '高校剣士', '代表選手'].includes(enemyMember.title) ? enemyMember.title : '')
                             : '',
