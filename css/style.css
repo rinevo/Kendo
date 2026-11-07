@@ -6581,6 +6581,20 @@ button.reset-btn:hover:not(:disabled) {
     color: #fbbf24;
 }
 
+.event-dialogue-item.is-senior .speaker-role-tag {
+    background: rgba(244, 114, 182, 0.22);
+    border-color: rgba(244, 114, 182, 0.6);
+    color: #f472b6;
+}
+
+.event-dialogue-item.is-senior .event-speaker-badge {
+    color: #fbcfe8;
+}
+
+.event-dialogue-item.is-senior .event-dialogue-avatar-col .student-photo-frame {
+    border-color: rgba(244, 114, 182, 0.95);
+}
+
 .event-dialogue-item.is-captain .event-speaker-badge {
     color: #fbbf24;
 }
@@ -6643,6 +6657,172 @@ button.reset-btn:hover:not(:disabled) {
 
 .event-dialogue-item.is-captain .event-dialogue-bubble::after {
     border-right-color: rgba(30, 41, 59, 0.95);
+}
+
+.event-dialogue-item.is-senior .event-dialogue-bubble {
+    border-color: rgba(244, 114, 182, 0.5);
+    background: rgba(35, 23, 45, 0.92);
+}
+
+.event-dialogue-item.is-senior .event-dialogue-bubble::before {
+    border-right-color: rgba(244, 114, 182, 0.6);
+}
+
+.event-dialogue-item.is-senior .event-dialogue-bubble::after {
+    border-right-color: rgba(35, 23, 45, 0.95);
+}
+
+/* 卒業生一覧紹介セクション */
+.graduating-seniors-box {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(88, 28, 135, 0.2) 100%);
+    border-radius: 12px;
+    padding: 16px 18px;
+    border: 1px solid rgba(244, 114, 182, 0.35);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.seniors-box-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.seniors-header-icon {
+    font-size: 1.25rem;
+}
+
+.seniors-header-title {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: #fbcfe8;
+    letter-spacing: 0.05em;
+}
+
+.seniors-header-sub {
+    font-size: 0.78rem;
+    color: #cbd5e1;
+}
+
+.graduating-seniors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.graduating-senior-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(244, 114, 182, 0.3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.graduating-senior-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(244, 114, 182, 0.7);
+    box-shadow: 0 6px 18px rgba(244, 114, 182, 0.25);
+}
+
+.senior-card-avatar {
+    flex: 0 0 52px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.senior-card-avatar .student-photo-frame {
+    padding: 1.5px;
+    background: #ffffff;
+    border-color: rgba(244, 114, 182, 0.9);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.senior-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.senior-card-role-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.senior-badge {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(244, 114, 182, 0.2);
+    border: 1px solid rgba(244, 114, 182, 0.5);
+    color: #f472b6;
+}
+
+.senior-badge.is-captain {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: rgba(245, 158, 11, 0.6);
+    color: #fbbf24;
+}
+
+.senior-stance-badge {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.senior-card-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.senior-card-stats {
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.senior-stat-item strong {
+    color: #fbbf24;
+}
+
+.senior-tech-item {
+    font-size: 0.74rem;
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.15);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.senior-card-graduate-seal {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 0.70rem;
+    font-weight: 800;
+    color: #fb7185;
+    background: rgba(251, 113, 133, 0.15);
+    border: 1px solid rgba(251, 113, 133, 0.4);
+    padding: 1px 5px;
+    border-radius: 10px;
+    transform: rotate(3deg);
 }
 
 /* イベントボーナスカード */

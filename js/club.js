@@ -776,6 +776,15 @@
             category: 'seasonal',
             month: 3,
             week: 2,
+            condition: (state) => {
+                // 部員に3年生が在籍したことがあり、前年9月（当年度9月）に引退した3年生が存在する場合のみ発生
+                return !!(
+                    state.lastRetiredSeniors &&
+                    state.lastRetiredSeniors.year === state.year &&
+                    Array.isArray(state.lastRetiredSeniors.members) &&
+                    state.lastRetiredSeniors.members.length > 0
+                );
+            },
             title: '🎓 先輩たちへの感謝！道場での胴上げと旅立ちの誓い',
             seasonTag: '🎓 旅立ちの春 ｜ 3月2週',
             image: 'img/event/graduation_farewell.png',
@@ -988,6 +997,72 @@
         const otherMembers = ClubState.members.filter((m) => !m.isPlayer);
         const randomMember = otherMembers.length > 0 ? getRandomItem(otherMembers) : captain;
 
+        let dialogues = [];
+        let retiredSeniors = [];
+
+        // 3月2週「旅立ちの春（卒業式）」特有の処理：前年9月に引退した3年生元部員と掛け合い
+        if (eventDef.id === 'graduation_farewell') {
+            retiredSeniors = (ClubState.lastRetiredSeniors && Array.isArray(ClubState.lastRetiredSeniors.members))
+                ? ClubState.lastRetiredSeniors.members
+                : [];
+
+            if (retiredSeniors.length > 0) {
+                // 先輩代表（元主将がいれば元主将、いなければ1人目）
+                const mainSenior = retiredSeniors.find((s) => s.wasPlayer || s.isPlayer) || retiredSeniors[0];
+                const subSenior = retiredSeniors.find((s) => s.id !== mainSenior.id);
+
+                // 1. 先輩代表からの激励の言葉
+                dialogues.push({
+                    speaker: mainSenior.name,
+                    speakerRole: '卒業生',
+                    isSenior: true,
+                    retiredMember: mainSenior,
+                    text: `${captain.name}、新チームを立派に引っ張ってくれたな。お前たちなら絶対に全国の頂点に立てる！俺たちの想いも連れて行ってくれ！`,
+                });
+
+                // 2. 2人目の先輩がいればその言葉
+                if (subSenior) {
+                    dialogues.push({
+                        speaker: subSenior.name,
+                        speakerRole: '卒業生',
+                        isSenior: true,
+                        retiredMember: subSenior,
+                        text: `道場もお前たちに託したぞ！たまにはOBとして稽古をつけてやるから覚悟しておけよ！`,
+                    });
+                }
+
+                // 3. 現主将からの送辞と誓い
+                dialogues.push({
+                    speaker: captain.name,
+                    speakerRole: '主将',
+                    memberId: captain.id,
+                    text: `${mainSenior.name}先輩方、今まで本当にありがとうございました！先輩方の教えを胸に、必ず全国制覇を果たします！`,
+                });
+
+                // 4. 後輩部員たちの胴上げ掛け声
+                dialogues.push({
+                    speaker: randomMember.name,
+                    speakerRole: '部員',
+                    memberId: randomMember.id,
+                    text: `「せーの、そーれ！」宙を舞う先輩たちの晴れやかな笑顔！道場に感謝の胴上げと歓声が響き渡る！`,
+                });
+            }
+        }
+
+        // デフォルトの会話構築
+        if (dialogues.length === 0) {
+            dialogues = (eventDef.dialogues || []).map((d) => {
+                const targetMember = d.speaker === '主将' ? captain : d.speaker === '部員' ? randomMember : null;
+                const speakerName = targetMember ? targetMember.name : d.speaker;
+                return {
+                    speaker: speakerName,
+                    speakerRole: d.speaker,
+                    memberId: targetMember ? targetMember.id : null,
+                    text: d.text.replace(/\{captain\}/g, captain.name).replace(/\{member\}/g, randomMember.name),
+                };
+            });
+        }
+
         return {
             id: eventDef.id,
             title: eventDef.title,
@@ -997,16 +1072,8 @@
             fallbackTitle: eventDef.fallbackTitle,
             tagline: eventDef.tagline,
             narration: eventDef.narration,
-            dialogues: (eventDef.dialogues || []).map((d) => {
-                const targetMember = d.speaker === '主将' ? captain : d.speaker === '部員' ? randomMember : null;
-                const speakerName = targetMember ? targetMember.name : d.speaker;
-                return {
-                    speaker: speakerName,
-                    speakerRole: d.speaker,
-                    memberId: targetMember ? targetMember.id : null,
-                    text: d.text.replace(/\{captain\}/g, captain.name).replace(/\{member\}/g, randomMember.name),
-                };
-            }),
+            dialogues: dialogues,
+            retiredSeniors: retiredSeniors,
             effectsDesc: eventDef.effectsDesc,
         };
     }
@@ -1035,8 +1102,20 @@
         if (!ClubState.members || ClubState.members.length === 0) return false;
 
         let pickedEvent = null;
-        // 1. 季節固定イベントのチェック (カレンダーの月・週が完全一致 ＆ 今年度未発生)
-        const seasonalEvent = CLUB_EVENTS.find((e) => e.category === 'seasonal' && e.month === ClubState.month && e.week === ClubState.week && !hasEventTriggeredThisYear(e.id));
+        // 1. 季節固定イベントのチェック (カレンダーの月・週が完全一致 ＆ 今年度未発生 ＆ 条件関数がある場合は合致)
+        const seasonalEvent = CLUB_EVENTS.find((e) => {
+            if (e.category !== 'seasonal') return false;
+            if (e.month !== ClubState.month || e.week !== ClubState.week) return false;
+            if (hasEventTriggeredThisYear(e.id)) return false;
+            if (typeof e.condition === 'function') {
+                try {
+                    if (!e.condition(ClubState)) return false;
+                } catch (err) {
+                    return false;
+                }
+            }
+            return true;
+        });
         if (seasonalEvent) {
             pickedEvent = seasonalEvent;
         } else {
@@ -1777,6 +1856,7 @@
         freshmanWelcomeData: null,   // 新1年生入部歓迎画面データ
         retireCeremonyData: null,    // 3年生引退セレモニー画面データ
         newTeamCeremonyData: null,   // 新主将就任・新体制始動画面データ
+        lastRetiredSeniors: null,    // 当年度9月に引退した3年生先輩部員リスト { year: number, members: Array }
         currentEventData: null,      // 高校生部活ライフイベント画面データ
         pendingEventData: null,      // 保留中の高校生部活ライフイベント（大会直後等、ダッシュボード確認後に表示）
         advanceWeekOnEventComplete: false, // 練習実行後に保留イベントを開いた場合、イベント完了時に週を進めるフラグ
@@ -1839,6 +1919,7 @@
                 memberGridScrollLeft: ClubState.memberGridScrollLeft,
                 isRestPosture: !!ClubState.isRestPosture,
                 captainAutoMode: !!ClubState.captainAutoMode,
+                lastRetiredSeniors: ClubState.lastRetiredSeniors,
                 eventHistoryByYear: ClubState.eventHistoryByYear || {},
                 history: ClubState.history,
                 stats: ClubState.stats,
@@ -1918,6 +1999,7 @@
             ClubState.memberGridScrollLeft = typeof data.memberGridScrollLeft === 'number' ? data.memberGridScrollLeft : -1;
             ClubState.isRestPosture = !!data.isRestPosture;
             ClubState.captainAutoMode = !!data.captainAutoMode;
+            ClubState.lastRetiredSeniors = data.lastRetiredSeniors || null;
             ClubState.eventHistoryByYear = (data && data.eventHistoryByYear && typeof data.eventHistoryByYear === 'object') ? data.eventHistoryByYear : {};
             if (Array.isArray(data.history)) ClubState.history = data.history;
             if (data.stats) {
@@ -2204,6 +2286,7 @@
         ClubState.viewPhase = 'setup';
         ClubState.currentEventData = null;
         ClubState.pendingEventData = null;
+        ClubState.lastRetiredSeniors = null;
         ClubState.currentMatchData = null;
         ClubState.selectedSpecialTargetId = null;
         ClubState.selectedPracticeMenu = null;
@@ -2454,7 +2537,8 @@
     function triggerRetireAndCaptainSelection() {
         const retiredMembers = ClubState.members.filter((m) => m.grade >= 3);
         if (retiredMembers.length === 0) {
-            // 3年生が0名の場合（1年目：廃部から立ち上げた創部初期）
+            // 3年生が0名の場合（1年目・2年目など：廃部から立ち上げた創部初期）
+            ClubState.lastRetiredSeniors = null;
             const logMsg = `🍁【${ClubState.year}年目 9月1週】先輩のいない新生${ClubState.schoolName}剣道部！引退する部員はおらず、創設メンバー全員で冬の全国選抜地区予選へ挑みます！`;
             ClubState.activityLog.unshift(logMsg);
             saveClubData();
@@ -2463,8 +2547,21 @@
         }
 
         const retiredNames = retiredMembers.map((m) => m.name);
+        // 主将だった部員をマーク
+        retiredMembers.forEach((m) => {
+            if (m.isPlayer) {
+                m.wasPlayer = true;
+            }
+        });
+
         // 3年生を名簿から削除
         ClubState.members = ClubState.members.filter((m) => m.grade < 3);
+
+        // 前年9月に引退した3年生データとして永続保存（翌年3月2週の卒業式等で参照）
+        ClubState.lastRetiredSeniors = {
+            year: ClubState.year,
+            members: JSON.parse(JSON.stringify(retiredMembers)),
+        };
 
         const logMsg = `🍂【${ClubState.year}年目 9月1週】3年生（${retiredNames.join('・')}）が夏の大会を終えて引退しました。新チーム始動のため、新主将を指名してください。`;
         ClubState.activityLog.unshift(logMsg);
@@ -7067,7 +7164,10 @@
         const dialoguesHtml = (data.dialogues || []).map((d) => {
             // memberId または名前から対象部員を取得
             let member = null;
-            if (d.memberId) {
+            const isSenior = !!(d.isSenior || d.retiredMember);
+            if (d.retiredMember) {
+                member = d.retiredMember;
+            } else if (d.memberId) {
                 member = ClubState.members.find((m) => m.id === d.memberId);
             }
             if (!member) {
@@ -7078,32 +7178,32 @@
                 }
             }
 
-            const isCaptain = !!(member && member.isPlayer) || (d.speaker && d.speaker.includes('主将'));
-            const roleLabel = isCaptain ? '👑 主将' : (member ? '⚔️ 部員' : (d.speaker.includes('OB') ? '🥋 招待' : '👤'));
+            const isCaptain = !isSenior && (!!(member && member.isPlayer) || (d.speaker && d.speaker.includes('主将')));
+            const roleLabel = isSenior ? '🎓 卒業生' : (isCaptain ? '👑 主将' : (member ? '⚔️ 部員' : (d.speaker.includes('OB') ? '🥋 招待' : '👤')));
 
             let avatarHtml = '';
             if (member && window.FaceGenerator) {
                 const faceSvg = window.FaceGenerator.getMemberFaceSvg(member, 44, 58, {
                     withFrame: true,
                     schoolName: ClubState.schoolName || '青雲高校',
-                    stampText: member.isPlayer ? '主将証' : '手帳'
+                    stampText: isSenior ? '卒業生' : (member.isPlayer ? '主将証' : '手帳')
                 });
                 avatarHtml = `
-                    <span class="student-photo-frame" title="${escapeHtml(member.name)}の生徒手帳を開く" onclick="event.stopPropagation(); if (window.FaceGenerator) window.FaceGenerator.showHandbookModal(window.ClubState.members.find(m => m.id === '${member.id}'));">
+                    <span class="student-photo-frame ${isSenior ? 'is-senior' : ''}" title="${escapeHtml(member.name)}の生徒手帳を開く" onclick="event.stopPropagation(); if (window.KendoClub && window.KendoClub.showMemberHandbook) { window.KendoClub.showMemberHandbook('${member.id}'); } else if (window.FaceGenerator) { window.FaceGenerator.showHandbookModal(window.ClubState.members.find(m => m.id === '${member.id}')); }">
                         ${faceSvg}
                     </span>
                 `;
             } else {
-                const icon = d.speaker.includes('OB') ? '🥋' : '👤';
+                const icon = isSenior ? '🎓' : (d.speaker.includes('OB') ? '🥋' : '👤');
                 avatarHtml = `
-                    <div class="event-fallback-avatar" title="${escapeHtml(d.speaker)}">
+                    <div class="event-fallback-avatar ${isSenior ? 'is-senior' : ''}" title="${escapeHtml(d.speaker)}">
                         <span class="fallback-icon">${icon}</span>
                     </div>
                 `;
             }
 
             return `
-                <div class="event-dialogue-item ${isCaptain ? 'is-captain' : ''} ${member ? 'has-member-photo' : ''}">
+                <div class="event-dialogue-item ${isCaptain ? 'is-captain' : ''} ${isSenior ? 'is-senior' : ''} ${member ? 'has-member-photo' : ''}">
                     <div class="event-dialogue-avatar-col">
                         ${avatarHtml}
                     </div>
@@ -7111,7 +7211,7 @@
                         <div class="event-speaker-badge">
                             <span class="speaker-role-tag">${roleLabel}</span>
                             <span class="speaker-name">${escapeHtml(d.speaker)}</span>
-                            ${member && member.grade ? `<span class="speaker-grade">(${member.grade}年)</span>` : ''}
+                            ${isSenior ? '<span class="speaker-grade">(3年生・卒業生)</span>' : (member && member.grade ? `<span class="speaker-grade">(${member.grade}年)</span>` : '')}
                         </div>
                         <div class="event-dialogue-bubble">
                             ${escapeHtml(d.text)}
@@ -7144,6 +7244,49 @@
                             <div class="narration-header">📖 【情景】</div>
                             <p class="narration-content">${data.narration || ''}</p>
                         </div>
+
+                        ${(data.retiredSeniors && data.retiredSeniors.length > 0) ? `
+                            <div class="graduating-seniors-box">
+                                <div class="seniors-box-header">
+                                    <span class="seniors-header-icon">🎓</span>
+                                    <span class="seniors-header-title">卒業を迎える先輩たち</span>
+                                    <span class="seniors-header-sub">（前年9月に引退した3年生元部員）</span>
+                                </div>
+                                <div class="graduating-seniors-grid">
+                                    ${data.retiredSeniors.map((senior) => {
+                                        const faceSvg = window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(senior, 50, 66, {
+                                            withFrame: true,
+                                            schoolName: ClubState.schoolName || '青雲高校',
+                                            stampText: '卒業生'
+                                        }) : '<span style="font-size:28px;">🎓</span>';
+                                        const stanceLabel = senior.favStance === 'jodan' ? '上段' : (senior.favStance === 'waki' ? '下段' : '中段');
+                                        const roleBadge = senior.wasPlayer ? '👑 元主将' : '⚔️ 先輩';
+                                        const combatPower = (typeof getMemberCombatPower === 'function')
+                                            ? getMemberCombatPower(senior)
+                                            : Math.round(((senior.str || 10) + (senior.agi || 10) + (senior.spi || 10)) * 3);
+                                        return `
+                                            <div class="graduating-senior-card" onclick="event.stopPropagation(); if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${senior.id}');" title="${escapeHtml(senior.name)}の生徒手帳を開く">
+                                                <div class="senior-card-avatar">
+                                                    ${faceSvg}
+                                                </div>
+                                                <div class="senior-card-info">
+                                                    <div class="senior-card-role-row">
+                                                        <span class="senior-badge ${senior.wasPlayer ? 'is-captain' : ''}">${roleBadge}</span>
+                                                        <span class="senior-stance-badge">構え: ${stanceLabel}</span>
+                                                    </div>
+                                                    <div class="senior-card-name">${escapeHtml(senior.name)}</div>
+                                                    <div class="senior-card-stats">
+                                                        <span class="senior-stat-item">戦力: <strong>${combatPower}</strong></span>
+                                                        ${senior.favSpecialTech ? `<span class="senior-tech-item">秘技: ${escapeHtml(senior.favSpecialTech)}</span>` : ''}
+                                                    </div>
+                                                </div>
+                                                <div class="senior-card-graduate-seal">🎓 卒業</div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
 
                         ${dialoguesHtml ? `
                             <div class="event-dialogues-box">
@@ -7373,6 +7516,19 @@
     window.KendoClub = {
         getMemberById: function (id) {
             return (ClubState.members || []).find((m) => m.id === id);
+        },
+
+        showMemberHandbook: function (id) {
+            let member = (ClubState.members || []).find((m) => m.id === id);
+            if (!member && ClubState.lastRetiredSeniors && Array.isArray(ClubState.lastRetiredSeniors.members)) {
+                member = ClubState.lastRetiredSeniors.members.find((m) => m.id === id);
+            }
+            if (!member && ClubState.retireCeremonyData && Array.isArray(ClubState.retireCeremonyData.retiredMembers)) {
+                member = ClubState.retireCeremonyData.retiredMembers.find((m) => m.id === id);
+            }
+            if (member && window.FaceGenerator && typeof window.FaceGenerator.showHandbookModal === 'function') {
+                window.FaceGenerator.showHandbookModal(member);
+            }
         },
 
         getMemberCombatPower: getMemberCombatPower,
