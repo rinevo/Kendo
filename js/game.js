@@ -131,6 +131,24 @@ const ENEMY_ROSTER = [
             muneStitch: 'rgba(226, 232, 240, 0.72)',
             tareLine: 'rgba(148, 163, 184, 0.5)',
         },
+        face: {
+            seed: 'boss_kenta',
+            skinId: 'healthy',
+            skin: { id: 'healthy', name: '健康的', base: '#f1c39e', shadow: '#d69e77', blush: '#de8a81' },
+            hairColorId: 'black',
+            hairColor: { id: 'black', main: '#121417', highlight: '#2a3138' },
+            eyeColor: '#1a1918',
+            hairStyle: 'short_sporty',
+            faceShape: 0,
+            eyeType: 0,
+            eyebrowType: 1,
+            mouthType: 1,
+            noseType: 0,
+            uniformType: 'gakuran',
+            accessory: 'bandage_nose',
+            bgStyleId: 'blue_grad',
+            bgStyle: { id: 'blue_grad', top: '#6ba5e7', bottom: '#3768b5' }
+        },
         patterns: [
             {
                 stance: 'jodan',
@@ -185,6 +203,24 @@ const ENEMY_ROSTER = [
             muneFill: '#0f172a',
             muneStitch: 'rgba(56, 189, 248, 0.88)',
             tareLine: 'rgba(56, 189, 248, 0.65)',
+        },
+        face: {
+            seed: 'boss_sasaki',
+            skinId: 'fair',
+            skin: { id: 'fair', name: '色白', base: '#fde7d8', shadow: '#eec2a8', blush: '#f5b5aa' },
+            hairColorId: 'dark_brown',
+            hairColor: { id: 'dark_brown', main: '#2d1e18', highlight: '#483329' },
+            eyeColor: '#2b211a',
+            hairStyle: 'center_part',
+            faceShape: 1,
+            eyeType: 3,
+            eyebrowType: 4,
+            mouthType: 2,
+            noseType: 2,
+            uniformType: 'blazer_tie',
+            accessory: 'glasses_square',
+            bgStyleId: 'cyan_grad',
+            bgStyle: { id: 'cyan_grad', top: '#5bc0de', bottom: '#2f7b9c' }
         },
         patterns: [
             {
@@ -241,6 +277,24 @@ const ENEMY_ROSTER = [
             muneStitch: 'rgba(250, 204, 21, 0.9)',
             tareLine: 'rgba(248, 113, 113, 0.65)',
         },
+        face: {
+            seed: 'boss_onizuka',
+            skinId: 'deep_tanned',
+            skin: { id: 'deep_tanned', name: '剣道焼け', base: '#c68f64', shadow: '#a16d44', blush: '#ae5f53' },
+            hairColorId: 'soft_black',
+            hairColor: { id: 'soft_black', main: '#23252a', highlight: '#3a3e47' },
+            eyeColor: '#1a1918',
+            hairStyle: 'buzz_cut',
+            faceShape: 3,
+            eyeType: 4,
+            eyebrowType: 0,
+            mouthType: 5,
+            noseType: 1,
+            uniformType: 'dougi_navy',
+            accessory: 'bandage_cheek',
+            bgStyleId: 'gray_grad',
+            bgStyle: { id: 'gray_grad', top: '#9aa0a6', bottom: '#5f6368' }
+        },
         patterns: [
             {
                 stance: 'chudan',
@@ -296,6 +350,24 @@ const ENEMY_ROSTER = [
             muneStitch: 'rgba(216, 180, 254, 0.88)',
             tareLine: 'rgba(192, 132, 252, 0.65)',
         },
+        face: {
+            seed: 'boss_kasumi',
+            skinId: 'fair',
+            skin: { id: 'fair', name: '色白', base: '#fde7d8', shadow: '#eec2a8', blush: '#f5b5aa' },
+            hairColorId: 'blue_black',
+            hairColor: { id: 'blue_black', main: '#141d28', highlight: '#253448' },
+            eyeColor: '#1e242e',
+            hairStyle: 'ponytail',
+            faceShape: 1,
+            eyeType: 1,
+            eyebrowType: 4,
+            mouthType: 1,
+            noseType: 1,
+            uniformType: 'blazer_ribbon',
+            accessory: 'mole_eye',
+            bgStyleId: 'navy_grad',
+            bgStyle: { id: 'navy_grad', top: '#2c3e50', bottom: '#1a252f' }
+        },
         patterns: [
             {
                 stance: 'waki',
@@ -350,6 +422,24 @@ const ENEMY_ROSTER = [
             muneFill: '#1c1917',
             muneStitch: 'rgba(253, 224, 71, 0.95)',
             tareLine: 'rgba(250, 204, 21, 0.78)',
+        },
+        face: {
+            seed: 'boss_ryuzen',
+            skinId: 'tanned',
+            skin: { id: 'tanned', name: '日焼け', base: '#dda980', shadow: '#ba855d', blush: '#c8766a' },
+            hairColorId: 'ash_dark',
+            hairColor: { id: 'ash_dark', main: '#222830', highlight: '#38424f' },
+            eyeColor: '#1a1918',
+            hairStyle: 'all_back',
+            faceShape: 3,
+            eyeType: 6,
+            eyebrowType: 2,
+            mouthType: 4,
+            noseType: 2,
+            uniformType: 'dougi_navy',
+            accessory: 'none',
+            bgStyleId: 'cream_grad',
+            bgStyle: { id: 'cream_grad', top: '#ebdccb', bottom: '#bfa993' }
         },
         patterns: [
             {
@@ -813,7 +903,7 @@ function getContinuousStancePose(stanceType, phase) {
     }
 
     if (stanceType === 'waki') {
-        // 🌊 脇構え（水の構え：身体を半身に開き、竹刀を右脇後方へ低く隠す後の先の構え）
+        // 🌊 下段の構え（身体を半身に開き、竹刀を低く構える後の先の構え）
         return {
             hipX: 126 + s * 3.8,
             hipY: 263 + c * 2.4,
@@ -2277,6 +2367,50 @@ function showStoryDialogue(dialogItems, trialTitle, avatarEmoji, onComplete, ill
     renderCurrentStoryDialogue();
 }
 
+// 🥋 プレイヤーの顔写真オブジェクトを取得（部活主将またはクラシック挑戦者）
+function getStoryDialoguePlayerFace() {
+    if (state.customMatch && state.customMatch.player && state.customMatch.player.face) {
+        return state.customMatch.player.face;
+    }
+    if (window.ClubState && Array.isArray(window.ClubState.members)) {
+        const clubPlayer = window.ClubState.members.find(m => m.isPlayer);
+        if (clubPlayer && clubPlayer.face) return clubPlayer.face;
+    }
+    return {
+        seed: 'classic_challenger',
+        skinId: 'healthy',
+        skin: { id: 'healthy', name: '健康的', base: '#f1c39e', shadow: '#d69e77', blush: '#de8a81' },
+        hairColorId: 'black',
+        hairColor: { id: 'black', main: '#121417', highlight: '#2a3138' },
+        eyeColor: '#1a1918',
+        hairStyle: 'short_sporty',
+        faceShape: 0,
+        eyeType: 0,
+        eyebrowType: 1,
+        mouthType: 2,
+        noseType: 0,
+        uniformType: 'dougi_white',
+        accessory: 'none',
+        bgStyleId: 'blue_grad',
+        bgStyle: { id: 'blue_grad', top: '#6ba5e7', bottom: '#3768b5' }
+    };
+}
+
+// 🥋 対戦相手の顔写真オブジェクトを取得
+function getStoryDialogueEnemyFace() {
+    const curEnemy = typeof getCurrentEnemy === 'function' ? getCurrentEnemy() : null;
+    if (!curEnemy) return null;
+    if (curEnemy.face) return curEnemy.face;
+    // 部内戦・特訓時の部員同期
+    if (window.ClubState && Array.isArray(window.ClubState.members)) {
+        const cleanId = (curEnemy.id || '').replace(/^practice_/, '');
+        const cleanName = curEnemy.shortName || (curEnemy.name && curEnemy.name.includes('・') ? curEnemy.name.split('・')[1] : curEnemy.name);
+        const m = window.ClubState.members.find(x => (cleanId && x.id === cleanId) || x.name === cleanName || x.id === curEnemy.id);
+        if (m && m.face) return m.face;
+    }
+    return null;
+}
+
 // 現在のセリフをレンダリング
 function renderCurrentStoryDialogue() {
     if (!storyDialogueQueue || currentStoryDialogueIndex >= storyDialogueQueue.length) {
@@ -2284,13 +2418,30 @@ function renderCurrentStoryDialogue() {
         return;
     }
     const item = storyDialogueQueue[currentStoryDialogueIndex];
+    const isPlayer = (item.speaker === 'player');
+
     if (dialogueTrialBadge) dialogueTrialBadge.textContent = currentStoryTrialTitle;
     if (dialogueAvatar) {
-        dialogueAvatar.textContent = (item.speaker === 'player') ? '🥋' : currentStoryAvatar;
+        const faceData = isPlayer ? getStoryDialoguePlayerFace() : getStoryDialogueEnemyFace();
+        if (window.FaceGenerator && faceData) {
+            const schoolOrTag = isPlayer ? '挑戦者' : (getCurrentEnemy()?.shortName || '');
+            const stamp = isPlayer ? '選手証' : '手帳';
+            const title = isPlayer ? 'あなた（挑戦者）の選手証写真' : `${item.name || '相手'}の生徒手帳写真`;
+            const svgHtml = window.FaceGenerator.renderSvg(faceData, 44, 58, {
+                withFrame: true,
+                schoolName: schoolOrTag,
+                stampText: stamp
+            });
+            dialogueAvatar.className = `dialogue-avatar has-photo ${isPlayer ? 'speaker-is-player' : 'speaker-is-enemy'}`;
+            dialogueAvatar.innerHTML = `<span class="student-photo-frame" title="${title}">${svgHtml}</span>`;
+        } else {
+            dialogueAvatar.className = `dialogue-avatar ${isPlayer ? 'speaker-is-player' : 'speaker-is-enemy'}`;
+            dialogueAvatar.textContent = isPlayer ? '🥋' : currentStoryAvatar;
+        }
     }
     if (dialogueSpeaker) {
-        dialogueSpeaker.textContent = item.name || (item.speaker === 'player' ? 'あなた' : '相手');
-        dialogueSpeaker.className = `dialogue-speaker ${item.speaker === 'player' ? 'speaker-player' : 'speaker-enemy'}`;
+        dialogueSpeaker.textContent = item.name || (isPlayer ? 'あなた' : '相手');
+        dialogueSpeaker.className = `dialogue-speaker ${isPlayer ? 'speaker-player' : 'speaker-enemy'}`;
     }
     if (dialogueText) {
         dialogueText.textContent = item.text || '……';
@@ -2341,9 +2492,12 @@ function showMenkyoKaidenModal() {
         ENEMY_ROSTER.forEach((enemy) => {
             const card = document.createElement('div');
             card.className = 'tribute-card';
+            const faceSvg = (window.FaceGenerator && enemy.face)
+                ? `<span class="student-photo-frame" style="margin-right: 8px; flex: 0 0 auto;">${window.FaceGenerator.renderSvg(enemy.face, 34, 45, { withFrame: true, stampText: '皆伝' })}</span>`
+                : `<span style="font-size: 1.4rem; margin-right: 6px;">${enemy.avatarEmoji || '🥋'}</span>`;
             card.innerHTML = `
-                <div class="tribute-author">
-                    <span>${enemy.avatarEmoji || '🥋'}</span>
+                <div class="tribute-author" style="display: flex; align-items: center;">
+                    ${faceSvg}
                     <span>${enemy.role}・${enemy.shortName}</span>
                 </div>
                 <p class="tribute-text">「${enemy.tributeQuote || 'お見事！'}」</p>
@@ -3992,6 +4146,7 @@ function playKiaiVoice(action, options = {}) {
             } else if (action === '気合' || action === '崩し' || action === '防御') {
                 playKakegoeShout(ctx, now, basePitch, intensity);
             }
+            return; // Web Audio再生成功時は終了（SpeechSynthesisとの二重発声を防止）
         } catch (e) {
             // Web Audio エラー時はフォールバックへ
         }
@@ -5700,6 +5855,123 @@ function setFighterSubtitleText(elem, text) {
     }
 }
 
+let lastRenderedPlayerPhotoKey = null;
+let lastRenderedEnemyPhotoKey = null;
+
+function updateFighterCardPhotos(isCustomMatch, enemyData) {
+    const playerPhotoWrap = document.getElementById('playerCardPhotoWrap');
+    const enemyPhotoWrap = document.getElementById('enemyCardPhotoWrap');
+    if (!window.FaceGenerator) return;
+
+    // ── プレイヤー（自校・挑戦者）側 ──
+    if (playerPhotoWrap) {
+        if (isCustomMatch && state.customMatch && state.customMatch.player) {
+            const pData = state.customMatch.player;
+            // 本物部員オブジェクトの逆引き・同期
+            let realPlayer = null;
+            if (window.ClubState && Array.isArray(window.ClubState.members)) {
+                realPlayer = window.ClubState.members.find(m => (pData.id && m.id === pData.id) || m.name === pData.name || (m.isPlayer && pData.name === 'あなた'));
+            }
+            if (realPlayer && realPlayer.face && !pData.face) {
+                pData.face = realPlayer.face;
+            }
+            const faceToRender = pData.face || (realPlayer && realPlayer.face) || null;
+            const targetMemberObj = realPlayer || pData;
+
+            const pKey = `custom_${targetMemberObj.id || targetMemberObj.name}_${faceToRender?.seed || ''}`;
+            if (pKey !== lastRenderedPlayerPhotoKey || !playerPhotoWrap.hasChildNodes()) {
+                lastRenderedPlayerPhotoKey = pKey;
+                const pClickAttr = `onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(window.ClubState && window.ClubState.members ? window.ClubState.members.find(m => m.id === '${targetMemberObj.id}') || state.customMatch.player : state.customMatch.player)" style="cursor: pointer;"`;
+                const pTitle = `${targetMemberObj.name || '選手'}の生徒手帳写真（クリックで詳細）`;
+                const pSvg = faceToRender
+                    ? window.FaceGenerator.renderSvg(faceToRender, 48, 64, { withFrame: true, schoolName: targetMemberObj.schoolName || '' })
+                    : window.FaceGenerator.getMemberFaceSvg(targetMemberObj, 48, 64, { withFrame: true, schoolName: targetMemberObj.schoolName || '' });
+                playerPhotoWrap.innerHTML = `
+                    <div class="student-photo-frame" ${pClickAttr} title="${pTitle}">
+                        ${pSvg}
+                    </div>
+                `;
+            }
+        } else {
+            const pKey = 'classic_challenger';
+            if (pKey !== lastRenderedPlayerPhotoKey || !playerPhotoWrap.hasChildNodes()) {
+                lastRenderedPlayerPhotoKey = pKey;
+                const classicPlayerFace = {
+                    seed: 'classic_challenger',
+                    skinId: 'healthy',
+                    skin: { id: 'healthy', name: '健康的', base: '#f1c39e', shadow: '#d69e77', blush: '#de8a81' },
+                    hairColorId: 'black',
+                    hairColor: { id: 'black', main: '#121417', highlight: '#2a3138' },
+                    eyeColor: '#1a1918',
+                    hairStyle: 'short_sporty',
+                    faceShape: 0,
+                    eyeType: 0,
+                    eyebrowType: 1,
+                    mouthType: 2,
+                    noseType: 0,
+                    uniformType: 'dougi_white',
+                    accessory: 'none',
+                    bgStyleId: 'blue_grad',
+                    bgStyle: { id: 'blue_grad', top: '#6ba5e7', bottom: '#3768b5' }
+                };
+                playerPhotoWrap.innerHTML = `
+                    <div class="student-photo-frame" title="挑戦者（あなた）の選手証写真">
+                        ${window.FaceGenerator.renderSvg(classicPlayerFace, 48, 64, { withFrame: true, stampText: '挑戦証' })}
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // ── 対戦相手（相手校・五人掛け）側 ──
+    if (enemyPhotoWrap) {
+        if (isCustomMatch && state.customMatch && state.customMatch.enemy) {
+            const eData = state.customMatch.enemy;
+            const isIntraOrSpecial = state.customMatch.isIntraClub || state.customMatch.isSpecialPractice;
+
+            // 部内戦・特訓時の本物部員オブジェクトの逆引き・同期
+            let realEnemyMember = null;
+            if (isIntraOrSpecial && window.ClubState && Array.isArray(window.ClubState.members)) {
+                const cleanId = (eData.id || '').replace(/^practice_/, '');
+                const cleanName = eData.shortName || (eData.name && eData.name.includes('・') ? eData.name.split('・')[1] : eData.name);
+                realEnemyMember = window.ClubState.members.find(m => (cleanId && m.id === cleanId) || m.name === cleanName || m.id === eData.id);
+            }
+            if (realEnemyMember && realEnemyMember.face && !eData.face) {
+                eData.face = realEnemyMember.face;
+            }
+            const faceToRender = eData.face || (realEnemyMember && realEnemyMember.face) || null;
+            const targetEnemyObj = realEnemyMember || eData;
+
+            const eKey = `custom_${targetEnemyObj.id || targetEnemyObj.name}_${faceToRender?.seed || ''}`;
+            if (eKey !== lastRenderedEnemyPhotoKey || !enemyPhotoWrap.hasChildNodes()) {
+                lastRenderedEnemyPhotoKey = eKey;
+                const eClickAttr = (isIntraOrSpecial && targetEnemyObj.id)
+                    ? `onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(window.ClubState && window.ClubState.members ? window.ClubState.members.find(m => m.id === '${targetEnemyObj.id}') || state.customMatch.enemy : state.customMatch.enemy)" style="cursor: pointer;"`
+                    : '';
+                const eTitle = `${targetEnemyObj.name || eData.shortName || '相手選手'}の生徒手帳写真`;
+                const eSvg = faceToRender
+                    ? window.FaceGenerator.renderSvg(faceToRender, 48, 64, { withFrame: true, schoolName: targetEnemyObj.schoolName || eData.schoolName || '' })
+                    : window.FaceGenerator.getMemberFaceSvg(targetEnemyObj, 48, 64, { withFrame: true, schoolName: targetEnemyObj.schoolName || eData.schoolName || '' });
+                enemyPhotoWrap.innerHTML = `
+                    <div class="student-photo-frame" ${eClickAttr} title="${eTitle}">
+                        ${eSvg}
+                    </div>
+                `;
+            }
+        } else if (enemyData && enemyData.face) {
+            const eKey = `boss_${enemyData.id}_${state.stageIndex}`;
+            if (eKey !== lastRenderedEnemyPhotoKey || !enemyPhotoWrap.hasChildNodes()) {
+                lastRenderedEnemyPhotoKey = eKey;
+                enemyPhotoWrap.innerHTML = `
+                    <div class="student-photo-frame" title="${enemyData.name}の生徒手帳写真">
+                        ${window.FaceGenerator.renderSvg(enemyData.face, 48, 64, { withFrame: true, stampText: '龍神証' })}
+                    </div>
+                `;
+            }
+        }
+    }
+}
+
 function updateUI() {
     const enemyData = getCurrentEnemy();
     const pMax = getPlayerMaxHealth();
@@ -5869,6 +6141,7 @@ function updateUI() {
             setFighterSubtitleText(enemyTitleBadge, subtitle);
         }
     }
+    updateFighterCardPhotos(isCustomMatch, enemyData);
     updateStageBarUI();
     updateStanceBarUI();
 
@@ -8169,6 +8442,8 @@ function advanceStage() {
 
 function resetGame() {
     clearPendingRoundTimers();
+    lastRenderedPlayerPhotoKey = null;
+    lastRenderedEnemyPhotoKey = null;
     if (state.animResetTimer) {
         clearTimeout(state.animResetTimer);
         state.animResetTimer = null;

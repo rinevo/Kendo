@@ -535,7 +535,7 @@ body.bg-dojo {
 
 .fighter-card {
     width: 100%;
-    max-width: 210px;
+    max-width: 220px;
     text-align: center;
     position: relative;
     background: rgba(15, 23, 42, 0.68);
@@ -546,15 +546,34 @@ body.bg-dojo {
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
 }
 
+/* 選手カード上部：左側に顔写真、右側に学校・名前・称号 */
+.fighter-card-top-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    text-align: left;
+}
+
+.fighter-card-info-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    text-align: left;
+}
+
 .fighter-school {
-    font-size: 0.72rem;
+    font-size: 0.70rem;
     font-weight: 600;
     color: #94a3b8;
     line-height: 1.25;
-    margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: left;
 }
 
 .fighter-school:empty {
@@ -562,24 +581,26 @@ body.bg-dojo {
 }
 
 .fighter-name {
-    font-size: 1.05rem;
+    font-size: 1.02rem;
     font-weight: 700;
-    margin-bottom: 2px;
     color: var(--text);
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
 }
 
 .fighter-subtitle {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     color: #94a3b8;
-    margin-bottom: 6px;
     font-weight: 600;
     line-height: 1.25;
     word-break: break-all;
     white-space: normal;
-    text-align: center;
+    text-align: left;
 }
 
 .corner-tag {
@@ -1979,8 +2000,12 @@ button.reset-btn:hover:not(:disabled) {
     .vs-divider { top: calc(50% + 64px); }
     .vs-divider:not(.tsubazeriai) { display: none; }
     .vs-divider.tsubazeriai { display: block; font-size: 0.76rem; padding: 4px 10px; }
-    .fighter-card { max-width: 170px; }
+    .fighter-card { max-width: 180px; padding: 10px 8px 8px; }
+    .fighter-card-top-row { gap: 6px; margin-bottom: 6px; }
+    .fighter-card-photo-wrap .student-photo-frame svg { width: 42px; height: auto; }
+    .fighter-name { font-size: 0.95rem; }
     .fighter-school { font-size: 0.65rem; }
+    .fighter-subtitle { font-size: 0.64rem; }
     .fighter-sprite-wrapper { width: 165px; }
     .sprite-container { width: 165px; height: 185px; }
     .clash-meter-wrap { top: 46%; width: 260px; padding: 6px 8px 4px; }
@@ -2027,7 +2052,12 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 @media (max-width: 380px) {
-    .fighter-card { max-width: 145px; }
+    .fighter-card { max-width: 150px; padding: 8px 6px 6px; }
+    .fighter-card-top-row { gap: 4px; margin-bottom: 4px; }
+    .fighter-card-photo-wrap .student-photo-frame svg { width: 36px; height: auto; }
+    .fighter-name { font-size: 0.88rem; }
+    .fighter-school { font-size: 0.60rem; }
+    .fighter-subtitle { font-size: 0.60rem; }
     .fighter-sprite-wrapper { width: 140px; }
     .sprite-container { width: 140px; height: 160px; }
 }
@@ -2825,6 +2855,33 @@ button.reset-btn:hover:not(:disabled) {
     border-color: rgba(245, 158, 11, 0.55);
     background: linear-gradient(180deg, rgba(45, 34, 18, 0.75), rgba(24, 17, 8, 0.9));
     box-shadow: 0 0 16px rgba(245, 158, 11, 0.15);
+}
+
+.club-member-card.is-ih-qualified {
+    border-color: rgba(245, 158, 11, 0.65);
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.22);
+}
+
+.member-ih-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(217, 119, 6, 0.4));
+    border: 1px solid rgba(245, 158, 11, 0.7);
+    color: #fef08a;
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.25);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    line-height: 1.3;
+}
+
+.bench-pill.ih-pill {
+    border-color: rgba(245, 158, 11, 0.6);
+    color: #fde047;
+    background: rgba(245, 158, 11, 0.18);
 }
 
 .club-member-card.empty-slot {
@@ -6446,10 +6503,53 @@ button.reset-btn:hover:not(:disabled) {
 .event-dialogues-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 
 .event-dialogue-item {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.event-dialogue-avatar-col {
+    flex: 0 0 46px;
+    display: flex;
+    justify-content: center;
+    padding-top: 2px;
+}
+
+.event-dialogue-avatar-col .student-photo-frame {
+    padding: 1.5px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    background: #ffffff;
+}
+
+.event-dialogue-item.is-captain .event-dialogue-avatar-col .student-photo-frame {
+    border-color: rgba(245, 158, 11, 0.85);
+}
+
+.event-dialogue-item:not(.is-captain) .event-dialogue-avatar-col .student-photo-frame {
+    border-color: rgba(56, 189, 248, 0.8);
+}
+
+.event-fallback-avatar {
+    width: 44px;
+    height: 58px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1.5px solid rgba(148, 163, 184, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.event-dialogue-content-col {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -6459,9 +6559,26 @@ button.reset-btn:hover:not(:disabled) {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.86rem;
+    font-size: 0.88rem;
     font-weight: 800;
     color: #cbd5e1;
+}
+
+.speaker-role-tag {
+    font-size: 0.78rem;
+    font-weight: 900;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.18);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+    letter-spacing: 0.02em;
+}
+
+.event-dialogue-item.is-captain .speaker-role-tag {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fbbf24;
 }
 
 .event-dialogue-item.is-captain .event-speaker-badge {
@@ -6472,8 +6589,15 @@ button.reset-btn:hover:not(:disabled) {
     font-size: 1rem;
 }
 
+.speaker-grade {
+    font-size: 0.80rem;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-left: 2px;
+}
+
 .event-dialogue-bubble {
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(15, 23, 42, 0.9);
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 10px;
     padding: 10px 14px;
@@ -6483,9 +6607,42 @@ button.reset-btn:hover:not(:disabled) {
     position: relative;
 }
 
+/* 吹き出しのしっぽ装飾 */
+.event-dialogue-bubble::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: -7px;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 7px solid rgba(148, 163, 184, 0.35);
+}
+
+.event-dialogue-bubble::after {
+    content: '';
+    position: absolute;
+    top: 13px;
+    left: -5px;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-right: 6px solid rgba(15, 23, 42, 0.95);
+}
+
 .event-dialogue-item.is-captain .event-dialogue-bubble {
-    border-color: rgba(234, 179, 8, 0.4);
-    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(234, 179, 8, 0.45);
+    background: rgba(30, 41, 59, 0.92);
+}
+
+.event-dialogue-item.is-captain .event-dialogue-bubble::before {
+    border-right-color: rgba(234, 179, 8, 0.5);
+}
+
+.event-dialogue-item.is-captain .event-dialogue-bubble::after {
+    border-right-color: rgba(30, 41, 59, 0.95);
 }
 
 /* イベントボーナスカード */
@@ -6555,8 +6712,24 @@ button.reset-btn:hover:not(:disabled) {
     .narration-content {
         font-size: 0.9rem;
     }
+    .event-dialogue-item {
+        gap: 10px;
+    }
+    .event-dialogue-avatar-col {
+        flex: 0 0 40px;
+    }
+    .event-dialogue-avatar-col .student-photo-frame svg {
+        width: 38px;
+        height: auto;
+    }
+    .event-fallback-avatar {
+        width: 38px;
+        height: 50px;
+        font-size: 1.3rem;
+    }
     .event-dialogue-bubble {
         font-size: 0.88rem;
+        padding: 8px 12px;
     }
     .event-bonus-desc {
         font-size: 0.95rem;
@@ -6805,6 +6978,41 @@ button.reset-btn:hover:not(:disabled) {
     justify-content: center;
     font-size: 1.8rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s ease;
+}
+
+/* 証明写真・顔写真付きアバター */
+.dialogue-avatar.has-photo {
+    width: auto;
+    min-width: 48px;
+    height: auto;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    line-height: 0;
+}
+
+.dialogue-avatar.has-photo .student-photo-frame {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+
+.dialogue-avatar.speaker-is-player .student-photo-frame {
+    border-color: rgba(239, 68, 68, 0.85);
+}
+
+.dialogue-avatar.speaker-is-player .student-photo-frame:hover {
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
+    border-color: #ef4444;
+}
+
+.dialogue-avatar.speaker-is-enemy .student-photo-frame {
+    border-color: rgba(234, 179, 8, 0.85);
+}
+
+.dialogue-avatar.speaker-is-enemy .student-photo-frame:hover {
+    box-shadow: 0 6px 16px rgba(234, 179, 8, 0.5);
+    border-color: #facc15;
 }
 
 .dialogue-content {
@@ -7398,6 +7606,663 @@ button.reset-btn:hover:not(:disabled) {
     border-color: #cbd5e1;
     color: #ffffff;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   📇 生徒手帳風 証明写真グラフィック & アバター スタイル
+   ───────────────────────────────────────────────────────────── */
+
+/* 写真フレーム（証明写真風・印画紙枠） */
+.student-photo-frame {
+    display: inline-block;
+    position: relative;
+    border-radius: 4px;
+    background: #ffffff;
+    padding: 2px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+    user-select: none;
+    line-height: 0;
+    vertical-align: middle;
+}
+
+.student-photo-frame:hover {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 6px 14px rgba(56, 189, 248, 0.35), 0 2px 4px rgba(0, 0, 0, 0.3);
+    border-color: #38bdf8;
+}
+
+.student-photo-frame .student-face-svg {
+    border-radius: 2px;
+    display: block;
+}
+
+/* クリップ留め・ピン風ピンバッジ（生徒手帳に留めた写真の演出） */
+.student-photo-frame::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: 6px;
+    width: 6px;
+    height: 12px;
+    background: linear-gradient(135deg, #cbd5e1, #64748b, #94a3b8);
+    border-radius: 2px;
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+/* 部員カード内のレイアウト統合 */
+.member-header-top-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.member-header-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.member-header-title-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+}
+
+.member-header-title-line .member-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #f8fafc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* オーダー編成画面での顔写真サムネイル */
+.order-slot-photo-box {
+    flex: 0 0 auto;
+    margin-right: 10px;
+}
+
+.order-slot-photo-box .student-photo-frame {
+    cursor: pointer;
+}
+
+.order-slot-card {
+    display: flex;
+    align-items: center;
+}
+
+/* 試合シミュレータでの顔写真表示 */
+.indiv-fighter-photo-wrap {
+    margin: 8px auto;
+    display: flex;
+    justify-content: center;
+}
+
+/* 試合中の選手カード（fighter-card）内の顔写真イラスト */
+.fighter-card-photo-wrap {
+    flex: 0 0 auto;
+    margin: 0;
+    line-height: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fighter-card-photo-wrap .student-photo-frame {
+    padding: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    background: #ffffff;
+}
+
+#playerCard .fighter-card-photo-wrap .student-photo-frame {
+    border-color: rgba(239, 68, 68, 0.6);
+}
+
+#playerCard .fighter-card-photo-wrap .student-photo-frame:hover {
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.45);
+    border-color: #ef4444;
+}
+
+#enemyCard .fighter-card-photo-wrap .student-photo-frame {
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+#enemyCard .fighter-card-photo-wrap .student-photo-frame:hover {
+    box-shadow: 0 6px 16px rgba(56, 189, 248, 0.45);
+    border-color: #38bdf8;
+}
+
+.match-row-photo {
+    flex: 0 0 32px;
+    margin: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.match-row-photo .student-photo-frame {
+    padding: 1px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.match-row-photo .student-photo-frame::after {
+    display: none; /* 小型サムネイルではクリップ非表示 */
+}
+
+/* 指名特訓ポップアップ内サムネイル */
+.q-member-btn-photo {
+    flex: 0 0 auto;
+    margin-right: 8px;
+}
+
+.q-member-btn-photo .student-photo-frame::after {
+    display: none;
+}
+
+/* エンディング・アルバムカード内の顔写真 */
+.ending-member-photo-wrap {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: center;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   📖 生徒手帳詳細モーダル (Student Handbook Modal)
+   ───────────────────────────────────────────────────────────── */
+.student-handbook-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 15, 26, 0.82);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    animation: hbModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes hbModalFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.handbook-book-wrap {
+    position: relative;
+    max-width: 760px;
+    width: 100%;
+    background: linear-gradient(135deg, #1b2838 0%, #0d1520 100%);
+    border: 3px solid #334e68;
+    border-radius: 14px;
+    padding: 14px 18px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    box-sizing: border-box;
+}
+
+/* 金色の手帳ステッチ飾り */
+.handbook-book-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px dashed rgba(212, 175, 55, 0.45);
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.handbook-pages-container {
+    display: flex;
+    gap: 16px;
+    background: #fbf9f4;
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.25);
+    color: #1e293b;
+    position: relative;
+}
+
+/* 中央の見開き折り目（背表紙シャドウ） */
+.handbook-pages-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 18px;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.18) 50%, rgba(0, 0, 0, 0.08) 100%);
+    pointer-events: none;
+}
+
+.handbook-page {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.handbook-page.left-page {
+    border-right: 1px dashed rgba(0, 0, 0, 0.12);
+    padding-right: 12px;
+}
+
+.handbook-page.right-page {
+    padding-left: 12px;
+}
+
+/* ページヘッダー */
+.handbook-page-header {
+    text-align: center;
+    border-bottom: 2px solid #334155;
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+}
+
+.hb-school-emblem {
+    font-size: 1.3rem;
+    display: block;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.hb-school-name {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #0f172a;
+}
+
+.hb-cert-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 3px;
+    margin-top: 2px;
+}
+
+.hb-record-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.hb-fiscal-year {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* 左ページ：写真と身元情報 */
+.hb-photo-and-creds {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.hb-photo-box {
+    position: relative;
+    flex: 0 0 110px;
+    background: #ffffff;
+    padding: 3px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.hb-photo-seal-stamp {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.2px solid #dc2626;
+    color: #dc2626;
+    background: rgba(254, 226, 226, 0.85);
+    font-size: 0.6rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-15deg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.hb-creds-box {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hb-field-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 3px;
+}
+
+.hb-field-lbl {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    width: 48px;
+    flex-shrink: 0;
+    letter-spacing: 1px;
+}
+
+.hb-field-val {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+    flex: 1;
+}
+
+.hb-field-val.hb-name {
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: #0f172a;
+    letter-spacing: 1px;
+}
+
+.hb-role-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.hb-role-badge.captain {
+    background: #fef08a;
+    color: #854d0e;
+    border: 1px solid #facc15;
+}
+
+.hb-role-badge.dual {
+    background: #f3e8ff;
+    color: #6b21a8;
+    border: 1px solid #d8b4fe;
+}
+
+.hb-role-badge.ih-qual {
+    background: linear-gradient(135deg, #fef08a, #fde047);
+    color: #854d0e;
+    border: 1px solid #eab308;
+    box-shadow: 0 1px 3px rgba(234, 179, 8, 0.35);
+}
+
+/* 証明文と学校長印 */
+.hb-notice-box {
+    position: relative;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.68rem;
+    line-height: 1.5;
+    color: #475569;
+    margin-top: auto;
+}
+
+.hb-principal-seal {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    border: 1.5px solid #dc2626;
+    color: #dc2626;
+    font-size: 0.6rem;
+    font-weight: 900;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transform: rotate(5deg);
+    background: rgba(254, 226, 226, 0.3);
+    line-height: 1;
+}
+
+/* 右ページ：活動カルテ・能力値 */
+.hb-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.hb-stat-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 5px 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.hb-stat-item.full-width {
+    grid-column: span 2;
+}
+
+/* 基礎能力値（体力・腕力・敏捷・気力）の4等分グリッド */
+.hb-base-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.hb-base-stat-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.hb-base-stat-item .hb-stat-k {
+    font-size: 0.62rem;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.hb-base-stat-item .hb-stat-v {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-top: 1px;
+}
+
+.hb-stat-k {
+    font-size: 0.65rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.hb-stat-v {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-top: 1px;
+}
+
+.hb-stat-v.highlight {
+    color: #0284c7;
+    font-size: 1.1rem;
+}
+
+/* 打突技術ゲージ */
+.hb-skills-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+
+.hb-skills-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #334155;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 2px;
+}
+
+.hb-skills-max-badge {
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+}
+
+.hb-skills-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hb-skill-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.68rem;
+}
+
+.hb-skill-name {
+    width: 52px;
+    flex-shrink: 0;
+    font-weight: 700;
+    color: #475569;
+}
+
+.hb-bar-track {
+    flex: 1;
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.hb-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.hb-bar-fill.men { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.hb-bar-fill.kote { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.hb-bar-fill.do { background: linear-gradient(90deg, #10b981, #059669); }
+.hb-bar-fill.tsuki { background: linear-gradient(90deg, #f59e0b, #d97706); }
+
+.hb-skill-num {
+    width: 26px;
+    text-align: right;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.hb-skill-num.is-max {
+    color: #ef4444;
+    font-weight: 900;
+}
+
+.hb-desc-box {
+    background: #f8fafc;
+    border-left: 3px solid #38bdf8;
+    padding: 6px 8px;
+    border-radius: 0 4px 4px 0;
+    margin-top: auto;
+}
+
+.hb-desc-title {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #0369a1;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.hb-desc-text {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: #334155;
+}
+
+/* 閉じるボタン */
+.btn-close-handbook {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 32px;
+    height: 32px;
+    background: #ef4444;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn-close-handbook:hover {
+    background: #dc2626;
+    transform: scale(1.12);
+}
+
+/* モバイル対応：縦並び切り替え */
+@media (max-width: 640px) {
+    .handbook-pages-container {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+    }
+    .handbook-pages-container::after {
+        display: none;
+    }
+    .handbook-page.left-page {
+        border-right: none;
+        border-bottom: 1px dashed rgba(0, 0, 0, 0.15);
+        padding-right: 0;
+        padding-bottom: 12px;
+    }
+    .handbook-page.right-page {
+        padding-left: 0;
+    }
+}
+
 
 
 

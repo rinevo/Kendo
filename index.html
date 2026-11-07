@@ -124,9 +124,14 @@
                 </div>
 
                 <div class="fighter-card" id="playerCard">
-                    <div class="fighter-school" id="playerSchoolText"></div>
-                    <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
-                    <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
+                    <div class="fighter-card-top-row">
+                        <div class="fighter-card-photo-wrap" id="playerCardPhotoWrap"></div>
+                        <div class="fighter-card-info-col">
+                            <div class="fighter-school" id="playerSchoolText"></div>
+                            <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
+                            <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
+                        </div>
+                    </div>
                     <div class="health-bar">
                         <div id="playerHealthTrail" class="health-trail"></div>
                         <div id="playerHealthBar" class="health-fill"></div>
@@ -202,9 +207,14 @@
             </div>
 
             <div class="fighter-card" id="enemyCard">
-                <div class="fighter-school" id="enemySchoolText"></div>
-                <div class="fighter-name"><span id="enemyNameText">門下生・健太</span> <span class="corner-tag white-tag">白</span></div>
-                <div class="fighter-subtitle" id="enemyTitleBadge">先鋒・初段（素直な面打ち）</div>
+                <div class="fighter-card-top-row">
+                    <div class="fighter-card-photo-wrap" id="enemyCardPhotoWrap"></div>
+                    <div class="fighter-card-info-col">
+                        <div class="fighter-school" id="enemySchoolText"></div>
+                        <div class="fighter-name"><span id="enemyNameText">門下生・健太</span> <span class="corner-tag white-tag">白</span></div>
+                        <div class="fighter-subtitle" id="enemyTitleBadge">先鋒・初段（素直な面打ち）</div>
+                    </div>
+                </div>
                 <div class="health-bar">
                     <div id="enemyHealthTrail" class="health-trail"></div>
                     <div id="enemyHealthBar" class="health-fill"></div>
@@ -371,7 +381,13 @@
         </div>
     </div>
 
+    <!-- 📇 生徒手帳・身分証明書モーダル -->
+    <div id="studentHandbookModal" class="student-handbook-modal" style="display: none;" onclick="if(event.target===this) window.FaceGenerator.closeHandbookModal()">
+        <!-- FaceGenerator.showHandbookModal により動的挿入 -->
+    </div>
+
     <script src="js/bgm.js"></script>
+    <script src="js/face.js"></script>
     <script src="js/game.js"></script>
     <script src="js/club.js"></script>
 </body>

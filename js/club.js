@@ -998,9 +998,12 @@
             tagline: eventDef.tagline,
             narration: eventDef.narration,
             dialogues: (eventDef.dialogues || []).map((d) => {
-                const speakerName = d.speaker === '主将' ? captain.name : d.speaker === '部員' ? randomMember.name : d.speaker;
+                const targetMember = d.speaker === '主将' ? captain : d.speaker === '部員' ? randomMember : null;
+                const speakerName = targetMember ? targetMember.name : d.speaker;
                 return {
                     speaker: speakerName,
+                    speakerRole: d.speaker,
+                    memberId: targetMember ? targetMember.id : null,
                     text: d.text.replace(/\{captain\}/g, captain.name).replace(/\{member\}/g, randomMember.name),
                 };
             }),
@@ -1619,6 +1622,13 @@
 
         const existingThemes = (ClubState.members || []).map(item => item.armorTheme && item.armorTheme.themeId).filter(Boolean);
         assignMemberArmorTheme(m, existingThemes);
+        if (window.FaceGenerator) {
+            m.face = window.FaceGenerator.generateFace({
+                seed: m.id || m.name,
+                name: m.name,
+                isPlayer: isPlayer
+            });
+        }
         return m;
     }
 
@@ -1672,6 +1682,14 @@
 
         const existingThemes = (ClubState.members || []).map(item => item.armorTheme && item.armorTheme.themeId).filter(Boolean);
         assignMemberArmorTheme(m, existingThemes);
+        if (window.FaceGenerator) {
+            m.face = window.FaceGenerator.generateFace({
+                seed: m.id || m.name,
+                name: m.name,
+                isPlayer: false,
+                uniformType: 'shirt'
+            });
+        }
         return m;
     }
 
@@ -1687,7 +1705,7 @@
         if (isUnlocked) {
             return `<span class="special-skill-badge unlocked" title="${escapeHtml(tech.desc || '')}（必要: ${tech.type}${tech.reqVal} 達成・覚醒済）">🌟 秘技: ${escapeHtml(tech.name)}</span>`;
         } else {
-            return `<span class="special-skill-badge locked" title="${escapeHtml(tech.desc || '')}（${tech.type}${tech.reqVal}以上で覚醒 / 現在:${currentVal}）">🔒 秘技: ${escapeHtml(tech.name)} (${tech.type}${currentVal}/${tech.reqVal})</span>`;
+            return `<span class="special-skill-badge locked" title="${escapeHtml(tech.desc || '')}（${tech.type}${tech.reqVal}以上で覚醒 / 現在:${currentVal}）">🔒 秘技: ${escapeHtml(tech.name)}</span>`;
         }
     }
 
@@ -1861,6 +1879,16 @@
                             m.growthRate = generateGrowthRate(arch, m.isPlayer);
                         }
                     }
+                    if (!m.face || !m.face.skin) {
+                        if (window.FaceGenerator) {
+                            m.face = window.FaceGenerator.generateFace({
+                                seed: m.id || m.name,
+                                name: m.name,
+                                isPlayer: !!m.isPlayer,
+                                uniformType: m.isClubDual ? 'shirt' : null
+                            });
+                        }
+                    }
                 });
             }
             if (Array.isArray(data.order)) ClubState.order = data.order;
@@ -1925,8 +1953,9 @@
         const isPlayer = !!m.isPlayer;
         const cx = width / 2;
         const cy = height / 2;
-        // 基準最大目盛り（50）の半径
-        const r = 52;
+        const scale = Math.min(width / 220, height / 200);
+        // 基準最大目盛り（50）の半径（文字拡大分のクリアランスを確保）
+        const r = Math.round(48 * scale);
 
         const skills = m.skills || { men: 8, kote: 8, do: 8, tsuki: 6 };
 
@@ -1945,9 +1974,9 @@
 
         // グリッド線（目盛り: 15, 30, 50[最大基準目盛り]）
         const gridTicks = [
-            { val: 15, ratio: 15 / 50, stroke: 'rgba(148, 163, 184, 0.16)', strokeWidth: 1 },
-            { val: 30, ratio: 30 / 50, stroke: 'rgba(148, 163, 184, 0.22)', strokeWidth: 1 },
-            { val: 50, ratio: 1.0, stroke: isPlayer ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.65)', strokeWidth: 1.6 },
+            { val: 15, ratio: 15 / 50, stroke: 'rgba(148, 163, 184, 0.16)', strokeWidth: Math.max(0.8, 1 * scale) },
+            { val: 30, ratio: 30 / 50, stroke: 'rgba(148, 163, 184, 0.22)', strokeWidth: Math.max(0.8, 1 * scale) },
+            { val: 50, ratio: 1.0, stroke: isPlayer ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.65)', strokeWidth: Math.max(1.1, 1.6 * scale) },
         ];
 
         let gridSvg = '';
@@ -1964,9 +1993,10 @@
 
         // 基準最大目盛り「50」のガイド数値表示（右上軸付近）
         const guideAngle = -Math.PI / 2 + (1 * 2 * Math.PI) / count;
-        const guideX = cx + Math.cos(guideAngle) * (r * 1.0) + 4;
-        const guideY = cy + Math.sin(guideAngle) * (r * 1.0) - 3;
-        gridSvg += `<text x="${guideX.toFixed(1)}" y="${guideY.toFixed(1)}" font-size="9.5" font-weight="900" fill="rgba(148, 163, 184, 0.65)" text-anchor="start">50</text>\n`;
+        const guideX = cx + Math.cos(guideAngle) * (r * 1.0) + (4 * scale);
+        const guideY = cy + Math.sin(guideAngle) * (r * 1.0) - (3 * scale);
+        const guideFontSize = Math.max(8.5, Math.round((8 + 2.5 * scale) * 10) / 10).toFixed(1);
+        gridSvg += `<text x="${guideX.toFixed(1)}" y="${guideY.toFixed(1)}" font-size="${guideFontSize}" font-weight="900" fill="rgba(148, 163, 184, 0.65)" text-anchor="start">50</text>\n`;
 
         // 軸線（50超えのデータがある場合、軸線も少し外側まで伸ばす）
         const otherAxes = axes.filter((a) => a.key !== 'hp');
@@ -1979,7 +2009,7 @@
             const angle = -Math.PI / 2 + (i * 2 * Math.PI) / count;
             const x = cx + Math.cos(angle) * axisExtent;
             const y = cy + Math.sin(angle) * axisExtent;
-            axesSvg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(148, 163, 184, 0.22)" stroke-width="1.2" />\n`;
+            axesSvg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(148, 163, 184, 0.22)" stroke-width="${Math.max(0.8, 1.2 * scale).toFixed(1)}" />\n`;
         }
 
         // データポリゴン
@@ -2011,19 +2041,22 @@
         dataPoints.forEach((p) => {
             if (p.isOver) {
                 // 50超えの限界突破ドット（外輪オーラ付き）
-                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="none" stroke="${isPlayer ? '#fde047' : '#38bdf8'}" stroke-width="1.5" stroke-dasharray="2 2" />\n`;
-                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${isPlayer ? '#fde047' : '#ffffff'}" />\n`;
+                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(6 * scale).toFixed(1)}" fill="none" stroke="${isPlayer ? '#fde047' : '#38bdf8'}" stroke-width="1.5" stroke-dasharray="2 2" />\n`;
+                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(3.5 * scale).toFixed(1)}" fill="${isPlayer ? '#fde047' : '#ffffff'}" />\n`;
             } else {
-                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.8" fill="${isPlayer ? '#fde047' : '#7dd3fc'}" />\n`;
+                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(2.8 * scale).toFixed(1)}" fill="${isPlayer ? '#fde047' : '#7dd3fc'}" />\n`;
             }
         });
 
         // ラベル（項目名＋数値）- 50超え時は頂点位置に合わせて外側へ動的逃げ
         let labelsSvg = '';
+        const mainFontSize = Math.max(13.5, Math.round((14 + 4 * scale) * 10) / 10).toFixed(1);
+        const valFontSize = Math.max(12.5, Math.round((13 + 3 * scale) * 10) / 10).toFixed(1);
+
         axes.forEach((axis, i) => {
             const angle = -Math.PI / 2 + (i * 2 * Math.PI) / count;
             const pt = dataPoints[i];
-            const currentDist = Math.max(r + 25, (r * pt.ratio) + 18);
+            const currentDist = Math.max(r + (22 * scale), (r * pt.ratio) + (16 * scale));
 
             let lx = cx + Math.cos(angle) * currentDist;
             let ly = cy + Math.sin(angle) * currentDist;
@@ -2034,39 +2067,39 @@
             if (i === 0) { // 上 (体力)
                 anchor = 'middle';
                 baseline = 'auto';
-                ly += 4;
+                ly += (4 * scale);
             } else if (i === 1) { // 右上 (腕力)
                 anchor = 'start';
                 baseline = 'auto';
-                lx += 2;
-                ly += 2;
+                lx += (2 * scale);
+                ly += (2 * scale);
             } else if (i === 2) { // 右 (敏捷)
                 anchor = 'start';
                 baseline = 'central';
-                lx += 4;
+                lx += (4 * scale);
             } else if (i === 3) { // 右下 (気魄)
                 anchor = 'start';
                 baseline = 'hanging';
-                lx += 2;
-                ly -= 2;
+                lx += (2 * scale);
+                ly -= (2 * scale);
             } else if (i === 4) { // 下 (突き)
                 anchor = 'middle';
                 baseline = 'hanging';
-                ly -= 2;
+                ly -= (2 * scale);
             } else if (i === 5) { // 左下 (胴)
                 anchor = 'end';
                 baseline = 'hanging';
-                lx -= 2;
-                ly -= 2;
+                lx -= (2 * scale);
+                ly -= (2 * scale);
             } else if (i === 6) { // 左 (小手)
                 anchor = 'end';
                 baseline = 'central';
-                lx -= 4;
+                lx -= (4 * scale);
             } else if (i === 7) { // 左上 (面)
                 anchor = 'end';
                 baseline = 'auto';
-                lx -= 2;
-                ly += 2;
+                lx -= (2 * scale);
+                ly += (2 * scale);
             }
 
             const labelColor = isPlayer ? '#fef08a' : '#cbd5e1';
@@ -2084,7 +2117,7 @@
                 valSuffix = '🔥';
             }
 
-            labelsSvg += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="${baseline}" font-size="16.5" font-weight="800" fill="${labelColor}">${axis.label}<tspan font-size="15" font-weight="900" fill="${valColor}">${axis.val}${valSuffix}</tspan></text>\n`;
+            labelsSvg += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="${baseline}" font-size="${mainFontSize}" font-weight="800" fill="${labelColor}">${axis.label}<tspan font-size="${valFontSize}" font-weight="900" fill="${valColor}">${axis.val}${valSuffix}</tspan></text>\n`;
         });
 
         return `
@@ -2247,6 +2280,8 @@
                     ClubState.activityLog.unshift(`👑【${ClubState.year}年目 8月1週】全国高校総体（インターハイ）個人戦の開催週を迎えました！上部の【出陣ボタン】より全国の頂点へ挑みましょう！`);
                 } else {
                     ClubState.activityLog.unshift(`⚠️【${ClubState.year}年目 8月1週】インターハイ出場権保持者の不在により、全国高校総体個人戦を辞退しました。`);
+                    ClubState.qualifiedForInterhigh = false;
+                    ClubState.interhighQualifiedMemberIds = [];
                 }
             } else {
                 ClubState.activityLog.unshift(`【${ClubState.year}年目 8月1週】インターハイ（全国高校総体）個人戦が開催されていますが、本校は地区予選敗退のため不出場。秋の稽古に励みます。`);
@@ -2596,6 +2631,13 @@
         return (m.str || 0) + (m.agi || 0) + (m.spi || 0) + skillSum * 0.4;
     }
 
+    // インターハイ個人戦出場権を持つ部員か判定
+    function isInterhighQualified(memberId) {
+        if (!ClubState.qualifiedForInterhigh) return false;
+        if (!Array.isArray(ClubState.interhighQualifiedMemberIds)) return false;
+        return ClubState.interhighQualifiedMemberIds.includes(memberId);
+    }
+
     // 控え部員一覧を戦力順（降順）で取得
     function getBenchMembers() {
         const orderIdSet = new Set(ClubState.order.filter(Boolean));
@@ -2934,6 +2976,10 @@
             },
             specialTechnique: getRandomSpecialTechnique(stance),
             stance: stance,
+            face: window.FaceGenerator ? window.FaceGenerator.generateFace({
+                seed: `${schoolName}_${pref}_${roundIdx}_${surname}`,
+                name: surname
+            }) : null,
         };
     }
 
@@ -3310,8 +3356,9 @@
             const agi = 9 + powerGrade * 2 + Math.floor(Math.random() * 4);
             const spi = 9 + powerGrade * 2 + Math.floor(Math.random() * 4);
 
+            const memberName = getRandomItem(SURNAMES);
             members.push({
-                name: getRandomItem(SURNAMES),
+                name: memberName,
                 role: POS_NAMES[i],
                 hp: Math.min(8, baseHp),
                 str: str,
@@ -3325,6 +3372,10 @@
                 },
                 specialTechnique: getRandomSpecialTechnique(stance),
                 stance: stance,
+                face: window.FaceGenerator ? window.FaceGenerator.generateFace({
+                    seed: `${schoolName}_${pref}_${i}_${memberName}`,
+                    name: memberName
+                }) : null,
             });
         }
         return {
@@ -4093,7 +4144,7 @@
             return '🍵 納刀待機';
         }
         if (!motion) {
-            const stanceLabel = member.favStance === 'jodan' ? '上段' : member.favStance === 'waki' ? '脇' : '中段';
+            const stanceLabel = member.favStance === 'jodan' ? '上段' : member.favStance === 'waki' ? '下段' : '中段';
             return `⚡ 構え待機 (${stanceLabel})`;
         }
         if (motion.startsWith('attack_')) {
@@ -4395,7 +4446,7 @@
                         ${generateRadarChartSvg(m, 220, 200)}
                     </div>
                     <div class="member-stats-summary-row">
-                        <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                        <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
                         <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                     </div>
                     <div class="member-mini-chara-wrap">
@@ -4473,12 +4524,16 @@
         } else if (ClubState.month === 8 && ClubState.week === 1) {
             // 8月1週：インターハイ全国個人戦
             if (ClubState.qualifiedForInterhigh && ClubState.interhighQualifiedMemberIds && ClubState.interhighQualifiedMemberIds.length > 0) {
+                const ihNames = (ClubState.interhighQualifiedMemberIds || [])
+                    .map((id) => ClubState.members.find((m) => m.id === id)?.name)
+                    .filter(Boolean)
+                    .join('・');
                 bannerHtml = `
                     <div class="tourney-alert ready gold">
                         <span class="pulse-icon">👑</span>
                         <div class="alert-body">
                             <strong>【8月1週 全国高校総体（インターハイ）個人戦】開幕！</strong>
-                            <p>全国の強豪剣士が集う夢の舞台！個人の頂点・日本一を目指せ！</p>
+                            <p>${ihNames ? `本校代表：<strong class="highlight-count" style="color: #fef08a;">${escapeHtml(ihNames)}</strong><br>` : ''}全国の強豪剣士が集う夢の舞台！個人の頂点・日本一を目指せ！</p>
                         </div>
                         <button type="button" class="btn-battle-launch gold-btn" onclick="window.KendoClub.startTournamentMatch()">
                             🏆 インターハイに出陣する！
@@ -4568,12 +4623,17 @@
                 nextEventText = '4月1週：新年度進級 ＆ 新入部員入部';
             }
 
+            const ihNoticeNames = (ClubState.interhighQualifiedMemberIds || [])
+                .map((id) => ClubState.members.find((m) => m.id === id)?.name)
+                .filter(Boolean)
+                .join('・');
+
             bannerHtml = `
                 <div class="tourney-alert pending">
                     <span class="calendar-icon">📅</span>
                     <div class="alert-body">
                         <strong>次の重要日程：${nextEventText}</strong>
-                        <p>${ClubState.qualifiedForInterhigh ? '🎖️ インターハイ個人戦出場権 獲得中！' : (ClubState.qualifiedForNational ? '🎖️ 全国選抜大会出場権 獲得中！' : '日々の稽古で心技体を練磨せよ！')}</p>
+                        <p>${ClubState.qualifiedForInterhigh ? `🎖️ インターハイ個人戦出場権 獲得中！${ihNoticeNames ? `（代表：${escapeHtml(ihNoticeNames)}）` : ''}` : (ClubState.qualifiedForNational ? '🎖️ 全国選抜大会出場権 獲得中！' : '日々の稽古で心技体を練磨せよ！')}</p>
                     </div>
                 </div>
             `;
@@ -4601,29 +4661,39 @@
                 `;
             }
             const cond = CONDITION_DATA[m.condition] || CONDITION_DATA.normal;
+            const isIHQual = isInterhighQualified(m.id);
 
             return `
-                <div class="club-member-card ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
+                <div class="club-member-card ${m.isPlayer ? 'is-player' : ''} ${isIHQual ? 'is-ih-qualified' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
                     <div class="member-card-top">
-                        <div class="member-header">
-                            <span class="member-pos-badge">${pos}</span>
-                            <span class="member-name">${escapeHtml(m.name)}</span>
-                            <span class="member-grade-badge">${m.grade}年</span>
-                            <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
+                        <div class="member-header-top-row">
+                            <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${m.id}'))" title="クリックで生徒手帳（身分証明書）を開く">
+                                ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 52, 69, { withFrame: true }) : ''}
+                            </div>
+                            <div class="member-header-info">
+                                <div class="member-header-title-line">
+                                    <span class="member-pos-badge">${pos}</span>
+                                    <span class="member-name" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+                                    <span class="member-grade-badge">${m.grade}年</span>
+                                    <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
+                                    ${isIHQual ? '<span class="member-ih-badge" title="全国高校総体（インターハイ）個人戦 出場権獲得！">👑 IH個人出場</span>' : ''}
+                                </div>
+                            </div>
                         </div>
                         ${m.isClubDual ? `
                             <div class="member-dual-row">
                                 <span class="member-dual-badge" title="${escapeHtml(m.originalClub)}と掛け持ちの助っ人部員">${escapeHtml(m.originalClub)}（助っ人）</span>
                             </div>
                         ` : ''}
-                        <div class="member-desc">${escapeHtml(m.desc)}</div>
                     </div>
                     <div class="member-card-bottom">
                         <div class="member-radar-wrap">
-                            ${generateRadarChartSvg(m, 220, 200)}
+                            ${generateRadarChartSvg(m, 160, 135)}
                         </div>
                         <div class="member-stats-summary-row">
-                            <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                            <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
                             <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                         </div>
                         <div class="member-special-tech-row" style="margin: 4px 0 6px 0; text-align: center;">
@@ -4651,28 +4721,38 @@
         // 控え部員カード（右から左へ戦力順になるよう、仕切り・オーダー側（右）に戦力上位を配置）
         const benchCardsHtml = [...benchMembers].reverse().map((m) => {
             const cond = CONDITION_DATA[m.condition] || CONDITION_DATA.normal;
+            const isIHQual = isInterhighQualified(m.id);
             return `
-                <div class="club-member-card is-bench ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
+                <div class="club-member-card is-bench ${m.isPlayer ? 'is-player' : ''} ${isIHQual ? 'is-ih-qualified' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
                     <div class="member-card-top">
-                        <div class="member-header">
-                            <span class="member-pos-badge bench">控え</span>
-                            <span class="member-name">${escapeHtml(m.name)}</span>
-                            <span class="member-grade-badge">${m.grade}年</span>
-                            <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
+                        <div class="member-header-top-row">
+                            <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${m.id}'))" title="クリックで生徒手帳（身分証明書）を開く">
+                                ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 52, 69, { withFrame: true }) : ''}
+                            </div>
+                            <div class="member-header-info">
+                                <div class="member-header-title-line">
+                                    <span class="member-pos-badge bench">控え</span>
+                                    <span class="member-name" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+                                    <span class="member-grade-badge">${m.grade}年</span>
+                                    <span class="member-cond ${cond.textClass}" title="調子: ${cond.label}">${cond.icon}</span>
+                                    ${isIHQual ? '<span class="member-ih-badge" title="全国高校総体（インターハイ）個人戦 出場権獲得！">👑 IH個人出場</span>' : ''}
+                                </div>
+                            </div>
                         </div>
                         ${m.isClubDual ? `
                             <div class="member-dual-row">
                                 <span class="member-dual-badge" title="${escapeHtml(m.originalClub)}と掛け持ちの助っ人部員">${escapeHtml(m.originalClub)}（助っ人）</span>
                             </div>
                         ` : ''}
-                        <div class="member-desc">${escapeHtml(m.desc)}</div>
                     </div>
                     <div class="member-card-bottom">
                         <div class="member-radar-wrap">
-                            ${generateRadarChartSvg(m, 220, 200)}
+                            ${generateRadarChartSvg(m, 160, 135)}
                         </div>
                         <div class="member-stats-summary-row">
-                            <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                            <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
                             <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                         </div>
                         <div class="member-special-tech-row" style="margin: 4px 0 6px 0; text-align: center;">
@@ -4914,9 +4994,14 @@
                                     const dualStr = m.isClubDual ? ` [${m.originalClub}]` : '';
                                     return `
                                         <button type="button" class="btn-q-member-select" onclick="window.KendoClub.launchQuickSpecialPractice('${m.id}')">
+                                            <div class="q-member-btn-photo">
+                                                <span class="student-photo-frame">
+                                                    ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 32, 42, { withFrame: false }) : ''}
+                                                </span>
+                                            </div>
                                             <div class="q-mem-info">
                                                 <strong class="q-mem-name">${escapeHtml(m.name)}</strong>
-                                                <span class="q-mem-meta">${m.grade}年${dualStr} / 構え:${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'} / 戦力:${Math.round(getMemberCombatPower(m))}</span>
+                                                <span class="q-mem-meta">${m.grade}年${dualStr} / 構え:${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'} / 戦力:${Math.round(getMemberCombatPower(m))}</span>
                                             </div>
                                             <span class="q-mem-btn-label">出陣 ⚔️</span>
                                         </button>
@@ -5016,7 +5101,8 @@
                 const oMem = oId ? ClubState.members.find((item) => item.id === oId) : null;
                 if (oMem) {
                     const isSelected = m && m.id === oMem.id;
-                    selectOptionsHtml += `<option value="${oMem.id}" ${isSelected ? 'selected' : ''}>${pName}: ${escapeHtml(oMem.name)} (${oMem.grade}年${oMem.isPlayer ? '・主将' : ''})</option>`;
+                    const ihTag = isInterhighQualified(oMem.id) ? '・👑IH出場' : '';
+                    selectOptionsHtml += `<option value="${oMem.id}" ${isSelected ? 'selected' : ''}>${pName}: ${escapeHtml(oMem.name)} (${oMem.grade}年${oMem.isPlayer ? '・主将' : ''}${ihTag})</option>`;
                 }
             });
             selectOptionsHtml += `</optgroup>`;
@@ -5026,7 +5112,8 @@
                 benchMembers.forEach((bMem) => {
                     const isSelected = m && m.id === bMem.id;
                     const dualStr = bMem.isClubDual ? `・${bMem.originalClub}助っ人` : '';
-                    selectOptionsHtml += `<option value="${bMem.id}" ${isSelected ? 'selected' : ''}>控え: ${escapeHtml(bMem.name)} (${bMem.grade}年${dualStr})</option>`;
+                    const ihTag = isInterhighQualified(bMem.id) ? '・👑IH出場' : '';
+                    selectOptionsHtml += `<option value="${bMem.id}" ${isSelected ? 'selected' : ''}>控え: ${escapeHtml(bMem.name)} (${bMem.grade}年${dualStr}${ihTag})</option>`;
                 });
                 selectOptionsHtml += `</optgroup>`;
             }
@@ -5056,16 +5143,23 @@
                 `;
             }
 
+            const isSlotIH = isInterhighQualified(m.id);
             return `
-                <div class="order-slot-card ${m.isPlayer ? 'is-player' : ''} ${m.isClubDual ? 'is-dual-slot' : ''}">
+                <div class="order-slot-card ${m.isPlayer ? 'is-player' : ''} ${isSlotIH ? 'is-ih-qualified' : ''} ${m.isClubDual ? 'is-dual-slot' : ''}">
                     <span class="order-pos-name">${pos}</span>
+                    <div class="order-slot-photo-box">
+                        <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${m.id}'))" title="生徒手帳を見る">
+                            ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 44, 58, { withFrame: true }) : ''}
+                        </div>
+                    </div>
                     <div class="order-member-info">
                         <div class="order-name-row">
                             <strong>${escapeHtml(m.name)} ${m.isPlayer ? '(主将・あなた)' : ''}</strong>
+                            ${isSlotIH ? '<span class="member-ih-badge" style="margin-left: 6px;">👑 IH個人出場</span>' : ''}
                             <div class="order-role-sub">
                                 <span>${m.grade}年生</span>
                                 ${m.isClubDual ? `<span class="member-dual-badge">${escapeHtml(m.originalClub)}（助っ人）</span>` : `<span>【${m.archetypeName || '一般剣士'}】</span>`}
-                                <span>構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                                <span>構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
                             </div>
                         </div>
                         <div class="slot-select-wrap">
@@ -5090,16 +5184,25 @@
         }).join('');
 
         const benchCardsHtml = benchMembers.length ? benchMembers.map((b) => {
+            const isBenchIH = isInterhighQualified(b.id);
             return `
-                <div class="order-bench-card ${b.isPlayer ? 'is-player' : ''} ${b.isClubDual ? 'is-dual-slot' : ''}">
+                <div class="order-bench-card ${b.isPlayer ? 'is-player' : ''} ${isBenchIH ? 'is-ih-qualified' : ''} ${b.isClubDual ? 'is-dual-slot' : ''}">
                     <div class="bench-card-left">
                         <span class="order-pos-name bench">控え</span>
+                        <div class="order-slot-photo-box">
+                            <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${b.id}'))" title="生徒手帳を見る">
+                                ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(b, 44, 58, { withFrame: true }) : ''}
+                            </div>
+                        </div>
                         <div class="bench-member-info">
-                            <strong>${escapeHtml(b.name)} ${b.isPlayer ? '(主将・あなた)' : ''}</strong>
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <strong>${escapeHtml(b.name)} ${b.isPlayer ? '(主将・あなた)' : ''}</strong>
+                                ${isBenchIH ? '<span class="member-ih-badge">👑 IH個人出場</span>' : ''}
+                            </div>
                             <div class="order-role-sub">
                                 <span>${b.grade}年生</span>
                                 ${b.isClubDual ? `<span class="member-dual-badge">${escapeHtml(b.originalClub)}（助っ人）</span>` : `<span>【${b.archetypeName || '一般剣士'}】</span>`}
-                                <span>構え: ${b.favStance === 'jodan' ? '上段' : b.favStance === 'waki' ? '脇' : '中段'}</span>
+                                <span>構え: ${b.favStance === 'jodan' ? '上段' : b.favStance === 'waki' ? '下段' : '中段'}</span>
                             </div>
                         </div>
                     </div>
@@ -5476,6 +5579,11 @@
                                 <span class="corner-ribbon red">赤</span>
                                 <div class="fighter-school">${ClubState.schoolName} (${ClubState.prefecture})</div>
                                 <div class="fighter-main-name">${escapeHtml(curBout.myMember.name)}</div>
+                                <div class="indiv-fighter-photo-wrap">
+                                    <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${curBout.myMember.id}'))" title="生徒手帳を見る">
+                                        ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(curBout.myMember, 68, 90, { withFrame: true }) : ''}
+                                    </div>
+                                </div>
                                 <span class="fighter-role-tag">${curBout.isPlayerBout ? '主将・あなた' : '自校代表'}</span>
                                 <div class="fighter-score-display">${myPts}</div>
                             </div>
@@ -5487,6 +5595,11 @@
                                 <span class="corner-ribbon white">白</span>
                                 <div class="fighter-school">${escapeHtml(curBout.enemyMember.schoolName || curBout.schoolName || '')} (${escapeHtml(curBout.enemyMember.pref || curBout.pref || '')})</div>
                                 <div class="fighter-main-name">${escapeHtml(curBout.enemyMember.name)}</div>
+                                <div class="indiv-fighter-photo-wrap">
+                                    <div class="student-photo-frame" title="${escapeHtml(curBout.enemyMember.name)}の生徒手帳写真">
+                                        ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(curBout.enemyMember, 68, 90, { withFrame: true, schoolName: curBout.enemyMember.schoolName || '' }) : ''}
+                                    </div>
+                                </div>
                                 <span class="fighter-role-tag">${escapeHtml(curBout.enemyMember.title || '個人代表')}</span>
                                 <div class="fighter-score-display">${oppPts}</div>
                             </div>
@@ -5518,6 +5631,11 @@
                         <span class="col-pos">${bout.posName}</span>
                         <div class="col-fighter red">
                             <span class="fighter-tag red-tag">赤</span>
+                            <span class="match-row-photo">
+                                <span class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${bout.myMember.id}'))" title="生徒手帳を見る">
+                                    ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(bout.myMember, 28, 37, { withFrame: false }) : ''}
+                                </span>
+                            </span>
                             <strong>${bout.myMember.name}</strong>
                             ${bout.isPlayerBout ? '<span class="tag-you">主将・あなた</span>' : ''}
                         </div>
@@ -5526,6 +5644,11 @@
                         <div class="col-pts white-pts">${oppPts}</div>
                         <div class="col-fighter white">
                             <strong>${bout.enemyMember.name}</strong>
+                            <span class="match-row-photo">
+                                <span class="student-photo-frame">
+                                    ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(bout.enemyMember, 28, 37, { withFrame: false }) : ''}
+                                </span>
+                            </span>
                             <span class="fighter-tag white-tag">白</span>
                         </div>
                     </div>
@@ -6204,7 +6327,7 @@
                     </div>
                     <div class="freshman-card-desc">${escapeHtml(m.desc || '')}</div>
                     <div class="freshman-stats-row">
-                        <span class="stat-pill">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                        <span class="stat-pill">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
                         <span class="stat-pill">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                         <span class="stat-pill">体力: ${m.maxHealth}</span>
                     </div>
@@ -6284,7 +6407,7 @@
                     <div class="retired-card-desc">${escapeHtml(m.desc || '')}</div>
                     <div class="retired-stats-row">
                         <span class="stat-pill">戦力: ${Math.round(getMemberCombatPower(m))}</span>
-                        <span class="stat-pill">得意: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
+                        <span class="stat-pill">得意: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
                     </div>
                 </div>
             `;
@@ -6468,9 +6591,14 @@
 
         // メンバーカード
         const memberCardsHtml = finalMembers.map((m) => {
-            const stanceLabel = m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇構え' : '中段';
+            const stanceLabel = m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段';
             return `
                 <div class="ending-member-card">
+                    <div class="ending-member-photo-wrap">
+                        <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.name === '${escapeHtml(m.name)}'))" title="生徒手帳を見る">
+                            ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 56, 74, { withFrame: true }) : ''}
+                        </div>
+                    </div>
                     <div class="ending-member-header">
                         <span class="em-name">${escapeHtml(m.name)}</span>
                         <span class="em-role">${m.isPlayer ? '👑 主将' : (m.isClubDual ? `助っ人(${m.originalClub})` : '部員')}</span>
@@ -6634,6 +6762,24 @@
         const totalCount = ClubState.members.length;
         const needHelpers = Math.max(0, 5 - totalCount);
 
+        const captainPhoto = (captain && window.FaceGenerator) ? `
+            <span class="student-photo-frame" title="${escapeHtml(captain.name)}の生徒手帳を開く" onclick="event.stopPropagation(); if (window.FaceGenerator) window.FaceGenerator.showHandbookModal(window.ClubState.members.find(m => m.id === '${captain.id}'));">
+                ${window.FaceGenerator.getMemberFaceSvg(captain, 44, 58, { withFrame: true, schoolName: ClubState.schoolName, stampText: '主将証' })}
+            </span>
+        ` : '<div class="event-fallback-avatar"><span class="fallback-icon">🥋</span></div>';
+
+        const firstMatePhoto = (firstMate && window.FaceGenerator) ? `
+            <span class="student-photo-frame" title="${escapeHtml(firstMate.name)}の生徒手帳を開く" onclick="event.stopPropagation(); if (window.FaceGenerator) window.FaceGenerator.showHandbookModal(window.ClubState.members.find(m => m.id === '${firstMate.id}'));">
+                ${window.FaceGenerator.getMemberFaceSvg(firstMate, 44, 58, { withFrame: true, schoolName: ClubState.schoolName, stampText: '手帳' })}
+            </span>
+        ` : '<div class="event-fallback-avatar"><span class="fallback-icon">⚔️</span></div>';
+
+        const secondMatePhoto = (secondMate && window.FaceGenerator) ? `
+            <span class="student-photo-frame" title="${escapeHtml(secondMate.name)}の生徒手帳を開く" onclick="event.stopPropagation(); if (window.FaceGenerator) window.FaceGenerator.showHandbookModal(window.ClubState.members.find(m => m.id === '${secondMate.id}'));">
+                ${window.FaceGenerator.getMemberFaceSvg(secondMate, 44, 58, { withFrame: true, schoolName: ClubState.schoolName, stampText: '手帳' })}
+            </span>
+        ` : '<div class="event-fallback-avatar"><span class="fallback-icon">🌱</span></div>';
+
         container.innerHTML = `
             <div class="ceremony-container ceremony-prologue-view">
                 <div class="ceremony-opening-banner ceremony-gold-banner">
@@ -6665,19 +6811,52 @@
                             </p>
                         </div>
 
-                        <div class="prologue-dialogues-box">
-                            <div class="prologue-dialogue-item">
-                                <span class="p-speaker captain">🥋 主将 ${escapeHtml(captain ? captain.name : 'あなた')} (1年)</span>
-                                <span class="p-text">「今日からここが俺たちの道場だ！先輩がいないなら、俺たち1年だけで新しい歴史を作ればいい！」</span>
+                        <div class="prologue-dialogues-box event-dialogues-list">
+                            <div class="event-dialogue-item is-captain has-member-photo">
+                                <div class="event-dialogue-avatar-col">
+                                    ${captainPhoto}
+                                </div>
+                                <div class="event-dialogue-content-col">
+                                    <div class="event-speaker-badge">
+                                        <span class="speaker-role-tag">👑 主将</span>
+                                        <span class="speaker-name">${escapeHtml(captain ? captain.name : 'あなた')}</span>
+                                        <span class="speaker-grade">(1年)</span>
+                                    </div>
+                                    <div class="event-dialogue-bubble">
+                                        「今日からここが俺たちの道場だ！先輩がいないなら、俺たち1年だけで新しい歴史を作ればいい！」
+                                    </div>
+                                </div>
                             </div>
-                            <div class="prologue-dialogue-item">
-                                <span class="p-speaker senior">⚔️ ${escapeHtml(firstMate ? firstMate.name : '仲間')} (1年・同期)</span>
-                                <span class="p-text">「ああ！でも団体戦には5人必要だ。陸上部や柔道部に声をかけて、助っ人を頼んでみよう！」</span>
+                            <div class="event-dialogue-item has-member-photo">
+                                <div class="event-dialogue-avatar-col">
+                                    ${firstMatePhoto}
+                                </div>
+                                <div class="event-dialogue-content-col">
+                                    <div class="event-speaker-badge">
+                                        <span class="speaker-role-tag">⚔️ 同期</span>
+                                        <span class="speaker-name">${escapeHtml(firstMate ? firstMate.name : '仲間')}</span>
+                                        <span class="speaker-grade">(1年)</span>
+                                    </div>
+                                    <div class="event-dialogue-bubble">
+                                        「ああ！でも団体戦には5人必要だ。陸上部や柔道部に声をかけて、助っ人を頼んでみよう！」
+                                    </div>
+                                </div>
                             </div>
                             ${secondMate ? `
-                            <div class="prologue-dialogue-item">
-                                <span class="p-speaker rookie">🌱 ${escapeHtml(secondMate.name)} (1年・同期)</span>
-                                <span class="p-text">「掛け持ちでも一緒に竹刀を振ってくれる仲間を集めましょう！俺たちの手で全国へ行くんだ！」</span>
+                            <div class="event-dialogue-item has-member-photo">
+                                <div class="event-dialogue-avatar-col">
+                                    ${secondMatePhoto}
+                                </div>
+                                <div class="event-dialogue-content-col">
+                                    <div class="event-speaker-badge">
+                                        <span class="speaker-role-tag">🌱 同期</span>
+                                        <span class="speaker-name">${escapeHtml(secondMate.name)}</span>
+                                        <span class="speaker-grade">(1年)</span>
+                                    </div>
+                                    <div class="event-dialogue-bubble">
+                                        「掛け持ちでも一緒に竹刀を振ってくれる仲間を集めましょう！俺たちの手で全国へ行くんだ！」
+                                    </div>
+                                </div>
                             </div>` : ''}
                         </div>
 
@@ -6728,16 +6907,57 @@
         }
 
         const dialoguesHtml = (data.dialogues || []).map((d) => {
-            const isCaptain = d.speaker.includes('主将') || (ClubState.members.find((m) => m.isPlayer) && d.speaker === ClubState.members.find((m) => m.isPlayer).name);
-            const icon = isCaptain ? '🥋' : '👤';
-            return `
-                <div class="event-dialogue-item ${isCaptain ? 'is-captain' : ''}">
-                    <div class="event-speaker-badge">
-                        <span class="speaker-icon">${icon}</span>
-                        <span class="speaker-name">${escapeHtml(d.speaker)}</span>
+            // memberId または名前から対象部員を取得
+            let member = null;
+            if (d.memberId) {
+                member = ClubState.members.find((m) => m.id === d.memberId);
+            }
+            if (!member) {
+                if (d.speakerRole === '主将' || (d.speaker && d.speaker.includes('主将'))) {
+                    member = ClubState.members.find((m) => m.isPlayer);
+                } else {
+                    member = ClubState.members.find((m) => m.name === d.speaker);
+                }
+            }
+
+            const isCaptain = !!(member && member.isPlayer) || (d.speaker && d.speaker.includes('主将'));
+            const roleLabel = isCaptain ? '👑 主将' : (member ? '⚔️ 部員' : (d.speaker.includes('OB') ? '🥋 招待' : '👤'));
+
+            let avatarHtml = '';
+            if (member && window.FaceGenerator) {
+                const faceSvg = window.FaceGenerator.getMemberFaceSvg(member, 44, 58, {
+                    withFrame: true,
+                    schoolName: ClubState.schoolName || '青雲高校',
+                    stampText: member.isPlayer ? '主将証' : '手帳'
+                });
+                avatarHtml = `
+                    <span class="student-photo-frame" title="${escapeHtml(member.name)}の生徒手帳を開く" onclick="event.stopPropagation(); if (window.FaceGenerator) window.FaceGenerator.showHandbookModal(window.ClubState.members.find(m => m.id === '${member.id}'));">
+                        ${faceSvg}
+                    </span>
+                `;
+            } else {
+                const icon = d.speaker.includes('OB') ? '🥋' : '👤';
+                avatarHtml = `
+                    <div class="event-fallback-avatar" title="${escapeHtml(d.speaker)}">
+                        <span class="fallback-icon">${icon}</span>
                     </div>
-                    <div class="event-dialogue-bubble">
-                        ${escapeHtml(d.text)}
+                `;
+            }
+
+            return `
+                <div class="event-dialogue-item ${isCaptain ? 'is-captain' : ''} ${member ? 'has-member-photo' : ''}">
+                    <div class="event-dialogue-avatar-col">
+                        ${avatarHtml}
+                    </div>
+                    <div class="event-dialogue-content-col">
+                        <div class="event-speaker-badge">
+                            <span class="speaker-role-tag">${roleLabel}</span>
+                            <span class="speaker-name">${escapeHtml(d.speaker)}</span>
+                            ${member && member.grade ? `<span class="speaker-grade">(${member.grade}年)</span>` : ''}
+                        </div>
+                        <div class="event-dialogue-bubble">
+                            ${escapeHtml(d.text)}
+                        </div>
                     </div>
                 </div>
             `;
@@ -6847,6 +7067,8 @@
                 boutPosName: '実戦特訓',
                 tournamentType: 'dojo',
                 playerData: {
+                    id: playerMember.id,
+                    face: playerMember.face,
                     name: playerMember.name,
                     schoolName: ClubState.schoolName,
                     prefecture: ClubState.prefecture,
@@ -6862,7 +7084,9 @@
                     armorTheme: playerMember.armorTheme,
                 },
                 enemyData: {
-                    id: `practice_${targetMember.id}`,
+                    id: targetMember.id,
+                    face: targetMember.face,
+                    originalMember: targetMember,
                     name: `${ClubState.schoolName}・${targetMember.name}`,
                     schoolName: ClubState.schoolName,
                     prefecture: ClubState.prefecture,
@@ -6986,7 +7210,15 @@
     // ───────────────────────────────────────────
     // グローバル公開インターフェース (window.KendoClub)
     // ───────────────────────────────────────────
+    window.ClubState = ClubState;
+
     window.KendoClub = {
+        getMemberById: function (id) {
+            return (ClubState.members || []).find((m) => m.id === id);
+        },
+
+        getMemberCombatPower: getMemberCombatPower,
+
         init: function () {
             const hasData = loadClubData();
             if (!hasData || !ClubState.isConfigured) {
@@ -7583,6 +7815,8 @@
                     isSpectating: isSpectating,
                     tournamentType: tourneyTypeTheme,
                     playerData: {
+                        id: playerMember.id,
+                        face: playerMember.face,
                         name: playerMember.name,
                         schoolName: ClubState.schoolName,
                         prefecture: ClubState.prefecture,
@@ -7600,7 +7834,9 @@
                         armorTheme: playerMember.armorTheme,
                     },
                     enemyData: {
-                        id: `opp_${enemyMember.name}`,
+                        id: enemyMember.id || `opp_${enemyMember.name}`,
+                        face: enemyMember.face,
+                        originalMember: enemyMember,
                         name: enemyNameLabel,
                         schoolName: enemySchool,
                         prefecture: enemyPref,
@@ -7830,6 +8066,11 @@
                 else if (rankLabel === 'ベスト8') ClubState.stats.interhighNational.best8++;
 
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 8月1週】全国高校総体（インターハイ）個人戦 終了。最高成績：${rankLabel}！`);
+
+                // 全国大会終了に伴い、個人戦出場権をリセット（バッジを消去）
+                ClubState.qualifiedForInterhigh = false;
+                ClubState.interhighQualifiedMemberIds = [];
+
                 if (isWin && (ClubState.stats.interhighNational.win + ClubState.stats.national.win) <= 1) {
                     ClubState.activityLog.unshift(`🏆【全国制覇・覇者特典】主将の試合自動化（オート観戦・即時判定）が解放されました！`);
                     ClubState.captainAutoMode = true;
