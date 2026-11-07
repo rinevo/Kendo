@@ -1,6 +1,100 @@
 const MAX_HEALTH = 5;
 const MAX_KIAI = 3;
 
+// ───────────────────────────────────────────
+// 必殺技・得意技（無敵攻撃・気合3消費）データベース
+// ───────────────────────────────────────────
+const SPECIAL_TECHNIQUES = {
+    // 面系統
+    hien_men: {
+        id: 'hien_men',
+        name: '飛燕二段面',
+        type: '面',
+        reqStat: 'men',
+        reqVal: 38,
+        desc: '電光石火の二段面。相手のあらゆる守りを頭上から粉砕する。',
+        power: 2,
+    },
+    gouriki_men: {
+        id: 'gouriki_men',
+        name: '剛烈・兜割り',
+        type: '面',
+        reqStat: 'men',
+        reqVal: 52,
+        desc: '豪腕を叩き込む重烈な面。相手の太刀筋を力で押し潰す。',
+        power: 2,
+    },
+    tenkou_men: {
+        id: 'tenkou_men',
+        name: '天光一刀面',
+        type: '面',
+        reqStat: 'men',
+        reqVal: 65,
+        desc: '天頂より振り下ろす極光の一閃。相討ちを許さぬ究極の面。',
+        power: 3,
+    },
+
+    // 小手系統
+    dengeki_kote: {
+        id: 'dengeki_kote',
+        name: '出ばな電撃小手',
+        type: '小手',
+        reqStat: 'kote',
+        reqVal: 40,
+        desc: '技の起こりを捉える神速の小手。手元を閃光のように射抜く。',
+        power: 2,
+    },
+    kasumi_kote: {
+        id: 'kasumi_kote',
+        name: '霞打ち連撃小手',
+        type: '小手',
+        reqStat: 'kote',
+        reqVal: 55,
+        desc: '残像を残す幻惑の小手。相手の防御の隙間に吸い込まれる。',
+        power: 2,
+    },
+
+    // 胴系統
+    hayate_do: {
+        id: 'hayate_do',
+        name: '疾風抜き胴',
+        type: '胴',
+        reqStat: 'do',
+        reqVal: 40,
+        desc: '相手の打突を紙一重でかわし、瞬時に脇腹を斬り抜く。',
+        power: 2,
+    },
+    gen_do: {
+        id: 'gen_do',
+        name: '幻影逆胴一閃',
+        type: '胴',
+        reqStat: 'do',
+        reqVal: 55,
+        desc: '死角から切り返す幻の逆胴。相手の反撃の機先を完全に制す。',
+        power: 2,
+    },
+
+    // 突き系統
+    shiden_tsuki: {
+        id: 'shiden_tsuki',
+        name: '紫電一閃突き',
+        type: '突き',
+        reqStat: 'tsuki',
+        reqVal: 38,
+        desc: '喉元へ直線一筋に放たれる神速の突き。相手の構えを貫通する。',
+        power: 2,
+    },
+    tensho_tsuki: {
+        id: 'tensho_tsuki',
+        name: '天翔諸手突き',
+        type: '突き',
+        reqStat: 'tsuki',
+        reqVal: 60,
+        desc: '全身の体重と気迫を竹刀の先一点に乗せて穿つ奥義。',
+        power: 3,
+    },
+};
+
 // 勝ち抜き五人掛け：個性・剣風・胴カラーが異なる5人の剣士データ
 const ENEMY_ROSTER = [
     {
@@ -12,6 +106,12 @@ const ENEMY_ROSTER = [
         styleTag: '素直な面打ち',
         maxHealth: 4,
         initialKiai: 0,
+        str: 12,
+        agi: 12,
+        spi: 12,
+        skills: { men: 42, kote: 28, do: 25, tsuki: 20 },
+        specialTechnique: 'hien_men',
+        kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「お願いします！まずは真っ直ぐ面で勝負です！」',
         armorTheme: {
             doStops: ['#14161b', '#252932', '#475569', '#22262e', '#111318'],
@@ -22,21 +122,21 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】健太は竹刀を頭上に振りかぶり、渾身の「上段面(2ダメ)」を狙っている！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）',
+                hint: '🔥【上段の構え】健太は竹刀を頭上に振りかぶり、渾身の「上段面」を狙っている！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）',
                 isDanger: true,
-                weights: { 面: 68, 小手: 20, 胴: 12, 防御: 0, 崩し: 0, 突き: 0 },
+                weights: { 面: 68, 小手: 16, 胴: 10, 突き: 6, 防御: 0, 崩し: 0 },
             },
             {
                 stance: 'chudan',
                 hint: '⚖️【中段の構え】健太は元気よく「面」か「小手」に飛び込もうとしている！（「防御」や「胴」が有効）',
                 isDanger: false,
-                weights: { 面: 50, 小手: 35, 胴: 10, 防御: 5, 崩し: 0, 突き: 0 },
+                weights: { 面: 40, 小手: 26, 胴: 10, 突き: 6, 防御: 18, 崩し: 0 },
             },
             {
                 stance: 'chudan',
                 hint: '🛡️【中段の構え】健太は少し緊張して守りを意識しつつ「面」を狙っている…（「崩し」や「胴」の好機！）',
                 isDanger: false,
-                weights: { 防御: 40, 面: 40, 小手: 15, 胴: 5, 崩し: 0, 突き: 0 },
+                weights: { 防御: 40, 面: 36, 小手: 14, 胴: 5, 突き: 5, 崩し: 0 },
             },
         ],
     },
@@ -49,6 +149,12 @@ const ENEMY_ROSTER = [
         styleTag: '出ばな小手と下段の構えの受け',
         maxHealth: 5,
         initialKiai: 0,
+        str: 14,
+        agi: 18,
+        spi: 15,
+        skills: { men: 32, kote: 52, do: 32, tsuki: 30 },
+        specialTechnique: 'dengeki_kote',
+        kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「手元の隙は見逃さん。出ばな小手と下段の構えの妙技、受けてみよ！」',
         armorTheme: {
             doStops: ['#082f49', '#0369a1', '#38bdf8', '#075985', '#0c4a6e'],
@@ -61,19 +167,19 @@ const ENEMY_ROSTER = [
                 stance: 'chudan',
                 hint: '⚡【中段の構え】佐々木は鋭い視線であなたの手元（「小手」）を狙っている！（「面」で上から乗り切る好機！）',
                 isDanger: false,
-                weights: { 小手: 60, 防御: 20, 面: 10, 胴: 10, 崩し: 0, 突き: 0 },
+                weights: { 小手: 50, 防御: 26, 面: 10, 胴: 8, 突き: 6, 崩し: 0 },
             },
             {
                 stance: 'waki',
                 hint: '🌊【下段の構え】佐々木は竹刀を低く構え、「後の先防御(HP+1)」か「抜き胴」を狙っている！（「崩し」で防御を割るか、「小手」が有効！）',
                 isDanger: false,
-                weights: { 防御: 55, 小手: 25, 胴: 15, 面: 5, 崩し: 0, 突き: 0 },
+                weights: { 防御: 52, 小手: 24, 胴: 14, 面: 5, 突き: 5, 崩し: 0 },
             },
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】佐々木は下段の構えから「小手」と「抜き胴(対崩2ダメ)」の二択を迫っている…',
+                hint: '🌊【下段の構え】佐々木は下段の構えから「小手」と「抜き胴」の二択を迫っている…',
                 isDanger: false,
-                weights: { 小手: 48, 胴: 32, 防御: 12, 面: 8, 崩し: 0, 突き: 0 },
+                weights: { 小手: 42, 胴: 26, 防御: 20, 面: 8, 突き: 4, 崩し: 0 },
             },
         ],
     },
@@ -86,6 +192,12 @@ const ENEMY_ROSTER = [
         styleTag: '剛剣上段と豪快な崩し',
         maxHealth: 6,
         initialKiai: 1,
+        str: 22,
+        agi: 14,
+        spi: 18,
+        skills: { men: 58, kote: 30, do: 40, tsuki: 25 },
+        specialTechnique: 'gouriki_men',
+        kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「小細工は無用！火の上段と体当たりの『崩し』で叩き割ってくれるわ！」',
         armorTheme: {
             doStops: ['#450a0a', '#991b1b', '#ef4444', '#7f1d1d', '#3b0707'],
@@ -98,19 +210,19 @@ const ENEMY_ROSTER = [
                 stance: 'chudan',
                 hint: '💥【中段の構え】鬼塚は強引に間合いを詰め、「崩し」の体当たりか豪快な「胴」を狙っている！（基本打突で迎撃せよ）',
                 isDanger: true,
-                weights: { 崩し: 52, 胴: 30, 面: 12, 小手: 6, 防御: 0, 突き: 0 },
+                weights: { 崩し: 48, 胴: 26, 面: 12, 小手: 10, 突き: 4, 防御: 0 },
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】鬼塚が竹刀を頭上に掲げた！強烈な「上段面(2ダメ)」か「胴」が来るぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
+                hint: '🔥【上段の構え】鬼塚が竹刀を頭上に掲げた！強烈な「上段面」か「胴」が来るぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
                 isDanger: true,
-                weights: { 面: 48, 胴: 36, 崩し: 10, 小手: 6, 防御: 0, 突き: 0 },
+                weights: { 面: 46, 胴: 30, 崩し: 14, 小手: 6, 突き: 4, 防御: 0 },
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】鬼塚は上段から「上段面(2ダメ)」と「崩し」で粉砕する気配！（「胴」で面を抜くか、「小手」で崩しを迎撃せよ！）',
+                hint: '🔥【上段の構え】鬼塚は上段から「上段面」と「崩し」で粉砕する気配！（「胴」で面を抜くか、「小手」で崩しを迎撃せよ！）',
                 isDanger: true,
-                weights: { 面: 45, 崩し: 35, 胴: 15, 小手: 5, 防御: 0, 突き: 0 },
+                weights: { 面: 42, 崩し: 34, 胴: 14, 小手: 6, 突き: 4, 防御: 0 },
             },
         ],
     },
@@ -123,6 +235,12 @@ const ENEMY_ROSTER = [
         styleTag: '三構え変化と応じ技',
         maxHealth: 5,
         initialKiai: 0,
+        str: 16,
+        agi: 22,
+        spi: 20,
+        skills: { men: 40, kote: 45, do: 60, tsuki: 35 },
+        specialTechnique: 'gen_do',
+        kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「中段・上段・下段の構え…見えている太刀筋だけが真実とは限りませんよ…」',
         armorTheme: {
             doStops: ['#2e1065', '#581c87', '#a855f7', '#4c1d95', '#1e1b4b'],
@@ -135,19 +253,19 @@ const ENEMY_ROSTER = [
                 stance: 'waki',
                 hint: '🌊【下段の構え】霞は静かに竹刀を低く構え、「後の先防御(HP+1)」か意表を突く「抜き胴」を狙っている…',
                 isDanger: false,
-                weights: { 防御: 48, 胴: 28, 小手: 14, 面: 10, 崩し: 0, 突き: 0 },
+                weights: { 防御: 48, 胴: 24, 小手: 14, 面: 8, 突き: 6, 崩し: 0 },
             },
             {
                 stance: 'chudan',
                 hint: '👁️【中段の構え】霞は「面」と見せかけて手元の「小手」や「崩し」も織り交ぜる変幻自在の構え！',
                 isDanger: false,
-                weights: { 小手: 38, 面: 28, 崩し: 22, 防御: 12, 胴: 0, 突き: 0 },
+                weights: { 小手: 30, 面: 22, 崩し: 18, 防御: 20, 胴: 5, 突き: 5 },
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】霞がすっと諸手上段に構えた！「上段面(2ダメ)」と「胴」の二段変化を狙っているぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
+                hint: '🔥【上段の構え】霞がすっと諸手上段に構えた！「上段面」と「胴」の二段変化を狙っているぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
                 isDanger: true,
-                weights: { 面: 45, 胴: 42, 小手: 13, 防御: 0, 崩し: 0, 突き: 0 },
+                weights: { 面: 42, 胴: 36, 小手: 14, 突き: 8, 防御: 0, 崩し: 0 },
             },
         ],
     },
@@ -160,6 +278,12 @@ const ENEMY_ROSTER = [
         styleTag: '三位一体の構え・諸手突き',
         maxHealth: 7,
         initialKiai: 1,
+        str: 24,
+        agi: 24,
+        spi: 25,
+        skills: { men: 72, kote: 70, do: 68, tsuki: 75 },
+        specialTechnique: 'tensho_tsuki',
+        kiaiShoutText: 'やぁぁぁ！',
         introQuote: '「よくぞここまで勝ち上がった。天地水の三つの構え、全力で超えてみせよ！」',
         armorTheme: {
             doStops: ['#422006', '#a16207', '#facc15', '#854d0e', '#271202'],
@@ -170,21 +294,21 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】龍禅が火の構え（諸手上段）をとった！圧倒的な「上段面(2ダメ)」か「小手」が来るぞ！（「胴」か「小手」で応戦せよ）',
+                hint: '🔥【上段の構え】龍禅が火の構え（諸手上段）をとった！圧倒的な「上段面」か「小手」が来るぞ！（「胴」か「小手」で応戦せよ）',
                 isDanger: true,
-                weights: { 面: 52, 小手: 34, 胴: 14, 防御: 0, 崩し: 0, 突き: 0 },
+                weights: { 面: 46, 小手: 30, 突き: 14, 胴: 10, 防御: 0, 崩し: 0 },
             },
             {
                 stance: 'waki',
                 hint: '🌊【下段の構え】龍禅は泰然自若の下段の構え。「後の先防御(HP+1)」で受け流すか、守りを読む「崩し」を狙っている！',
                 isDanger: true,
-                weights: { 防御: 42, 崩し: 28, 小手: 18, 面: 12, 胴: 0, 突き: 0 },
+                weights: { 防御: 42, 崩し: 24, 突き: 14, 小手: 10, 面: 10, 胴: 0 },
             },
             {
                 stance: 'chudan',
-                hint: '⚡【中段の構え】龍禅の剣先が鋭く沈んだ！「胴」か電光石火の「面」が来るぞ！',
+                hint: '⚡【中段の構え】龍禅の剣先が鋭く沈んだ！「突き」か電光石火の「面」「胴」が来るぞ！',
                 isDanger: true,
-                weights: { 胴: 45, 面: 35, 小手: 10, 防御: 10, 崩し: 0, 突き: 0 },
+                weights: { 突き: 34, 胴: 30, 面: 26, 小手: 5, 防御: 5, 崩し: 0 },
             },
         ],
     },
@@ -195,10 +319,17 @@ const MOVE_TO_KANA = {
     '小手': 'コ',
     '胴': 'ド',
     '突き': 'ツ',
+    '必殺': '秘',
 };
 
 function convertToKana(action, moveName) {
     const text = (action || '') + ' ' + (moveName || '');
+    if (text.includes('必殺') || text.includes('気合一閃') || text.includes('飛燕') || text.includes('兜割り') || text.includes('天光') || text.includes('電撃') || text.includes('霞打ち') || text.includes('疾風') || text.includes('幻影') || text.includes('紫電') || text.includes('天翔')) {
+        if (text.includes('小手')) return 'コ';
+        if (text.includes('胴')) return 'ド';
+        if (text.includes('突き') || text.includes('突')) return 'ツ';
+        return 'メ';
+    }
     if (text.includes('小手')) return 'コ';
     if (text.includes('胴')) return 'ド';
     if (text.includes('突き') || text.includes('突')) return 'ツ';
@@ -226,6 +357,8 @@ const state = {
     enemyKiai: ENEMY_ROSTER[0].initialKiai,
     playerCounterReady: false,
     enemyCounterReady: false,
+    playerCounterStacks: 0,
+    enemyCounterStacks: 0,
     playerGuardBroken: false,
     enemyGuardBroken: false,
     playerStunned: false,
@@ -1908,6 +2041,27 @@ function drawArticulatedPoseOnCanvas(ctx, pose, alpha = 1, armorTheme = null) {
 
 const playerCanvas = document.getElementById('playerCanvas');
 const enemyCanvas = document.getElementById('enemyCanvas');
+const playerSpeechBubble = document.getElementById('playerSpeechBubble');
+const playerSpeechText = document.getElementById('playerSpeechText');
+const enemySpeechBubble = document.getElementById('enemySpeechBubble');
+const enemySpeechText = document.getElementById('enemySpeechText');
+
+function showPreMatchSpeech(enemyQuote, playerQuote) {
+    if (enemySpeechBubble && enemySpeechText && enemyQuote) {
+        enemySpeechText.textContent = enemyQuote;
+        enemySpeechBubble.style.display = 'block';
+    }
+    if (playerSpeechBubble && playerSpeechText && playerQuote) {
+        playerSpeechText.textContent = playerQuote;
+        playerSpeechBubble.style.display = 'block';
+    }
+}
+
+function hideSpeechBubbles() {
+    if (enemySpeechBubble) enemySpeechBubble.style.display = 'none';
+    if (playerSpeechBubble) playerSpeechBubble.style.display = 'none';
+}
+
 const CANVAS_W = 182;
 const CANVAS_H = 200;
 const GROUND_Y = 178; // 足裏が接地する道場の床ライン
@@ -1934,10 +2088,18 @@ const enemyHealthBar = document.getElementById('enemyHealthBar');
 const playerHealthText = document.getElementById('playerHealthText');
 const enemyHealthText = document.getElementById('enemyHealthText');
 
+const playerRadarBox = document.getElementById('playerRadarBox');
+const enemyRadarBox = document.getElementById('enemyRadarBox');
+
 const playerKiaiText = document.getElementById('playerKiaiText');
 const enemyKiaiText = document.getElementById('enemyKiaiText');
 const playerKiaiPips = document.getElementById('playerKiaiPips');
 const enemyKiaiPips = document.getElementById('enemyKiaiPips');
+
+const playerCounterText = document.getElementById('playerCounterText');
+const enemyCounterText = document.getElementById('enemyCounterText');
+const playerCounterPips = document.getElementById('playerCounterPips');
+const enemyCounterPips = document.getElementById('enemyCounterPips');
 
 const playerBadge = document.getElementById('playerBadge');
 const enemyBadge = document.getElementById('enemyBadge');
@@ -1951,6 +2113,30 @@ const refFlagRed = document.getElementById('refFlagRed');
 const refFlagWhite = document.getElementById('refFlagWhite');
 const refereeMainText = document.getElementById('refereeMainText');
 const refereeSubText = document.getElementById('refereeSubText');
+const refereeReasonBadge = document.getElementById('refereeReasonBadge');
+
+const clashMeterWrap = document.getElementById('clashMeterWrap');
+const clashPlayerLabel = document.getElementById('clashPlayerLabel');
+const clashEnemyLabel = document.getElementById('clashEnemyLabel');
+const clashVsTag = document.getElementById('clashVsTag');
+const clashFillPlayer = document.getElementById('clashFillPlayer');
+const clashFillEnemy = document.getElementById('clashFillEnemy');
+const clashMarker = document.getElementById('clashMarker');
+const clashReasons = document.getElementById('clashReasons');
+let lastClashData = null;
+let enemyActionOverride = null;
+
+// ⚡ 必殺技演出オーバーレイ要素
+const specialFxOverlay = document.getElementById('specialFxOverlay');
+const specialDarken = document.getElementById('specialDarken');
+const specialSpeedLines = document.getElementById('specialSpeedLines');
+const specialCutinBanner = document.getElementById('specialCutinBanner');
+const specialCutinRibbon = document.getElementById('specialCutinRibbon');
+const specialCutinSub = document.getElementById('specialCutinSub');
+const specialCutinTitle = document.getElementById('specialCutinTitle');
+const specialScreenSlash = document.getElementById('specialScreenSlash');
+let specialCutinTimer = null;
+let specialSlashTimer = null;
 
 const statusText = document.getElementById('statusText');
 const intentBox = document.getElementById('intentBox');
@@ -1962,6 +2148,7 @@ const btnDo = document.getElementById('btnDo');
 const btnDefend = document.getElementById('btnDefend');
 const btnBreak = document.getElementById('btnBreak');
 const btnTsuki = document.getElementById('btnTsuki');
+const btnSpecial = document.getElementById('btnSpecial');
 const btnStartMatch = document.getElementById('btnStartMatch');
 const btnNextStage = document.getElementById('btnNextStage');
 const btnReset = document.getElementById('btnReset');
@@ -1980,7 +2167,7 @@ const vsDivider = document.getElementById('vsDivider');
 const stanceSelectorWrap = document.getElementById('stanceSelectorWrap');
 const stanceSelectorBar = document.getElementById('stanceSelectorBar');
 const stanceDescText = document.getElementById('stanceDescText');
-const actionButtons = [btnMen, btnKote, btnDo, btnDefend, btnBreak, btnTsuki];
+const actionButtons = [btnMen, btnKote, btnDo, btnTsuki, btnDefend, btnBreak, btnSpecial];
 
 let refereeHideTimer = null;
 let pendingImpactTimer = null;
@@ -2053,6 +2240,22 @@ function firePendingRoundResult() {
 }
 
 function flushPendingRound() {
+    timeState.hitStopUntil = 0;
+    timeState.slowMoUntil = 0;
+    timeState.slowMoFactor = 0.28;
+    if (typeof hideSpecialCutin === 'function') {
+        hideSpecialCutin();
+    }
+    if (typeof animators !== 'undefined') {
+        if (animators.player) {
+            animators.player.isSpecial = false;
+            animators.player.afterimages = [];
+        }
+        if (animators.enemy) {
+            animators.enemy.isSpecial = false;
+            animators.enemy.afterimages = [];
+        }
+    }
     firePendingRoundResult();
     if (pendingClosingTimer) {
         clearTimeout(pendingClosingTimer);
@@ -2072,8 +2275,10 @@ const timeState = {
     slowMoFactor: 0.28,
 };
 
-function triggerHitStop(stopMs, slowMs = 0, slowFactor = 0.28) {
-    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+function triggerHitStop(stopMs, slowMs = 0, slowFactor = 0.28, currentNow = null) {
+    const now = (currentNow !== null && currentNow !== undefined)
+        ? currentNow
+        : ((typeof performance !== 'undefined') ? performance.now() : Date.now());
     timeState.hitStopUntil = Math.max(timeState.hitStopUntil, now + stopMs);
     if (slowMs > 0) {
         timeState.slowMoUntil = Math.max(timeState.slowMoUntil, now + stopMs + slowMs);
@@ -2257,7 +2462,7 @@ function buildClosingCeremonyKeyframes(startPose, shouldRetreat = false) {
 }
 
 // アクションごとの64コマ連続ポーズ・キーフレーム定義（全関節が60fpsでヌルっと補間される）
-function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false) {
+function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose, wasTsubazeriai = false, techType = null) {
     const m = POSE_ROWS.men;
     const k = POSE_ROWS.kote;
     const d = POSE_ROWS.do;
@@ -2267,6 +2472,13 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
     const h = POSE_ROWS.hit;
     const startX = wasTsubazeriai ? 8 : 0;
     const endTargetX = neutralSprite === 'tsubazeriai' ? 8 : 0;
+
+    // 必殺技（または気合一閃）の場合は、技の系統（面/小手/胴/突き）のアニメーションをベースにする
+    let effectiveAction = action;
+    const isSpecialAction = (action === '必殺');
+    if (isSpecialAction) {
+        effectiveAction = techType || '面';
+    }
 
     // 被ダメージ後の仰け反り・復帰キーフレーム列（t = STRIKE_IMPACT_T から開始）
     const buildHitTail = () => {
@@ -2290,7 +2502,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
 
     let actionKeyframes;
 
-    if (action === '面') {
+    if (effectiveAction === '面') {
         if (wasTsubazeriai) {
             // 引き面：鍔迫り合いの至近距離から相手を突き放し、後方へ跳び退きながら面を振り抜く
             actionKeyframes = [
@@ -2319,7 +2531,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
                 { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             ];
         }
-    } else if (action === '小手') {
+    } else if (effectiveAction === '小手') {
         if (wasTsubazeriai) {
             // 引き小手：鍔迫り合いから後方へ下がりつつ小手を鋭く打ち抜く
             actionKeyframes = [
@@ -2347,7 +2559,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
                 { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             ];
         }
-    } else if (action === '胴') {
+    } else if (effectiveAction === '胴') {
         if (wasTsubazeriai) {
             // 引き胴：鍔迫り合いから身体を開きつつ後方へ退きながら胴を薙ぎ払う
             actionKeyframes = [
@@ -2375,7 +2587,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
                 { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             ];
         }
-    } else if (action === '突き') {
+    } else if (effectiveAction === '突き') {
         actionKeyframes = [
             { t: 0,               sprite: 'counter_0',   pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: 85,              sprite: 'tsuki_0',     pose: ts[0],     x: -3,         y: 0, scaleX: 1.01, scaleY: 0.99, rot: -0.01, ease: easeInOutSine },
@@ -2389,7 +2601,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
             { t: 950,             sprite: 'tsuki_7',     pose: ts[7],     x: 1,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
-    } else if (action === '崩し') {
+    } else if (effectiveAction === '崩し') {
         actionKeyframes = [
             { t: 0,               sprite: 'idle_0',      pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
             { t: 135,             sprite: 'brk_0',       pose: bk[0],     x: startX - 2, y: 0, scaleX: 1.02, scaleY: 0.98, rot: -0.01, ease: easeOutCubic },
@@ -2399,7 +2611,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
             { t: 840,             sprite: 'brk_3',       pose: bk[3],     x: 2,          y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0.01,  ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
-    } else if (action === 'スキップ') {
+    } else if (effectiveAction === 'スキップ') {
         // 体勢崩壊中（無防備・行動不能）
         actionKeyframes = [
             { t: 0,               sprite: 'guardBroken', pose: startPose, x: startX,     y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.02, ease: easeInOutSine },
@@ -2418,6 +2630,34 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
             { t: 820,             sprite: 'def_3',       pose: df[3],     x: -2,         y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: -0.01, ease: easeInOutSine },
             { t: ANIM_TOTAL_T,    sprite: neutralSprite, pose: endPose,   x: endTargetX, y: 0, scaleX: 1.0,  scaleY: 1.0,  rot: 0,     ease: easeInOutSine },
         ];
+    }
+
+    // 必殺技発動時は、奥義ならではの深い踏み込みの迫力を加える（光条は通常技の洗練された軌跡を使用）
+    if (isSpecialAction) {
+        let baseLungeFx = 'lunge_men';
+        if (techType === '小手') baseLungeFx = 'lunge_kote';
+        else if (techType === '胴') baseLungeFx = 'lunge_do';
+        else if (techType === '突き') baseLungeFx = 'lunge_tsuki';
+
+        actionKeyframes = actionKeyframes.map((kf) => {
+            if (kf.t === STRIKE_IMPACT_T) {
+                return {
+                    ...kf,
+                    x: kf.x + (kf.x >= 0 ? 5 : -5),
+                    scaleX: kf.scaleX * 1.06,
+                    scaleY: kf.scaleY * 0.94,
+                    flash: 0.98,
+                    fx: baseLungeFx,
+                };
+            }
+            if (kf.t > STRIKE_IMPACT_T && kf.t < ANIM_TOTAL_T) {
+                return {
+                    ...kf,
+                    x: kf.x + (kf.x >= 0 ? 3 : -3),
+                };
+            }
+            return kf;
+        });
     }
 
     // 鍔迫り合い突入時（同技交錯・崩し交錯）：打突インパクト後にそのまま至近距離で鍔元を押し合う構えに移行する
@@ -2452,7 +2692,7 @@ function buildActionKeyframes(action, outcome, neutralSprite, startPose, endPose
     return actionKeyframes;
 }
 
-function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', wasTsubazeriai = false) {
+function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', wasTsubazeriai = false, techType = null) {
     const anim = animators[who];
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const strikeEndStance = state.gameOver
@@ -2460,12 +2700,18 @@ function triggerFighterAnimation(who, action, outcome, impactWeight = 'normal', 
         : getCombatStanceAnim(who);
     const startSnapshot = { ...anim.currentPose };
     const endTargetPose = getContinuousStancePose(strikeEndStance, (now + ANIM_TOTAL_T) * 0.0042 + anim.phaseOffset);
-    anim.keyframes = buildActionKeyframes(action, outcome, strikeEndStance, startSnapshot, endTargetPose, wasTsubazeriai);
+    let resolvedTechType = techType;
+    if (!resolvedTechType && action === '必殺') {
+        const fighterTech = getFighterSpecialTech(who);
+        resolvedTechType = fighterTech.tech ? fighterTech.tech.type : '面';
+    }
+    anim.keyframes = buildActionKeyframes(action, outcome, strikeEndStance, startSnapshot, endTargetPose, wasTsubazeriai, resolvedTechType);
     anim.seqStartTime = now;
     anim.virtualElapsed = 0;
     anim.lastUpdateNow = now;
     anim.lastKeyIndex = -1;
     anim.impactWeight = impactWeight;
+    anim.isSpecial = action === '必殺';
 }
 
 // 審判の掛け声音声合成（Web Speech API）
@@ -3390,12 +3636,80 @@ function playTsukiShout(ctx, now, basePitch, intensity = 1.0) {
     breathSource.stop(now + dur);
 }
 
-// 打突ヒット時の技名気合（メェーーーン！、コテェーーッ！、ドォーーッ！、ツキィーーッ！）
+// 「ヤァァァ！」「ドォォッ！」などの気合・崩しの掛け声シャウトをWeb Audioで合成
+function playKakegoeShout(ctx, now, basePitch = 240, intensity = 1.0) {
+    const dur = 0.38;
+    const oscMain = ctx.createOscillator();
+    const oscSub = ctx.createOscillator();
+    oscMain.type = 'sawtooth';
+    oscSub.type = 'triangle';
+
+    oscMain.frequency.setValueAtTime(basePitch * 0.95, now);
+    oscMain.frequency.linearRampToValueAtTime(basePitch * 1.25, now + 0.05);
+    oscMain.frequency.exponentialRampToValueAtTime(basePitch * 1.05, now + 0.25);
+    oscMain.frequency.linearRampToValueAtTime(basePitch * 0.85, now + dur);
+
+    oscSub.frequency.setValueAtTime(basePitch * 0.48, now);
+    oscSub.frequency.linearRampToValueAtTime(basePitch * 0.62, now + 0.05);
+    oscSub.frequency.exponentialRampToValueAtTime(basePitch * 0.52, now + 0.25);
+
+    const breathSource = ctx.createBufferSource();
+    breathSource.buffer = getBreathNoiseBuffer(ctx);
+    const breathFilter = ctx.createBiquadFilter();
+    breathFilter.type = 'bandpass';
+    breathFilter.frequency.setValueAtTime(1800, now);
+    breathFilter.Q.setValueAtTime(1.8, now);
+    const breathGain = ctx.createGain();
+    breathGain.gain.setValueAtTime(0.0001, now);
+    breathGain.gain.linearRampToValueAtTime(0.24 * intensity, now + 0.03);
+    breathGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    breathSource.connect(breathFilter);
+    breathFilter.connect(breathGain);
+
+    const formants = createFormantFilters(ctx, 750, 1250, 2600);
+    const voiceSourceMix = ctx.createGain();
+    voiceSourceMix.gain.value = 0.55;
+    oscMain.connect(voiceSourceMix);
+    oscSub.connect(voiceSourceMix);
+    voiceSourceMix.connect(formants.busIn);
+    breathGain.connect(formants.busIn);
+
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = getKiaiShoutCurve();
+    formants.busOut.connect(shaper);
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(0.65 * intensity, now + 0.04);
+    masterGain.gain.setValueAtTime(0.55 * intensity, now + 0.26);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    shaper.connect(masterGain);
+    masterGain.connect(getSoundDestination(ctx));
+    attachDojoReverb(ctx, now, masterGain, 0.4);
+
+    oscMain.start(now);
+    oscSub.start(now);
+    breathSource.start(now);
+    oscMain.stop(now + dur);
+    oscSub.stop(now + dur);
+    breathSource.stop(now + dur);
+}
+
+// 剣士共通の掛け声テキスト（ひらがな）を取得（「やぁぁぁ！」に統一）
+function getFighterKiaiShout(who) {
+    return 'やぁぁぁ！';
+}
+
+// 打突ヒット時・気合・崩し・防御時の技名気合（メェーーーン！、コテェーーッ！、ドォーーッ！、ツキィーーッ！、ヤァァァ！）
 const KIAI_CALLS = {
     '面': 'メェーーーン！',
     '小手': 'コテェーーッ！',
     '胴': 'ドォーーッ！',
     '突き': 'ツキィーーッ！',
+    '気合': 'ヤァァァ！',
+    '崩し': 'ヤァァァ！',
+    '防御': 'ヤァァァ！',
 };
 
 function playKiaiVoice(action, options = {}) {
@@ -3445,23 +3759,35 @@ function playKiaiVoice(action, options = {}) {
                 playDoShout(ctx, now, basePitch, intensity);
             } else if (action === '突き') {
                 playTsukiShout(ctx, now, basePitch, intensity);
+            } else if (action === '気合' || action === '崩し' || action === '防御') {
+                playKakegoeShout(ctx, now, basePitch, intensity);
             }
-            return;
         } catch (e) {
             // Web Audio エラー時はフォールバックへ
         }
     }
 
-    // 2. フォールバック（Web Speech API）
+    // 2. 音声合成（Web Speech API）で共通掛け声・技名を発声
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         try {
             window.speechSynthesis.cancel();
-            const text = action === '面' ? 'めーん！' : action === '小手' ? 'こてー！' : action === '胴' ? 'どうー！' : 'つきー！';
+            let text = '';
+            if (action === '気合' || action === '崩し' || action === '防御') {
+                text = 'やぁぁぁ！';
+            } else if (action === '面') {
+                text = 'めーん！';
+            } else if (action === '小手') {
+                text = 'こてー！';
+            } else if (action === '胴') {
+                text = 'どうー！';
+            } else if (action === '突き') {
+                text = 'つきー！';
+            }
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = 'ja-JP';
-            utter.rate = 1.25;
-            utter.pitch = isPlayer ? 1.4 : 0.9;
-            utter.volume = Math.max(0, Math.min(1, 0.5 * intensity));
+            utter.rate = 1.35;
+            utter.pitch = isPlayer ? 1.35 : 0.92;
+            utter.volume = Math.max(0, Math.min(1, 0.65 * intensity));
             if (!cachedKiaiVoice) refreshVoiceAssignments();
             if (cachedKiaiVoice) utter.voice = cachedKiaiVoice;
             window.speechSynthesis.speak(utter);
@@ -3847,7 +4173,11 @@ function updateAndDrawFighter(ctx, who, flip, now) {
 
         if (elapsed >= lastKf.t) {
             anim.keyframes = null;
+            anim.isSpecial = false;
+            anim.afterimages = [];
             if (!animators.player.keyframes && !animators.enemy.keyframes) {
+                timeState.hitStopUntil = 0;
+                timeState.slowMoUntil = 0;
                 flushPendingRound();
             }
             if ((anim.alpha !== undefined && anim.alpha <= 0.02) || anim.posX <= -180) {
@@ -3855,7 +4185,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                 anim.posX = -250;
             } else {
                 setSpriteWithFade(anim, defaultSprite, now);
-                const speedMult = (isCounter || kiai >= MAX_KIAI) ? 1.35 : 1.0;
+                const speedMult = (isCounter || kiai >= 3) ? 1.35 : 1.0;
                 const phase = now * 0.0042 * speedMult + anim.phaseOffset;
                 targetPose = getContinuousStancePose(defaultSprite, phase);
                 anim.currentPose = interpolatePose(anim.currentPose, targetPose, 0.25);
@@ -3904,18 +4234,26 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                         spawnShockwave(anim, currentFootX + dir * 22, 92, isHeavy ? '250, 204, 21' : '248, 113, 113', isHeavy);
                     } else if (fx === 'hitstop') {
                         if (isHeavy) {
-                            triggerHitStop(95, 160, 0.28);
+                            triggerHitStop(95, 160, 0.28, now);
                         } else {
-                            triggerHitStop(55, 65, 0.45);
+                            triggerHitStop(55, 65, 0.45, now);
                         }
-                    } else if (fx && fx.startsWith('lunge_')) {
-                        const slashType = fx.replace('lunge_', '');
-                        const impactY = slashType === 'men' ? 76 : (slashType === 'tsuki' ? 96 : 114);
+                    } else if (fx && (fx.startsWith('lunge_') || fx.startsWith('special_lunge_'))) {
+                        const baseType = fx.startsWith('special_lunge_') ? fx.replace('special_lunge_', '') : fx.replace('lunge_', '');
+                        const slashType = baseType;
+                        const impactY = baseType === 'men' ? 76 : (baseType === 'tsuki' ? 96 : 114);
                         spawnDust(anim, currentFootX + dir * 18, GROUND_Y, dir);
-                        anim.slashEffect = { type: slashType, start: now, elapsed: 0, duration: isHeavy ? 320 : 260, isHeavy };
-                        if (slashType === 'tsuki' || isCounter || isHeavy) {
-                            spawnSparks(anim, currentFootX + dir * 48, impactY, '250, 204, 21', 20, 1.3);
+                        anim.slashEffect = {
+                            type: slashType,
+                            start: now,
+                            elapsed: 0,
+                            duration: isHeavy ? 300 : 240,
+                            isHeavy: isHeavy,
+                        };
+                        if (anim.isSpecial || slashType === 'tsuki' || isCounter || isHeavy) {
+                            spawnSparks(anim, currentFootX + dir * 48, impactY, '250, 204, 21', isHeavy ? 18 : 14, 1.25);
                             spawnShockwave(anim, currentFootX + dir * 46, impactY, '250, 204, 21', true);
+                            triggerHitStop(isHeavy ? 90 : 70, isHeavy ? 100 : 60, 0.38, now);
                         } else {
                             spawnShockwave(anim, currentFootX + dir * 44, impactY, '56, 189, 248', false);
                         }
@@ -3923,13 +4261,13 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                         spawnDust(anim, currentFootX + dir * 12, GROUND_Y, dir);
                         spawnSparks(anim, currentFootX + dir * 40, 96, '250, 204, 21', 20, 1.25);
                         spawnShockwave(anim, currentFootX + dir * 38, 96, '250, 204, 21', false);
-                        triggerHitStop(50, 0, 1.0);
+                        triggerHitStop(50, 0, 1.0, now);
                     } else if (fx === 'shield' || fx === 'shield_success') {
                         anim.slashEffect = { type: fx, start: now, elapsed: 0, duration: 320, isHeavy: false };
                         if (fx === 'shield_success') {
                             spawnSparks(anim, currentFootX + dir * 34, 98, '56, 189, 248', 18, 1.15);
                             spawnShockwave(anim, currentFootX + dir * 34, 98, '56, 189, 248', false);
-                            triggerHitStop(55, 0, 1.0);
+                            triggerHitStop(55, 0, 1.0, now);
                         }
                     }
                 }
@@ -3948,22 +4286,28 @@ function updateAndDrawFighter(ctx, who, flip, now) {
             const a1 = k1.alpha !== undefined ? k1.alpha : 1;
             anim.alpha = lerp(a0, a1, easedT);
 
-            // 高速踏み込み・打突スイング中は連続ポーズ残像を追加
+            // 高速踏み込み・打突スイング中は連続ポーズ残像を追加（最大4件に制限）
             const poseLungeDist = Math.abs((anim.currentPose.hipX - 132) * 0.47 + anim.posX);
-            if (!inHitStop && poseLungeDist > 10 && Math.random() < (anim.impactWeight === 'heavy' ? 0.65 : 0.42)) {
+            const isSpec = !!anim.isSpecial;
+            const afterimageChance = isSpec ? 0.75 : (anim.impactWeight === 'heavy' ? 0.65 : 0.42);
+            if (!inHitStop && (poseLungeDist > 8 || isSpec) && Math.random() < afterimageChance) {
+                if (anim.afterimages.length >= 4) {
+                    anim.afterimages.shift();
+                }
                 anim.afterimages.push({
                     pose: { ...anim.currentPose, swingBlur: 0, hitDebris: 0 },
                     posX: anim.posX,
                     scaleX: anim.scaleX,
                     scaleY: anim.scaleY,
                     rot: anim.rot,
-                    alpha: anim.impactWeight === 'heavy' ? 0.28 : 0.22,
+                    isGold: isSpec,
+                    alpha: isSpec ? 0.42 : (anim.impactWeight === 'heavy' ? 0.28 : 0.22),
                 });
             }
         }
     } else {
         // 待機中（または決着後）の滑らかな60fps呼吸・すり足・剣先の揺らぎ
-        const speedMult = (isCounter || kiai >= MAX_KIAI) ? 1.38 : 1.0;
+        const speedMult = (isCounter || kiai >= 3) ? 1.38 : 1.0;
         const phase = now * 0.0042 * speedMult + anim.phaseOffset;
         const normalizedPhase = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         const frameIdx = Math.floor((normalizedPhase / (Math.PI * 2)) * 8) % 8;
@@ -4029,8 +4373,8 @@ function updateAndDrawFighter(ctx, who, flip, now) {
         return;
     }
 
-    // 応じ技構え・気合MAX時のオーラ粒子生成（待機中のみ足元から立ち昇る）
-    if (!state.gameOver && !anim.keyframes && (isCounter || kiai >= MAX_KIAI) && Math.random() < 0.25) {
+    // 応じ技構え・気合高揚時のオーラ粒子生成（待機中のみ足元から立ち昇る）
+    if (!state.gameOver && !anim.keyframes && (isCounter || kiai >= 3) && Math.random() < 0.25) {
         const hipScreenX = pivotX + dir * (renderPose.hipX - ANCHOR_FOOT_X) * vScale;
         anim.particles.push({
             kind: 'aura',
@@ -4088,6 +4432,9 @@ function updateAndDrawFighter(ctx, who, flip, now) {
         if (flip) ctx.scale(-1, 1);
         ctx.rotate(img.rot);
         ctx.scale(img.scaleX, img.scaleY);
+        if (img.isGold) {
+            ctx.globalCompositeOperation = 'lighter';
+        }
         if (img.pose) {
             drawArticulatedPoseOnCanvas(ctx, img.pose, img.alpha, fighterArmorTheme);
         } else if (img.sprite) {
@@ -4197,6 +4544,64 @@ function triggerArenaFlash() {
     battleArena.classList.add('arena-critical-flash');
 }
 
+// ⚡ 必殺技・奥義カットイン演出
+function triggerSpecialCutin(side, techName, isUnlocked = true, isClash = false) {
+    if (!specialFxOverlay) return;
+    if (specialCutinTimer) {
+        clearTimeout(specialCutinTimer);
+        specialCutinTimer = null;
+    }
+
+    if (specialCutinTitle) specialCutinTitle.textContent = techName || '気合一閃';
+    if (specialCutinSub) {
+        if (isClash) specialCutinSub.textContent = '⚡ 奥義激突 ⚡';
+        else if (isUnlocked) specialCutinSub.textContent = side === 'player' ? '⚡ 秘技覚醒 ⚡' : '⚠️ 相手奥義 ⚠️';
+        else specialCutinSub.textContent = '🔥 気合一閃 🔥';
+    }
+
+    if (specialCutinBanner) {
+        specialCutinBanner.classList.remove('show-player', 'show-enemy', 'show-clash');
+        void specialCutinBanner.offsetWidth; // リフロー強制
+        if (isClash) specialCutinBanner.classList.add('show-clash');
+        else if (side === 'player') specialCutinBanner.classList.add('show-player');
+        else specialCutinBanner.classList.add('show-enemy');
+    }
+
+    specialFxOverlay.style.display = 'block';
+
+    specialCutinTimer = setTimeout(() => {
+        if (specialCutinBanner) specialCutinBanner.classList.remove('show-player', 'show-enemy', 'show-clash');
+        setTimeout(() => {
+            if (specialFxOverlay) {
+                specialFxOverlay.style.display = 'none';
+            }
+        }, 150);
+        specialCutinTimer = null;
+    }, 850);
+}
+
+// ⚡ 画面を斜めに一閃する斬痕閃光（スクリーン・スラッシュ：画面全体効果抑制のため無効化）
+function triggerScreenSlash() {
+    // 画面全体効果の削除に伴い無効化
+}
+
+// ⚡ 必殺技演出の即時リセット・非表示
+function hideSpecialCutin() {
+    if (specialCutinTimer) {
+        clearTimeout(specialCutinTimer);
+        specialCutinTimer = null;
+    }
+    if (specialSlashTimer) {
+        clearTimeout(specialSlashTimer);
+        specialSlashTimer = null;
+    }
+    if (specialDarken) specialDarken.classList.remove('active');
+    if (specialSpeedLines) specialSpeedLines.classList.remove('active');
+    if (specialCutinBanner) specialCutinBanner.classList.remove('show-player', 'show-enemy', 'show-clash');
+    if (specialScreenSlash) specialScreenSlash.classList.remove('flash-slash');
+    if (specialFxOverlay) specialFxOverlay.style.display = 'none';
+}
+
 // ダメージやバフのフローティングポップアップを表示
 function spawnFloatingPopup(who, text, styleClass = 'popup-dmg', offsetY = 0) {
     const layer = who === 'player' ? playerPopupLayer : enemyPopupLayer;
@@ -4213,8 +4618,152 @@ function spawnFloatingPopup(who, text, styleClass = 'popup-dmg', offsetY = 0) {
     }, 1100);
 }
 
+// 競り合いクラッシュメーターの表示・非表示制御
+let clashMeterHideTimer = null;
+let clashMeterShowTimestamp = 0;
+
+function showClashMeter(data) {
+    if (!clashMeterWrap) return;
+    if (clashMeterHideTimer) {
+        clearTimeout(clashMeterHideTimer);
+        clashMeterHideTimer = null;
+    }
+
+    const {
+        pMoveName = '面',
+        eMoveName = '小手',
+        pScore = 50,
+        eScore = 50,
+        pSkillVal = 30,
+        eSkillVal = 30,
+        pAdv = 0,
+        eAdv = 0,
+        pKiaiLabel = '',
+        eKiaiLabel = '',
+        pKiaiBonus = 0,
+        eKiaiBonus = 0,
+        winner = null,
+    } = data;
+
+    if (clashPlayerLabel) clashPlayerLabel.textContent = `${pMoveName} ${pSkillVal}`;
+    if (clashEnemyLabel) clashEnemyLabel.textContent = `${eMoveName} ${eSkillVal}`;
+    if (clashVsTag) {
+        if (winner === 'player') clashVsTag.textContent = '優勢！';
+        else if (winner === 'enemy') clashVsTag.textContent = '劣勢！';
+        else clashVsTag.textContent = '激突！';
+    }
+
+    // パワーバーの割合計算（最小18%〜最大82%で押し合い感を演出）
+    const total = Math.max(1, pScore + eScore);
+    const pRatio = Math.max(0.18, Math.min(0.82, pScore / total));
+    const pPct = (pRatio * 100).toFixed(1);
+    const ePct = ((1 - pRatio) * 100).toFixed(1);
+
+    if (clashFillPlayer) clashFillPlayer.style.width = `${pPct}%`;
+    if (clashFillEnemy) clashFillEnemy.style.width = `${ePct}%`;
+    if (clashMarker) clashMarker.style.left = `${pPct}%`;
+
+    // 理由バッジ生成（左側：自身、右側：敵側）
+    if (clashReasons) {
+        const pBadges = [];
+        const eBadges = [];
+
+        // 1. 三すくみ相性
+        if (pAdv > 0) pBadges.push(`<span class="clash-badge adv-player">相性有利 +${pAdv}</span>`);
+        if (eAdv > 0) eBadges.push(`<span class="clash-badge adv-enemy">相性有利 +${eAdv}</span>`);
+
+        // 2. 技量差（5以上離れている側に技術優位バッジ）
+        const skillDiff = pSkillVal - eSkillVal;
+        if (skillDiff >= 5) {
+            pBadges.push(`<span class="clash-badge skill-player">技術優位 +${skillDiff}</span>`);
+        } else if (skillDiff <= -5) {
+            eBadges.push(`<span class="clash-badge skill-enemy">技術優位 +${-skillDiff}</span>`);
+        }
+
+        // 3. 気合バフ
+        if (pKiaiBonus > 0 && pKiaiLabel) {
+            pBadges.push(`<span class="clash-badge kiai-buff">${pKiaiLabel} +${pKiaiBonus}</span>`);
+        }
+        if (eKiaiBonus > 0 && eKiaiLabel) {
+            eBadges.push(`<span class="clash-badge kiai-buff">${eKiaiLabel} +${eKiaiBonus}</span>`);
+        }
+
+        // 4. 基礎能力ボーナス（剛腕・見切り・気力）
+        const {
+            pStrBonus = 0, eStrBonus = 0,
+            pAgiBonus = 0, eAgiBonus = 0,
+            pSpiBonus = 0, eSpiBonus = 0,
+            pCounterBonus = 0, eCounterBonus = 0,
+            pCounterStacks = 0, eCounterStacks = 0,
+        } = data;
+
+        // 見切り応じ技（スタック数に応じた明示表示）
+        if (pCounterStacks > 0) {
+            const totalCounter = pCounterBonus + pAgiBonus;
+            pBadges.push(`<span class="clash-badge skill-player">⚡ 見切りLv${pCounterStacks} +${totalCounter}</span>`);
+        } else if (pAgiBonus > 0) {
+            pBadges.push(`<span class="clash-badge skill-player">⚡ 見切り +${pAgiBonus}</span>`);
+        }
+        if (eCounterStacks > 0) {
+            const totalCounter = eCounterBonus + eAgiBonus;
+            eBadges.push(`<span class="clash-badge skill-enemy">⚡ 見切りLv${eCounterStacks} +${totalCounter}</span>`);
+        } else if (eAgiBonus > 0) {
+            eBadges.push(`<span class="clash-badge skill-enemy">⚡ 見切り +${eAgiBonus}</span>`);
+        }
+
+        // 剛腕押し切り（差が2以上ある優位側に表示）
+        if (pStrBonus - eStrBonus >= 2) {
+            pBadges.push(`<span class="clash-badge skill-player">💪 剛腕 +${pStrBonus}</span>`);
+        } else if (eStrBonus - pStrBonus >= 2) {
+            eBadges.push(`<span class="clash-badge skill-enemy">💪 剛腕 +${eStrBonus}</span>`);
+        }
+
+        // 気力ボーナス
+        if (pSpiBonus > 0) pBadges.push(`<span class="clash-badge kiai-buff">🔥 気力 +${pSpiBonus}</span>`);
+        if (eSpiBonus > 0) eBadges.push(`<span class="clash-badge kiai-buff">🔥 気力 +${eSpiBonus}</span>`);
+
+        clashReasons.innerHTML = `
+            <div class="clash-columns">
+                <div class="clash-col player">${pBadges.length > 0 ? pBadges.join('') : '<span class="clash-empty">-</span>'}</div>
+                <div class="clash-col enemy">${eBadges.length > 0 ? eBadges.join('') : '<span class="clash-empty">-</span>'}</div>
+            </div>
+            <div class="clash-close-hint">クリックで閉じる</div>
+        `;
+    }
+
+    clashMeterWrap.style.display = 'block';
+    void clashMeterWrap.offsetWidth; // リフロー強制
+    clashMeterWrap.classList.add('show');
+    clashMeterShowTimestamp = Date.now();
+    // 次の合の技選択中や表示中も並行して表示を維持（画面クリックまたは次のアクションで閉じる）
+}
+
+function hideClashMeter() {
+    if (clashMeterHideTimer) {
+        clearTimeout(clashMeterHideTimer);
+        clashMeterHideTimer = null;
+    }
+    if (clashMeterWrap) {
+        clashMeterWrap.classList.remove('show');
+        setTimeout(() => {
+            if (clashMeterWrap && !clashMeterWrap.classList.contains('show')) {
+                clashMeterWrap.style.display = 'none';
+            }
+        }, 180);
+    }
+}
+
+// 画面クリックでクラッシュメーターを閉じる（表示直後200ms以内の即時反応を抑止）
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('pointerdown', () => {
+        if (!clashMeterWrap || !clashMeterWrap.classList.contains('show')) return;
+        if (Date.now() - clashMeterShowTimestamp < 200) return;
+        hideClashMeter();
+    });
+}
+
 // 審判の紅白旗・技コールカットインを表示
-function showRefereeCallout({ winner = null, mainText = '', subText = '', isCritical = false, isGuard = false }, onHidden = null) {
+function showRefereeCallout({ winner = null, mainText = '', subText = '', reasonBadge = null, isCritical = false, isGuard = false }, onHidden = null) {
     if (!refereeCallout) return;
     if (refereeHideTimer) {
         clearTimeout(refereeHideTimer);
@@ -4238,7 +4787,17 @@ function showRefereeCallout({ winner = null, mainText = '', subText = '', isCrit
     refereeMainText.textContent = mainText;
     refereeSubText.textContent = subText;
 
-    const duration = state.gameOver ? 2500 : 1250;
+    if (refereeReasonBadge) {
+        if (reasonBadge) {
+            refereeReasonBadge.textContent = reasonBadge;
+            refereeReasonBadge.style.display = 'inline-block';
+            refereeReasonBadge.className = 'referee-reason-tag ' + (winner === 'player' ? 'red-tag' : (winner === 'enemy' ? 'white-tag' : ''));
+        } else {
+            refereeReasonBadge.style.display = 'none';
+        }
+    }
+
+    const duration = state.gameOver ? 2500 : 1300;
     refereeHideTimer = setTimeout(() => {
         refereeCallout.classList.remove('show');
         if (onHidden) {
@@ -4265,6 +4824,9 @@ function hideRefereeCallout() {
             flagsEl.style.display = 'flex';
         }
     }
+    if (refereeReasonBadge) {
+        refereeReasonBadge.style.display = 'none';
+    }
 }
 
 function getFighterStats(who) {
@@ -4278,7 +4840,7 @@ function getFighterStats(who) {
                 skills: p.skills || { men: 8, kote: 8, do: 8, tsuki: 6 },
             };
         }
-        return { str: 12, agi: 12, spi: 12, skills: { men: 10, kote: 10, do: 10, tsuki: 8 } };
+        return { str: 14, agi: 14, spi: 14, skills: { men: 42, kote: 38, do: 36, tsuki: 32 } };
     } else {
         if (state.customMatch && state.customMatch.enemy) {
             const e = state.customMatch.enemy;
@@ -4299,21 +4861,324 @@ function getFighterStats(who) {
     }
 }
 
+// 部員または敵の必殺技（得意技）情報および解放状態の取得
+function getFighterSpecialTech(who) {
+    let techId = null;
+    let skills = { men: 10, kote: 10, do: 10, tsuki: 8 };
+    if (who === 'player') {
+        if (state.customMatch && state.customMatch.player) {
+            techId = state.customMatch.player.specialTechnique || 'hien_men';
+            skills = state.customMatch.player.skills || skills;
+        } else {
+            techId = 'hien_men';
+            skills = { men: 42, kote: 38, do: 36, tsuki: 32 };
+        }
+    } else {
+        if (state.customMatch && state.customMatch.enemy) {
+            techId = state.customMatch.enemy.specialTechnique;
+            skills = state.customMatch.enemy.skills || skills;
+        } else {
+            const enemyData = getCurrentEnemy();
+            techId = enemyData.specialTechnique || 'hien_men';
+            skills = enemyData.skills || skills;
+        }
+    }
+    const tech = SPECIAL_TECHNIQUES[techId] || SPECIAL_TECHNIQUES.hien_men;
+    const isUnlocked = isSpecialTechUnlocked(tech, skills);
+    return { tech, isUnlocked, skills };
+}
+
+function isSpecialTechUnlocked(tech, skills) {
+    if (!tech || !skills) return false;
+    const currentVal = skills[tech.reqStat] || 0;
+    return currentVal >= tech.reqVal;
+}
+
+// 選手カード用ミニレーダーチャート（4打突技術: 面・小手・胴・突き + 基礎能力: 腕・敏・気）
+function generateFighterRadarSvg(who, activeAction = null, isAdv = false) {
+    const isPlayer = who === 'player';
+    const stats = getFighterStats(who);
+    const skills = (stats && stats.skills) || { men: 10, kote: 10, do: 10, tsuki: 8 };
+    const width = 160;
+    const height = 112;
+    const cx = 80;
+    const cy = 54;
+    const r = 32; // 基準最大目盛り（50）の半径
+
+    // 4打突理合サイクル軸: 面(上), 小手(右), 胴(下), 突き(左)
+    // 時計回りに: 面 ＞ 小手 ＞ 胴 ＞ 突き ＞ 面
+    const axes = [
+        { key: 'men', label: '面', fullLabel: '面', val: skills.men || 10, angle: -Math.PI / 2 },
+        { key: 'kote', label: '小', fullLabel: '小手', val: skills.kote || 10, angle: 0 },
+        { key: 'do', label: '胴', fullLabel: '胴', val: skills.do || 10, angle: Math.PI / 2 },
+        { key: 'tsuki', label: '突', fullLabel: '突き', val: skills.tsuki || 8, angle: Math.PI },
+    ];
+
+    // 目盛りグリッド (15, 30, 50)
+    const gridTicks = [
+        { val: 15, ratio: 15 / 50, stroke: 'rgba(148, 163, 184, 0.2)', strokeWidth: 1 },
+        { val: 30, ratio: 30 / 50, stroke: 'rgba(148, 163, 184, 0.28)', strokeWidth: 1 },
+        { val: 50, ratio: 1.0, stroke: isPlayer ? 'rgba(245, 158, 11, 0.6)' : 'rgba(56, 189, 248, 0.6)', strokeWidth: 1.4 },
+    ];
+
+    let gridSvg = '';
+    gridTicks.forEach((tick) => {
+        const pts = axes.map((a) => {
+            const x = cx + Math.cos(a.angle) * r * tick.ratio;
+            const y = cy + Math.sin(a.angle) * r * tick.ratio;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        gridSvg += `<polygon points="${pts.join(' ')}" fill="none" stroke="${tick.stroke}" stroke-width="${tick.strokeWidth}" />\n`;
+    });
+
+    // 軸線
+    let axesSvg = '';
+    axes.forEach((a) => {
+        const x = cx + Math.cos(a.angle) * (r * 1.08);
+        const y = cy + Math.sin(a.angle) * (r * 1.08);
+        axesSvg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(148, 163, 184, 0.25)" stroke-width="1" />\n`;
+    });
+
+    // データポリゴン
+    const dataPts = axes.map((a) => {
+        const ratio = Math.max(0.12, a.val / 50);
+        const x = cx + Math.cos(a.angle) * r * ratio;
+        const y = cy + Math.sin(a.angle) * r * ratio;
+        return { ...a, x, y, ratio };
+    });
+    const polyStr = dataPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+    const fillColor = isPlayer ? 'rgba(245, 158, 11, 0.38)' : 'rgba(56, 189, 248, 0.35)';
+    const strokeColor = isPlayer ? '#f59e0b' : '#38bdf8';
+
+    // ドット
+    let dotsSvg = '';
+    dataPts.forEach((p) => {
+        const isActive = activeAction && (p.fullLabel === activeAction || p.label === activeAction);
+        if (isActive) {
+            const glowColor = isAdv ? '#4ade80' : (isPlayer ? '#fde047' : '#38bdf8');
+            dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="none" stroke="${glowColor}" stroke-width="2.2" class="radar-active-point" />\n`;
+            dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.6" fill="${glowColor}" />\n`;
+        } else {
+            const dotColor = isPlayer ? '#fde047' : '#7dd3fc';
+            dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.8" fill="${dotColor}" />\n`;
+        }
+    });
+
+    // ラベルと数値
+    let labelsSvg = '';
+    dataPts.forEach((p, i) => {
+        const isActive = activeAction && (p.fullLabel === activeAction || p.label === activeAction);
+        let lx = p.x;
+        let ly = p.y;
+        let anchor = 'middle';
+        let baseline = 'central';
+
+        if (i === 0) { // 上 (面)
+            ly = cy - Math.max(r + 14, r * p.ratio + 9);
+            baseline = 'auto';
+        } else if (i === 1) { // 右 (小手)
+            lx = cx + Math.max(r + 15, r * p.ratio + 9);
+            anchor = 'start';
+        } else if (i === 2) { // 下 (胴)
+            ly = cy + Math.max(r + 14, r * p.ratio + 11);
+            baseline = 'hanging';
+        } else if (i === 3) { // 左 (突き)
+            lx = cx - Math.max(r + 15, r * p.ratio + 9);
+            anchor = 'end';
+        }
+
+        let labelColor = isPlayer ? '#fef08a' : '#cbd5e1';
+        let valColor = isPlayer ? '#fde047' : '#38bdf8';
+        let advText = '';
+        if (isActive) {
+            labelColor = isAdv ? '#86efac' : '#ffffff';
+            valColor = isAdv ? '#4ade80' : '#facc15';
+            if (isAdv) advText = '<tspan font-size="9" font-weight="900" fill="#4ade80">有利</tspan>';
+        }
+
+        labelsSvg += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="${baseline}" font-size="10.5" font-weight="800" fill="${labelColor}">${p.label}${advText}<tspan font-size="10" font-weight="900" fill="${valColor}"> ${p.val}</tspan></text>\n`;
+    });
+
+    const svg = `
+        <svg class="fighter-radar-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${who}の打突パラメータ">
+            <g class="radar-grid">${gridSvg}</g>
+            <g class="radar-axes">${axesSvg}</g>
+            <polygon points="${polyStr}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round" />
+            <g class="radar-dots">${dotsSvg}</g>
+            <g class="radar-labels">${labelsSvg}</g>
+        </svg>
+        <div class="fighter-mini-stats">
+            <span>腕 <span class="stat-val">${stats.str || 10}</span></span>
+            <span>敏 <span class="stat-val">${stats.agi || 10}</span></span>
+            <span>気 <span class="stat-val">${stats.spi || 10}</span></span>
+        </div>
+    `;
+    return svg;
+}
+
+// 気力（SPI）に応じた最大気合ゲージ値（気力50未満:3、50代:4、60代:5、70代:6、80代:7、90以上:8）
+function getFighterMaxKiai(who) {
+    const stats = getFighterStats(who);
+    const spi = (stats && stats.spi) ? stats.spi : 10;
+    if (spi < 50) return 3;
+    return Math.min(8, 3 + Math.floor((spi - 40) / 10));
+}
+
+// 気合ゲージ（0〜8）連動パッシブバフ（技量連動スケーリング対応）
+function getKiaiBuff(who, kiaiLevel, skillVal = 0) {
+    const k = Math.max(0, Math.min(8, Number(kiaiLevel) || 0));
+    const sv = Math.max(0, Number(skillVal) || 0);
+
+    if (k === 0) {
+        return {
+            level: 0,
+            scoreBonus: 0,
+            ratio: 0,
+            minBonus: 0,
+            dmgBonus: 0,
+            dmgReduction: 0,
+            unshakable: false,
+            critRate: 0,
+            label: '平常心',
+        };
+    }
+    if (k === 1) {
+        // 気迫充実: 技パラメータの 10%（最低保証 +5）
+        const bonus = sv > 0 ? Math.max(5, Math.round(sv * 0.10)) : 5;
+        return {
+            level: 1,
+            scoreBonus: bonus,
+            ratio: 0.10,
+            minBonus: 5,
+            dmgBonus: 0,
+            dmgReduction: 0,
+            unshakable: false,
+            critRate: 0.18,
+            label: '⚡ 気迫充実',
+        };
+    }
+    if (k === 2) {
+        // 気位高揚: 技パラメータの 20%（最低保証 +10）
+        const bonus = sv > 0 ? Math.max(10, Math.round(sv * 0.20)) : 10;
+        return {
+            level: 2,
+            scoreBonus: bonus,
+            ratio: 0.20,
+            minBonus: 10,
+            dmgBonus: 1,
+            dmgReduction: 1,
+            unshakable: false,
+            critRate: 0.35,
+            label: '🔥 気位高揚',
+        };
+    }
+    if (k === 3) {
+        // 気合最高潮: 技パラメータの 35%（最低保証 +18）
+        const bonus = sv > 0 ? Math.max(18, Math.round(sv * 0.35)) : 18;
+        return {
+            level: 3,
+            scoreBonus: bonus,
+            ratio: 0.35,
+            minBonus: 18,
+            dmgBonus: 1,
+            dmgReduction: 1,
+            unshakable: true,
+            critRate: 0.60,
+            label: '🌟 気合最高潮',
+        };
+    }
+    if (k === 4) {
+        // 明鏡止水: 技パラメータの 42%（最低保証 +22）
+        const bonus = sv > 0 ? Math.max(22, Math.round(sv * 0.42)) : 22;
+        return {
+            level: 4,
+            scoreBonus: bonus,
+            ratio: 0.42,
+            minBonus: 22,
+            dmgBonus: 1,
+            dmgReduction: 1,
+            unshakable: true,
+            critRate: 0.75,
+            label: '🌌 明鏡止水',
+        };
+    }
+    if (k === 5) {
+        // 天下無双: 技パラメータの 50%（最低保証 +26）
+        const bonus = sv > 0 ? Math.max(26, Math.round(sv * 0.50)) : 26;
+        return {
+            level: 5,
+            scoreBonus: bonus,
+            ratio: 0.50,
+            minBonus: 26,
+            dmgBonus: 2,
+            dmgReduction: 2,
+            unshakable: true,
+            critRate: 0.85,
+            label: '👑 天下無双',
+        };
+    }
+    if (k === 6) {
+        // 剣禅一如: 技パラメータの 58%（最低保証 +30）
+        const bonus = sv > 0 ? Math.max(30, Math.round(sv * 0.58)) : 30;
+        return {
+            level: 6,
+            scoreBonus: bonus,
+            ratio: 0.58,
+            minBonus: 30,
+            dmgBonus: 2,
+            dmgReduction: 2,
+            unshakable: true,
+            critRate: 0.92,
+            label: '⚡ 剣禅一如',
+        };
+    }
+    if (k === 7) {
+        // 神気覚醒: 技パラメータの 66%（最低保証 +35）
+        const bonus = sv > 0 ? Math.max(35, Math.round(sv * 0.66)) : 35;
+        return {
+            level: 7,
+            scoreBonus: bonus,
+            ratio: 0.66,
+            minBonus: 35,
+            dmgBonus: 2,
+            dmgReduction: 2,
+            unshakable: true,
+            critRate: 0.96,
+            label: '🐉 神気覚醒',
+        };
+    }
+    // k >= 8: 極致・剣神不動: 技パラメータの 75%（最低保証 +40）
+    const bonus = sv > 0 ? Math.max(40, Math.round(sv * 0.75)) : 40;
+    return {
+        level: 8,
+        scoreBonus: bonus,
+        ratio: 0.75,
+        minBonus: 40,
+        dmgBonus: 3,
+        dmgReduction: 3,
+        unshakable: true,
+        critRate: 0.99,
+        label: '🌌✨ 極致・剣神不動',
+    };
+}
+
 function gainKiai(who, amount) {
     let finalAmount = amount;
+    const maxKiai = getFighterMaxKiai(who);
     if (who === 'player') {
         const pStats = getFighterStats('player');
         // 気魄(spi)が高いと追加気合ボーナス（spi >= 14で確率）
         if (amount > 0 && pStats.spi >= 14 && Math.random() < (pStats.spi - 10) * 0.05) {
             finalAmount += 1;
         }
-        state.playerKiai = Math.min(MAX_KIAI, state.playerKiai + finalAmount);
+        state.playerKiai = Math.min(maxKiai, state.playerKiai + finalAmount);
     } else {
         const eStats = getFighterStats('enemy');
         if (amount > 0 && eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.05) {
             finalAmount += 1;
         }
-        state.enemyKiai = Math.min(MAX_KIAI, state.enemyKiai + finalAmount);
+        state.enemyKiai = Math.min(maxKiai, state.enemyKiai + finalAmount);
     }
 }
 
@@ -4323,13 +5188,13 @@ function getCombatStanceAnim(who) {
         if (state.playerGuardBroken) return 'guardBroken';
         if (state.playerStanceStyle === 'jodan') return 'jodan';
         if (state.playerStanceStyle === 'waki') return 'waki';
-        if (state.playerCounterReady || state.playerKiai >= MAX_KIAI) return 'counterReady';
+        if (state.playerCounterReady || state.playerKiai >= 3) return 'counterReady';
         return 'idle';
     } else {
         if (state.enemyGuardBroken) return 'guardBroken';
         if (state.enemyStanceStyle === 'jodan') return 'jodan';
         if (state.enemyStanceStyle === 'waki') return 'waki';
-        if (state.enemyCounterReady || state.enemyKiai >= MAX_KIAI) return 'counterReady';
+        if (state.enemyCounterReady || state.enemyKiai >= 3) return 'counterReady';
         return 'idle';
     }
 }
@@ -4341,80 +5206,150 @@ function getNeutralAnim(who) {
     return getCombatStanceAnim(who);
 }
 
-function renderPips(container, count) {
-    const pips = container.querySelectorAll('.kiai-pip');
+function renderPips(container, count, maxKiai = 3) {
+    if (!container) return;
+    let pips = container.querySelectorAll('.kiai-pip');
+    if (pips.length !== maxKiai) {
+        container.innerHTML = '';
+        for (let i = 0; i < maxKiai; i++) {
+            const pip = document.createElement('span');
+            pip.className = 'kiai-pip';
+            container.appendChild(pip);
+        }
+        pips = container.querySelectorAll('.kiai-pip');
+    }
     pips.forEach((pip, idx) => {
         pip.classList.toggle('filled', idx < count);
-        pip.classList.toggle('max-glow', count >= MAX_KIAI);
+        pip.classList.toggle('max-glow', count >= maxKiai);
+        pip.classList.toggle('special-ready', count >= 3 && idx === 2);
     });
 }
 
-function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai, stanceStyle = 'chudan') {
-    badgeEl.className = 'stance-badge';
-    spriteBoxEl.classList.remove('counter-aura', 'broken-aura', 'tsubazeriai-aura', 'jodan-aura', 'waki-aura');
+function renderCounterPips(container, count, maxStacks = 3) {
+    if (!container) return;
+    let pips = container.querySelectorAll('.counter-pip');
+    if (pips.length !== maxStacks) {
+        container.innerHTML = '';
+        for (let i = 0; i < maxStacks; i++) {
+            const pip = document.createElement('span');
+            pip.className = 'counter-pip';
+            container.appendChild(pip);
+        }
+        pips = container.querySelectorAll('.counter-pip');
+    }
+    pips.forEach((pip, idx) => {
+        pip.classList.toggle('filled', idx < count);
+        pip.classList.toggle('max-glow', count >= maxStacks);
+    });
+}
+
+function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai, stanceStyle = 'chudan', who = 'player') {
+    if (badgeEl) badgeEl.className = 'stance-badge';
+    if (spriteBoxEl) {
+        spriteBoxEl.classList.remove('counter-aura', 'broken-aura', 'tsubazeriai-aura', 'jodan-aura', 'waki-aura', 'kiai-1-aura', 'kiai-2-aura', 'kiai-3-aura', 'kiai-god-aura');
+    }
 
     if (state.matchPhase === 'pre_match') {
-        badgeEl.textContent = '🎋 提げ刀';
+        if (badgeEl) badgeEl.textContent = '🎋 提げ刀';
         return;
     }
     if (state.matchPhase === 'opening_ceremony') {
-        badgeEl.textContent = '🙇 礼・蹲踞';
+        if (badgeEl) badgeEl.textContent = '🙇 礼・蹲踞';
         return;
     }
     if (state.matchPhase === 'closing_ceremony') {
-        badgeEl.textContent = '🙇 蹲踞・納刀・礼';
+        if (badgeEl) badgeEl.textContent = '🙇 蹲踞・納刀・礼';
         return;
     }
     if (state.matchPhase === 'post_match') {
-        badgeEl.textContent = '🙇 礼';
+        if (badgeEl) badgeEl.textContent = '🙇 礼';
         return;
     }
     if (state.gameOver) {
-        badgeEl.textContent = '勝負あり！';
+        if (badgeEl) badgeEl.textContent = '勝負あり！';
         return;
     }
 
+    // 気合闘気オーラの付与（1: 白光、2: 蒼炎、3〜4: 黄金怒涛、5以上: 神気虹彩）
+    if (spriteBoxEl) {
+        if (kiai === 1) {
+            spriteBoxEl.classList.add('kiai-1-aura');
+        } else if (kiai === 2) {
+            spriteBoxEl.classList.add('kiai-2-aura');
+        } else if (kiai >= 5) {
+            spriteBoxEl.classList.add('kiai-god-aura');
+        } else if (kiai >= 3) {
+            spriteBoxEl.classList.add('kiai-3-aura');
+        }
+    }
+
+    const kiaiBuff = getKiaiBuff(who, kiai);
+    const kiaiSuffix = kiai > 0 ? ` (${kiaiBuff.label})` : '';
+
     if (isTsubazeriai && !state.gameOver) {
-        badgeEl.textContent = '💥 鍔迫り合い';
-        badgeEl.classList.add('tsubazeriai');
-        spriteBoxEl.classList.add('tsubazeriai-aura');
+        if (badgeEl) {
+            badgeEl.textContent = '💥 鍔迫り合い' + (kiai >= 2 ? `・${kiaiBuff.label}` : '');
+            badgeEl.classList.add('tsubazeriai');
+        }
+        if (spriteBoxEl) spriteBoxEl.classList.add('tsubazeriai-aura');
     } else if (guardBroken) {
-        badgeEl.textContent = '💫 体勢崩壊（行動不能）';
-        badgeEl.classList.add('broken');
-        spriteBoxEl.classList.add('broken-aura');
+        if (badgeEl) {
+            badgeEl.textContent = '💫 体勢崩壊（行動不能）';
+            badgeEl.classList.add('broken');
+        }
+        if (spriteBoxEl) spriteBoxEl.classList.add('broken-aura');
     } else if (counterReady) {
-        if (stanceStyle === 'jodan') {
-            badgeEl.textContent = '🔥 上段・応じ構え';
-            spriteBoxEl.classList.add('jodan-aura');
-        } else if (stanceStyle === 'waki') {
-            badgeEl.textContent = '🌊 下段の構え・応じ準備';
-            spriteBoxEl.classList.add('waki-aura');
-        } else {
-            badgeEl.textContent = '🔥 応じ技構え';
+        const stacks = who === 'player' ? (state.playerCounterStacks || 1) : (state.enemyCounterStacks || 1);
+        const stackLabel = stacks >= 3 ? '⚡ 見切り極致' : `⚡ 見切りLv${stacks}`;
+        if (badgeEl) {
+            if (stanceStyle === 'jodan') {
+                badgeEl.textContent = '🔥 上段・' + stackLabel;
+            } else if (stanceStyle === 'waki') {
+                badgeEl.textContent = '🌊 下段・' + stackLabel;
+            } else {
+                badgeEl.textContent = stackLabel;
+            }
+            badgeEl.classList.add('counter');
         }
-        badgeEl.classList.add('counter');
-        spriteBoxEl.classList.add('counter-aura');
-    } else if (kiai >= MAX_KIAI) {
-        if (stanceStyle === 'jodan') {
-            badgeEl.textContent = '🔥 上段・気合最高潮';
-            spriteBoxEl.classList.add('jodan-aura');
-        } else if (stanceStyle === 'waki') {
-            badgeEl.textContent = '🌊 下段の構え・気合最高潮';
-            spriteBoxEl.classList.add('waki-aura');
-        } else {
-            badgeEl.textContent = '⚡ 気合最高潮';
+        if (spriteBoxEl) {
+            if (stanceStyle === 'jodan') {
+                spriteBoxEl.classList.add('jodan-aura');
+            } else if (stanceStyle === 'waki') {
+                spriteBoxEl.classList.add('waki-aura');
+            } else {
+                spriteBoxEl.classList.add('counter-aura');
+            }
         }
-        badgeEl.classList.add('max-kiai');
+    } else if (kiai >= 3) {
+        if (badgeEl) {
+            if (stanceStyle === 'jodan') {
+                badgeEl.textContent = `🔥 上段・${kiaiBuff.label}`;
+            } else if (stanceStyle === 'waki') {
+                badgeEl.textContent = `🌊 下段・${kiaiBuff.label}`;
+            } else {
+                badgeEl.textContent = kiaiBuff.label;
+            }
+            badgeEl.classList.add('max-kiai');
+        }
+        if (spriteBoxEl && stanceStyle === 'jodan') {
+            spriteBoxEl.classList.add('jodan-aura');
+        } else if (spriteBoxEl && stanceStyle === 'waki') {
+            spriteBoxEl.classList.add('waki-aura');
+        }
     } else if (stanceStyle === 'jodan') {
-        badgeEl.textContent = '🔥 上段の構え';
-        badgeEl.classList.add('jodan');
-        spriteBoxEl.classList.add('jodan-aura');
+        if (badgeEl) {
+            badgeEl.textContent = '🔥 上段の構え' + kiaiSuffix;
+            badgeEl.classList.add('jodan');
+        }
+        if (spriteBoxEl) spriteBoxEl.classList.add('jodan-aura');
     } else if (stanceStyle === 'waki') {
-        badgeEl.textContent = '🌊 下段の構え';
-        badgeEl.classList.add('waki');
-        spriteBoxEl.classList.add('waki-aura');
+        if (badgeEl) {
+            badgeEl.textContent = '🌊 下段の構え' + kiaiSuffix;
+            badgeEl.classList.add('waki');
+        }
+        if (spriteBoxEl) spriteBoxEl.classList.add('waki-aura');
     } else {
-        badgeEl.textContent = '中段の構え';
+        if (badgeEl) badgeEl.textContent = (kiai > 0 ? kiaiBuff.label : '中段の構え');
     }
 }
 
@@ -4432,7 +5367,7 @@ function updateStanceBarUI() {
         } else if (style === 'waki') {
             stanceDescText.textContent = '🌊 下段の構え：「防御」成功で体力+1回復！相手の「崩し」を「胴（抜き胴）」で迎撃時2ダメ！※通常の面は気合+0';
         } else {
-            stanceDescText.textContent = '⚖️ 中段の構え：攻守バランスの取れた王道の構え（全コマンド使用可）';
+            stanceDescText.textContent = '⚖️ 中段の構え：攻守バランスの取れた王道の構え（全コマンド使用可・「防御」成功で体力+1回復）';
         }
     }
 }
@@ -4501,6 +5436,37 @@ function cleanFighterSubtitle(text, schoolName) {
         .replace(/^[・\s]+|[・\s]+$/g, '')
         .trim();
     return res;
+}
+
+// 選手カードの肩書き・構え表示（文字数が多い場合にフォントサイズを自動縮小して全体を表示）
+function setFighterSubtitleText(elem, text) {
+    if (!elem) return;
+    const str = (text || '').trim();
+    elem.textContent = str;
+    elem.title = str;
+    if (!str) {
+        elem.style.display = 'none';
+        return;
+    }
+    elem.style.display = 'block';
+
+    const len = str.length;
+    if (len >= 22) {
+        elem.style.fontSize = '0.50rem';
+        elem.style.letterSpacing = '-0.03em';
+    } else if (len >= 18) {
+        elem.style.fontSize = '0.53rem';
+        elem.style.letterSpacing = '-0.025em';
+    } else if (len >= 14) {
+        elem.style.fontSize = '0.60rem';
+        elem.style.letterSpacing = '-0.01em';
+    } else if (len >= 11) {
+        elem.style.fontSize = '0.66rem';
+        elem.style.letterSpacing = 'normal';
+    } else {
+        elem.style.fontSize = '0.72rem';
+        elem.style.letterSpacing = 'normal';
+    }
 }
 
 function updateUI() {
@@ -4590,8 +5556,7 @@ function updateUI() {
         }
         if (playerTitleBadge) {
             let cleanTitle = cleanFighterSubtitle(pData.roleTitle || '', pSchool);
-            playerTitleBadge.textContent = cleanTitle;
-            playerTitleBadge.style.display = cleanTitle ? 'block' : 'none';
+            setFighterSubtitleText(playerTitleBadge, cleanTitle);
         }
     } else {
         if (playerSchoolText) {
@@ -4600,10 +5565,10 @@ function updateUI() {
         }
         if (playerNameText) playerNameText.textContent = 'あなた';
         if (playerTitleBadge) {
-            playerTitleBadge.style.display = 'block';
-            playerTitleBadge.textContent = state.clearedStages.size === ENEMY_ROSTER.length
+            const pTitle = state.clearedStages.size === ENEMY_ROSTER.length
                 ? '🏆 天下無双・五人掛け覇者'
                 : `挑戦者（${state.clearedStages.size}/${ENEMY_ROSTER.length}人撃破）`;
+            setFighterSubtitleText(playerTitleBadge, pTitle);
         }
     }
 
@@ -4659,8 +5624,7 @@ function updateUI() {
                 subtitle = styleTag;
             }
 
-            enemyTitleBadge.textContent = subtitle;
-            enemyTitleBadge.style.display = subtitle ? 'block' : 'none';
+            setFighterSubtitleText(enemyTitleBadge, subtitle);
         }
     } else {
         if (enemySchoolText) {
@@ -4669,31 +5633,49 @@ function updateUI() {
         }
         if (enemyNameText) enemyNameText.textContent = enemyData.name;
         if (enemyTitleBadge) {
-            enemyTitleBadge.style.display = 'block';
             const cleanEnemyRole = (enemyData.role || '').replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
-            enemyTitleBadge.textContent = `${cleanEnemyRole}・${enemyData.rank}（${enemyData.styleTag}）`;
+            const subtitle = `${cleanEnemyRole}・${enemyData.rank}（${enemyData.styleTag}）`;
+            setFighterSubtitleText(enemyTitleBadge, subtitle);
         }
     }
     updateStageBarUI();
     updateStanceBarUI();
 
-    playerHealthBar.style.width = `${playerPct}%`;
-    enemyHealthBar.style.width = `${enemyPct}%`;
+    if (playerHealthBar) {
+        playerHealthBar.style.width = `${playerPct}%`;
+        playerHealthBar.classList.toggle('low', pHp <= 2);
+    }
+    if (enemyHealthBar) {
+        enemyHealthBar.style.width = `${enemyPct}%`;
+        enemyHealthBar.classList.toggle('low', eHp <= 2);
+    }
     if (playerHealthTrail) playerHealthTrail.style.width = `${playerPct}%`;
     if (enemyHealthTrail) enemyHealthTrail.style.width = `${enemyPct}%`;
-    playerHealthBar.classList.toggle('low', pHp <= 2);
-    enemyHealthBar.classList.toggle('low', eHp <= 2);
+    if (playerHealthText) playerHealthText.textContent = `体力: ${pHp} / ${pMax}`;
+    if (enemyHealthText) enemyHealthText.textContent = `体力: ${eHp} / ${eMax}`;
 
-    playerHealthText.textContent = `体力: ${pHp} / ${pMax}`;
-    enemyHealthText.textContent = `体力: ${eHp} / ${eMax}`;
+    // 選手カード内ミニレーダーチャートの描画
+    if (playerRadarBox) playerRadarBox.innerHTML = generateFighterRadarSvg('player');
+    if (enemyRadarBox) enemyRadarBox.innerHTML = generateFighterRadarSvg('enemy');
 
-    playerKiaiText.textContent = `気合: ${state.playerKiai} / ${MAX_KIAI}`;
-    enemyKiaiText.textContent = `気合: ${state.enemyKiai} / ${MAX_KIAI}`;
-    renderPips(playerKiaiPips, state.playerKiai);
-    renderPips(enemyKiaiPips, state.enemyKiai);
+    const pMaxKiai = getFighterMaxKiai('player');
+    const eMaxKiai = getFighterMaxKiai('enemy');
 
-    updateBadge(playerBadge, playerSpriteBox, state.playerCounterReady, state.playerGuardBroken || state.playerStunned, state.playerKiai, state.tsubazeriai, state.playerStanceStyle);
-    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle);
+    playerKiaiText.textContent = `気合: ${state.playerKiai} / ${pMaxKiai}`;
+    enemyKiaiText.textContent = `気合: ${state.enemyKiai} / ${eMaxKiai}`;
+    renderPips(playerKiaiPips, state.playerKiai, pMaxKiai);
+    renderPips(enemyKiaiPips, state.enemyKiai, eMaxKiai);
+
+    // 見切りゲージの描画
+    const pCounterStacks = state.playerCounterStacks || (state.playerCounterReady ? 1 : 0);
+    const eCounterStacks = state.enemyCounterStacks || (state.enemyCounterReady ? 1 : 0);
+    if (playerCounterText) playerCounterText.textContent = `見切り: ${pCounterStacks} / 3`;
+    if (enemyCounterText) enemyCounterText.textContent = `見切り: ${eCounterStacks} / 3`;
+    renderCounterPips(playerCounterPips, pCounterStacks, 3);
+    renderCounterPips(enemyCounterPips, eCounterStacks, 3);
+
+    updateBadge(playerBadge, playerSpriteBox, state.playerCounterReady, state.playerGuardBroken || state.playerStunned, state.playerKiai, state.tsubazeriai, state.playerStanceStyle, 'player');
+    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle, 'enemy');
 
     const inTsuba = state.tsubazeriai && !state.gameOver;
     const isJodan = state.playerStanceStyle === 'jodan';
@@ -4730,19 +5712,55 @@ function updateUI() {
     }
     btnDefend.disabled = (state.playerGuardBroken || isJodan) && !state.gameOver;
     if (state.playerGuardBroken) {
-        btnDefend.textContent = '🛡️ 防御 (崩れ中)';
+        btnDefend.textContent = '🛡️ 防御・気合 (崩れ中)';
     } else if (isJodan) {
-        btnDefend.textContent = '🛡️ 防御 (上段中は不可)';
+        btnDefend.textContent = '🛡️ 防御・気合 (上段不可)';
     } else if (inTsuba) {
-        btnDefend.textContent = isWaki ? '🌊 密着受け (HP+1)' : '🛡️ 密着ガード';
+        btnDefend.textContent = isWaki ? '🌊 密着受け (HP+1)' : '🛡️ 密着受け (HP+1)';
     } else {
-        btnDefend.textContent = isWaki ? '🌊 後の先防御 (HP+1)' : '🛡️ 防御';
+        btnDefend.textContent = isWaki ? '🌊 後の先防御 (HP+1)' : '🛡️ 防御・気合 (HP+1)';
     }
 
-    btnTsuki.disabled = state.playerKiai < MAX_KIAI || state.gameOver;
-    btnTsuki.textContent = state.playerKiai >= MAX_KIAI
-        ? (inTsuba ? '⚡ 離れ突き (3ダメ!)' : '⚡ 突き (発動可！)')
-        : `⚡ 突き (${state.playerKiai}/${MAX_KIAI})`;
+    if (btnTsuki) {
+        btnTsuki.disabled = state.gameOver;
+        btnTsuki.textContent = inTsuba ? '⚡ 引き突き' : '⚡ 突き';
+        btnTsuki.classList.toggle('hiki-mode', inTsuba);
+    }
+
+    if (btnSpecial) {
+        const pTechInfo = getFighterSpecialTech('player');
+        const pTech = pTechInfo.tech;
+        const pUnlocked = pTechInfo.isUnlocked;
+        const isReadyKiai = state.playerKiai >= 3;
+
+        btnSpecial.classList.remove('ready-unlocked', 'ready-kiai-strike', 'locked');
+
+        if (state.gameOver) {
+            btnSpecial.disabled = true;
+            btnSpecial.textContent = '🔥 必殺技';
+        } else if (isReadyKiai) {
+            btnSpecial.disabled = false;
+            if (pUnlocked) {
+                btnSpecial.classList.add('ready-unlocked');
+                btnSpecial.textContent = inTsuba
+                    ? `🔥 必殺：${pTech.name} (奥義)`
+                    : `🔥 必殺：${pTech.name} (${state.playerKiai}/${pMaxKiai})`;
+            } else {
+                btnSpecial.classList.add('ready-kiai-strike');
+                btnSpecial.textContent = inTsuba
+                    ? `💥 気合一閃 (渾身引き技) (${state.playerKiai}/${pMaxKiai})`
+                    : `💥 気合一閃 (${state.playerKiai}/${pMaxKiai})`;
+            }
+        } else {
+            btnSpecial.disabled = true;
+            btnSpecial.classList.add('locked');
+            if (pUnlocked) {
+                btnSpecial.textContent = `🔥 ${pTech.name} (${state.playerKiai}/3)`;
+            } else {
+                btnSpecial.textContent = `🔒 ${pTech.name} (要: ${pTech.type}${pTech.reqVal})`;
+            }
+        }
+    }
 
     // 体勢崩壊（操作スキップ）中：攻撃も防御もできなくなる
     const isPlayerStunned = (state.playerStunned || state.playerGuardBroken) && !state.gameOver;
@@ -4750,9 +5768,10 @@ function updateUI() {
         if (btnMen) { btnMen.disabled = true; btnMen.textContent = '💫 面 (崩れ中)'; }
         if (btnKote) { btnKote.disabled = true; btnKote.textContent = '💫 小手 (崩れ中)'; }
         if (btnDo) { btnDo.disabled = true; btnDo.textContent = '💫 胴 (崩れ中)'; }
-        if (btnBreak) { btnBreak.disabled = true; btnBreak.textContent = '💫 崩し (崩れ中)'; }
-        if (btnDefend) { btnDefend.disabled = true; btnDefend.textContent = '💫 防御 (崩れ中)'; }
         if (btnTsuki) { btnTsuki.disabled = true; btnTsuki.textContent = '💫 突き (崩れ中)'; }
+        if (btnBreak) { btnBreak.disabled = true; btnBreak.textContent = '💫 崩し (崩れ中)'; }
+        if (btnDefend) { btnDefend.disabled = true; btnDefend.textContent = '💫 防御・気合 (崩れ中)'; }
+        if (btnSpecial) { btnSpecial.disabled = true; btnSpecial.textContent = '💫 必殺 (崩れ中)'; }
     }
 
     // 試合フェーズ（開始前・開始礼法中・試合中・終了礼法中・試合後）に応じたボタン表示制御
@@ -4820,6 +5839,27 @@ function updateStatus(message, type = 'neutral') {
     statusText.className = `status-text ${type}`;
 }
 
+// プレイヤーが見切り状態（CounterReady / 見切りスタック保有）の時に敵が取る賢い対抗策
+function getCounterAlertWeights(enemyData) {
+    const id = enemyData ? enemyData.id : '';
+    if (id === 'sasaki') {
+        // 佐々木（三段）：下段の構え「後の先防御」で受け流して見切りを奪い返すか、鋭い「小手」で先制
+        return { 防御: 52, 小手: 32, 面: 12, 胴: 4, 突き: 0, 崩し: 0 };
+    } else if (id === 'onizuka') {
+        // 鬼塚（四段）：相手の見切りに臆さず、上段の構え「剛腕面」で力押し競り合い勝負
+        return { 面: 58, 胴: 28, 小手: 14, 防御: 0, 突き: 0, 崩し: 0 };
+    } else if (id === 'kasumi') {
+        // 霞（五段）：相手の面を読んで「抜き胴」を合わせるか、冷静に「防御」で無力化
+        return { 防御: 46, 胴: 38, 小手: 12, 面: 4, 突き: 0, 崩し: 0 };
+    } else if (id === 'ryuzen') {
+        // 龍禅（八段）：絶対無謀崩しなし。完璧な防御で見切りを枯らすか、鋭い突き・胴で相性勝ち
+        return { 防御: 48, 突き: 28, 胴: 16, 面: 8, 小手: 0, 崩し: 0 };
+    } else {
+        // 健太（初段）：基本は防御や面で対抗するが、初心者らしくたまに焦って崩しを暴発（隙あり）
+        return { 面: 42, 防御: 36, 小手: 12, 崩し: 10, 胴: 0, 突き: 0 };
+    }
+}
+
 // プレイヤーの行動履歴からワンパターンな戦術を解析し、見切り対策を算出
 function analyzePlayerPattern(history, enemyData) {
     if (!history || history.length < 2) return null;
@@ -4843,17 +5883,32 @@ function analyzePlayerPattern(history, enemyData) {
     const last1 = history[n - 1];
     const last2 = history[n - 2];
 
+    // 0. プレイヤーが見切り状態（CounterReady / 見切りスタック保有）の時の警戒
+    // ※ 相手が強烈な打突（威力2倍）を構えている時に無防備な崩しを振るのは自殺行為！
+    // 崩しを完全封印し、「防御で受け止めて見切りスタックを浪費させる（敵が見切り獲得）」か「相性打突」を狙う
+    if (state.playerCounterReady || (state.playerCounterStacks && state.playerCounterStacks > 0)) {
+        if (Math.random() < learnChance) {
+            const useWaki = enemyData && (enemyData.id === 'sasaki' || enemyData.id === 'kasumi');
+            const useJodan = enemyData && enemyData.id === 'onizuka';
+            const targetStance = useWaki ? 'waki' : (useJodan ? 'jodan' : 'chudan');
+            return {
+                type: 'counter_alert',
+                counterMove: '防御',
+                stance: targetStance,
+                weights: getCounterAlertWeights(enemyData),
+            };
+        }
+    }
+
     // 1. 下段・連続防御パターン（「防御」の乱用・下段待ち）
-    // 直近2手が連続「防御」、または直近3手で2回以上「防御」
-    const recentDefends = history.slice(-3).filter((h) => h.action === '防御').length;
-    const isWakiStance = state.playerStanceStyle === 'waki' || last1.stance === 'waki';
-    if ((last1.action === '防御' && last2.action === '防御') || (recentDefends >= 2 && last1.action === '防御')) {
+    // 崩しを出すのは「見切りがあるのに攻撃せず、2手連続で防御を重ねてきた守り癖」のみ！
+    if (last1.action === '防御' && last2.action === '防御') {
         if (Math.random() < learnChance) {
             return {
                 type: 'defend_spam',
                 counterMove: '崩し',
                 stance: 'chudan',
-                weights: { 崩し: 75, 小手: 15, 面: 10, 防御: 0, 突き: 0, 胴: 0 },
+                weights: { 崩し: 65, 小手: 20, 面: 15, 防御: 0, 突き: 0, 胴: 0 },
             };
         }
     }
@@ -4897,8 +5952,8 @@ function analyzePlayerPattern(history, enemyData) {
         }
     }
 
-    // 5. 気合MAX時の必殺突き一点読み
-    if (state.playerKiai >= MAX_KIAI) {
+    // 5. 気合高揚時の必殺突き一点読み
+    if (state.playerKiai >= 3) {
         const pastTsuki = history.some((h) => h.action === '突き');
         if (pastTsuki && Math.random() < learnChance) {
             return {
@@ -4918,36 +5973,26 @@ function decideEnemyIntent() {
     const enemyData = getCurrentEnemy();
     if (state.matchPhase === 'pre_match') {
         intentBox.className = 'intent-box';
-        intentText.textContent = '🎋 剣道は礼に始まり礼に終わります。「🙇 礼をして試合開始」ボタンを押して立ち合いを始めましょう。';
+        intentText.textContent = '静かに間合いを測り、立ち合いの合図を待っています…';
         return;
     }
     if (state.matchPhase === 'opening_ceremony') {
         intentBox.className = 'intent-box';
-        intentText.textContent = '🙇 お互いに礼をし、竹刀を構えて蹲踞しています…審判の「始め！」の掛け声で立ち上がります。';
+        intentText.textContent = 'お互いに礼をし、竹刀を構えて蹲踞しています…';
         return;
     }
-    if (state.matchPhase === 'closing_ceremony') {
+    if (state.matchPhase === 'closing_ceremony' || state.gameOver) {
         intentBox.className = 'intent-box';
-        intentText.textContent = '🙇 勝敗が決まり、お互いに中段の構えから蹲踞・納刀・立礼を行っています…';
-        return;
-    }
-    if (state.gameOver) {
-        intentBox.className = 'intent-box';
-        if (state.lastOutcome === 'victory' && state.stageIndex < ENEMY_ROSTER.length - 1) {
-            const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
-            intentText.textContent = `🙇 礼に始まり礼に終わる — 「⏭️ 次の相手（${nextEnemy.role}・${nextEnemy.shortName}）へ進む」または「🔄 もう一度」を選べます。`;
-        } else {
-            intentText.textContent = '🙇 礼に始まり礼に終わる — 「🔄 もう一度」または上部の剣士バッジから対戦相手を選べます。';
-        }
+        intentText.textContent = '試合終了';
         return;
     }
 
     let intent;
     if (state.tsubazeriai) {
-        if (state.enemyKiai >= MAX_KIAI) {
+        if (state.enemyKiai >= 3) {
             intent = {
                 stance: 'chudan',
-                hint: `💥【鍔迫り合い】⚠️ ${enemyData.shortName}の気合が最高潮！離れ際の「離れ突き(3ダメ)」か「引き面」が来るぞ！`,
+                hint: `💥【鍔迫り合い】⚠️ ${enemyData.shortName}の気合が充実！離れ際の「離れ突き(3ダメ)」か「引き面」が来るぞ！`,
                 isDanger: true,
                 weights: { 突き: 52, 面: 22, 小手: 14, 崩し: 12, 胴: 0, 防御: 0 },
             };
@@ -4976,12 +6021,15 @@ function decideEnemyIntent() {
                 };
             }
         }
-    } else if (state.enemyKiai >= MAX_KIAI) {
+    } else if (state.enemyKiai >= 3) {
+        const eTechInfo = getFighterSpecialTech('enemy');
+        const eTech = eTechInfo.tech;
+        const eUnlocked = eTechInfo.isUnlocked;
         intent = {
             stance: 'chudan',
-            hint: `⚠️ ${enemyData.shortName}の気合が最高潮だ！必殺の「突き」か、守りを割る「崩し」が来るぞ！`,
+            hint: `⚠️ ${enemyData.shortName}の気合が充実している！${eUnlocked ? `固有の必殺技「${eTech.name}」` : '渾身の「気合一閃」'}が来るぞ！`,
             isDanger: true,
-            weights: { 突き: 58, 崩し: 16, 面: 14, 小手: 12, 胴: 0, 防御: 0 },
+            weights: { 必殺: 65, 崩し: 15, 面: 8, 小手: 6, 胴: 4, 突き: 2, 防御: 0 },
         };
     } else if (state.enemyCounterReady) {
         const keepStance = state.enemyStanceStyle || 'chudan';
@@ -5014,23 +6062,39 @@ function decideEnemyIntent() {
             state.enemyLearnedPattern = learnedPattern;
         } else {
             state.enemyLearnedPattern = null;
-            if ((state.playerCounterReady || state.playerKiai >= MAX_KIAI) && !state.enemyGuardBroken) {
+            if (state.playerCounterReady && !state.enemyGuardBroken) {
+                // プレイヤーが見切り状態（CounterReady）の時は崩しを出さず、キャラクターに応じた対抗策を取る
+                const useWaki = enemyData.id === 'sasaki' || enemyData.id === 'kasumi';
+                const useJodan = enemyData.id === 'onizuka';
+                const alertStance = useWaki ? 'waki' : (useJodan ? 'jodan' : 'chudan');
+                intent = {
+                    stance: alertStance,
+                    hint: useWaki
+                        ? `🌊【下段の構え】${enemyData.shortName}はあなたの見切り強打を警戒し、下段の構え「後の先防御」で受け流しを狙っている…`
+                        : (useJodan
+                            ? `🔥【上段の構え】${enemyData.shortName}はあなたの見切りに臆さず、「上段面」で力押し勝負を挑んできた！`
+                            : `🛡️【中段の構え】${enemyData.shortName}はあなたの見切りを警戒し、油断なく竹刀を構え直している…`),
+                    isDanger: useJodan,
+                    weights: getCounterAlertWeights(enemyData),
+                };
+            } else if (state.playerKiai >= 3 && !state.enemyGuardBroken) {
+                // プレイヤーが気合MAX（必殺技警戒）の時
                 if (Math.random() < 0.65) {
                     const useWaki = enemyData.id === 'sasaki' || enemyData.id === 'kasumi' || enemyData.id === 'ryuzen';
                     intent = {
                         stance: useWaki ? 'waki' : 'chudan',
                         hint: useWaki
-                            ? `🌊【下段の構え】${enemyData.shortName}はあなたの強打を警戒し、下段の構えの「後の先防御」か「小手」を狙っている！（「崩し」の好機！）`
-                            : `🛡️【中段の構え】${enemyData.shortName}はあなたの攻めを警戒し、守りを固めつつ「小手」を狙っている…（「崩し」や「面」の好機！）`,
+                            ? `🌊【下段の構え】${enemyData.shortName}は必殺技を警戒し、間合いを測っている…`
+                            : `🛡️【中段の構え】${enemyData.shortName}はあなたの気迫を警戒し、出端の「小手」を狙っている…`,
                         isDanger: false,
-                        weights: { 防御: 50, 小手: 30, 面: 10, 胴: 10, 崩し: 0, 突き: 0 },
+                        weights: { 小手: 40, 面: 30, 胴: 20, 突き: 10, 防御: 0, 崩し: 0 },
                     };
                 } else {
                     intent = {
                         stance: 'chudan',
-                        hint: `👁️【中段の構え】${enemyData.shortName}は先手を取ろうと、出端の「小手」や「崩し」を狙っている…`,
+                        hint: `👁️【中段の構え】${enemyData.shortName}は先手を取ろうと、出端の「小手」や「面」を狙っている…`,
                         isDanger: false,
-                        weights: { 小手: 45, 崩し: 30, 胴: 15, 面: 10, 防御: 0, 突き: 0 },
+                        weights: { 小手: 45, 面: 30, 胴: 15, 突き: 10, 防御: 0, 崩し: 0 },
                     };
                 }
             } else {
@@ -5064,7 +6128,7 @@ function decideEnemyIntent() {
     if (!state.gameOver) {
         state.enemyAnimState = getNeutralAnim('enemy');
     }
-    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle);
+    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle, 'enemy');
 
     if (state.round > 0 && prevEnemyStance !== state.enemyStanceStyle && !state.tsubazeriai && !state.enemyGuardBroken && !state.enemyStunned) {
         if (animators.enemy) {
@@ -5085,6 +6149,9 @@ function decideEnemyIntent() {
 }
 
 function chooseEnemyAction() {
+    if (enemyActionOverride !== null) {
+        return typeof enemyActionOverride === 'function' ? enemyActionOverride() : enemyActionOverride;
+    }
     if (!state.enemyIntent) {
         decideEnemyIntent();
     }
@@ -5111,15 +6178,16 @@ function chooseFriendlyAIAction() {
     const isBroken = state.playerGuardBroken;
     const kiai = state.playerKiai;
 
-    // 気魄(spi)が高いと気合MAX時の突き選択率がさらに向上
-    const tsukiChance = 0.65 + (pStats.spi >= 14 ? 0.15 : 0);
-    if (kiai >= MAX_KIAI && Math.random() < tsukiChance) {
-        return '突き';
+    // 気合3以上時は必殺技（または気合一閃）を発動
+    const specialChance = 0.75 + (pStats.spi >= 14 ? 0.15 : 0);
+    if (kiai >= 3 && Math.random() < specialChance) {
+        return '必殺';
     }
 
     let wMen = skills.men || 10;
     let wKote = skills.kote || 10;
     let wDo = skills.do || 10;
+    let wTsuki = skills.tsuki || 8;
     let wDefend = isBroken || isJodan ? 0 : 8;
     let wBreak = 6;
 
@@ -5137,10 +6205,14 @@ function chooseFriendlyAIAction() {
         if (eWeights['小手'] > 30) {
             wMen += 8 + agiBonus; // 小手に対して面
         }
+        if (eWeights['突き'] > 30) {
+            wDo += 8 + agiBonus; // 突きに対して抜き胴
+        }
     }
     if (state.enemyStanceStyle === 'jodan') {
         wKote += 14 + agiBonus;
-        wDo += 8;
+        wTsuki += 10 + agiBonus; // 上段への突き
+        wDo += 6;
     }
     if (isJodan) {
         wMen += 16;
@@ -5154,6 +6226,7 @@ function chooseFriendlyAIAction() {
         { act: '面', w: wMen },
         { act: '小手', w: wKote },
         { act: '胴', w: wDo },
+        { act: '突き', w: wTsuki },
         { act: '防御', w: wDefend },
         { act: '崩し', w: wBreak },
     ].filter((item) => item.w > 0);
@@ -5197,12 +6270,18 @@ function schedulePlayerStunAutoSkip(delayMs = 1200) {
     }, delayMs);
 }
 
-function getActionAnim(action) {
+function getActionAnim(action, techType = null) {
     if (action === '面') return 'attack1';
     if (action === '小手') return 'attack2';
     if (action === '胴' || action === '突き') return 'attack3';
+    if (action === '必殺') {
+        if (techType === '面') return 'attack1';
+        if (techType === '小手') return 'attack2';
+        return 'attack3';
+    }
     if (action === '防御') return 'defend';
     if (action === '崩し') return 'breakAttack';
+    if (action === '気合') return 'counterReady';
     if (action === 'スキップ') return 'guardBroken';
     return 'idle';
 }
@@ -5210,10 +6289,12 @@ function getActionAnim(action) {
 // 試合開始の礼法シーケンス（提げ刀 → お互いに礼 → 竹刀を構えて蹲踞 → 「始め！」で立ち上がり戦闘開始）
 function startMatchCeremony() {
     if (state.matchPhase !== 'pre_match') return;
+    hideSpeechBubbles();
     ensureAudio();
     warmupVoices();
     clearPendingRoundTimers();
     hideRefereeCallout();
+    hideSpecialCutin();
 
     animators.player.alpha = 1;
     animators.enemy.alpha = 1;
@@ -5247,9 +6328,9 @@ function startMatchCeremony() {
     decideEnemyIntent();
     const isSpecial = !!(state.customMatch && state.customMatch.isSpecialPractice);
     if (isSpecial) {
-        updateStatus(`🙇 【指名特訓】${enemyData.shortName}とお互いに礼をし、竹刀を構えて蹲踞します…`, 'neutral');
+        updateStatus(`【指名特訓】${enemyData.shortName}戦（礼・蹲踞）`, 'neutral');
     } else {
-        updateStatus(`🙇 【${enemyData.role}戦】お互いに礼をし、竹刀を構えて蹲踞します…`, 'neutral');
+        updateStatus(`【${enemyData.role}戦】${enemyData.name}（礼・蹲踞）`, 'neutral');
     }
 
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
@@ -5274,7 +6355,7 @@ function startMatchCeremony() {
 
     state.ceremonyTimers.push(
         setTimeout(() => {
-            updateStatus('⚔️ 竹刀を構えて蹲踞…審判の「始め！」の掛け声を待ちます。', 'neutral');
+            updateStatus(`【${enemyData.role}戦】蹲踞`, 'neutral');
         }, 1280),
         setTimeout(() => {
             playSound('clash');
@@ -5338,10 +6419,6 @@ function startClosingCeremony() {
     // 負けた側が後ろに下がるアニメーションは「五人掛けモード（クラシック）」のみ実行する
     const isFiveManMode = !(state.customMatch && state.customMatch.active);
     const shouldRetreatOnLose = isFiveManMode;
-    const statusMsg = isFiveManMode
-        ? '勝負あり — お互いに中段の構えから蹲踞・納刀・礼を行い、敗者は退場します…'
-        : '勝負あり — お互いに中段の構えから蹲踞・納刀・礼を行います…';
-    updateStatus(statusMsg, 'neutral');
 
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
     const isPlayerLoser = state.playerHealth <= 0;
@@ -5425,6 +6502,7 @@ function startClosingCeremony() {
 }
 
 function playRound(playerAction) {
+    if (playerAction === '防御・気合') playerAction = '防御';
     if (state.matchPhase === 'pre_match') {
         startMatchCeremony();
         return;
@@ -5432,6 +6510,7 @@ function playRound(playerAction) {
     if (state.matchPhase === 'opening_ceremony' || state.matchPhase === 'closing_ceremony') {
         return;
     }
+    hideSpeechBubbles();
     // 進行中のアニメーション結果が未反映の場合は即座に反映してから処理
     if (pendingRoundCallback || pendingClosingCallback) {
         flushPendingRound();
@@ -5467,7 +6546,7 @@ function playRound(playerAction) {
     if (playerAction === '防御' && isJodan) {
         return;
     }
-    if (playerAction === '突き' && state.playerKiai < MAX_KIAI) {
+    if (playerAction === '必殺' && state.playerKiai < 3) {
         return;
     }
 
@@ -5498,8 +6577,14 @@ function playRound(playerAction) {
     state.tsubazeriai = false;
     const pCounter = state.playerCounterReady;
     const eCounter = state.enemyCounterReady;
+    const pCounterStacks = state.playerCounterStacks || (pCounter ? 1 : 0);
+    const eCounterStacks = state.enemyCounterStacks || (eCounter ? 1 : 0);
     state.playerCounterReady = false;
     state.enemyCounterReady = false;
+    state.playerCounterStacks = 0;
+    state.enemyCounterStacks = 0;
+    state.playerCounterStacks = 0;
+    state.enemyCounterStacks = 0;
     state.playerGuardBroken = false;
     state.enemyGuardBroken = false;
     state.playerStunned = false;
@@ -5508,11 +6593,24 @@ function playRound(playerAction) {
     const prevPlayerKiai = state.playerKiai;
     const prevEnemyKiai = state.enemyKiai;
 
-    if (playerAction === '突き') state.playerKiai = 0;
-    if (enemyAction === '突き') state.enemyKiai = 0;
+    // 気合闘気パッシブバフの取得
+    const pBuff = getKiaiBuff('player', prevPlayerKiai);
+    const eBuff = getKiaiBuff('enemy', prevEnemyKiai);
+
+    // 必殺技情報の取得
+    const pTechInfo = getFighterSpecialTech('player');
+    const eTechInfo = getFighterSpecialTech('enemy');
+
+    // 必殺技発動時は気合を消費（通常突きは消費しない）
+    if (playerAction === '必殺') state.playerKiai = 0;
+    if (enemyAction === '必殺') state.enemyKiai = 0;
 
     const formatMove = (act, isPlayerSide = false) => {
         if (act === 'スキップ') return '体勢崩壊（スキップ）';
+        const techInfo = isPlayerSide ? pTechInfo : eTechInfo;
+        if (act === '必殺') {
+            return techInfo.isUnlocked ? techInfo.tech.name : '気合一閃';
+        }
         const sideJodan = isPlayerSide ? isJodan : eJodan;
         const sideWaki = isPlayerSide ? isWaki : eWaki;
         const otherAct = isPlayerSide ? enemyAction : playerAction;
@@ -5520,27 +6618,32 @@ function playRound(playerAction) {
             if (act === '面') return sideJodan ? '諸手引き面' : '引き面';
             if (act === '小手') return '引き小手';
             if (act === '胴') return '引き胴';
+            if (act === '突き') return '離れ突き';
             if (act === '防御') return sideWaki ? '密着受け' : '密着ガード';
             if (act === '崩し') return '突き放し';
-            if (act === '突き') return '離れ突き';
             return act;
         }
         if (sideJodan && act === '面') return '上段面';
         if (sideWaki && act === '胴' && otherAct === '崩し') return '抜き胴';
         if (sideWaki && act === '防御') return '後の先防御';
+        if (act === '防御') return '防御・気合';
         return act;
     };
     const pMoveName = formatMove(playerAction, true);
     const eMoveName = formatMove(enemyAction, false);
+    const pDisplayMove = playerAction === 'スキップ' ? '体勢崩壊' : pMoveName;
+    const eDisplayMove = enemyAction === 'スキップ' ? '体勢崩壊' : eMoveName;
 
-    let message = `第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs 相手【${eMoveName}】 — `;
+    const roundPrefix = `第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}`;
+    let message = roundPrefix;
     let statusType = 'neutral';
-    let playerAnim = getActionAnim(playerAction);
-    let enemyAnim = getActionAnim(enemyAction);
+    let playerAnim = getActionAnim(playerAction, pTechInfo.tech ? pTechInfo.tech.type : '面');
+    let enemyAnim = getActionAnim(enemyAction, eTechInfo.tech ? eTechInfo.tech.type : '面');
     let playerOutcome = 'normal';
     let enemyOutcome = 'normal';
     let impactWeight = 'normal';
     let calloutData = null;
+    let currentClashData = null;
     let impactSound = null;
     let endGameSound = null;
     const zoomTargets = [];
@@ -5551,27 +6654,45 @@ function playRound(playerAction) {
     let roundEnemyBlocked = false;
     let roundPushWin = false;
 
+    // 4打突理合サイクル: 面 ＞ 小手 ＞ 胴 ＞ 突き ＞ 面
     const attackMap = {
         面: ['小手'],
         小手: ['胴'],
-        胴: ['面'],
+        胴: ['突き'],
+        突き: ['面'],
     };
-    const isBasic = (act) => act === '面' || act === '小手' || act === '胴';
+    const isBasic = (act) => act === '面' || act === '小手' || act === '胴' || act === '突き';
+    const pStats = getFighterStats('player');
+    const eStats = getFighterStats('enemy');
+
+    const getSkillVal = (fighterStats, act) => {
+        if (!fighterStats || !fighterStats.skills) return 10;
+        if (act === '面') return fighterStats.skills.men || 10;
+        if (act === '小手') return fighterStats.skills.kote || 10;
+        if (act === '胴') return fighterStats.skills.do || 10;
+        if (act === '突き') return fighterStats.skills.tsuki || 8;
+        return 10;
+    };
 
     // 0. 体勢崩壊（操作スキップ）状態の解決判定
     if (playerAction === 'スキップ' && enemyAction === 'スキップ') {
-        message += '互いに体勢を立て直すため間合いを保ちました。';
         statusType = 'neutral';
     } else if (enemyAction === 'スキップ') {
         // 敵が体勢崩壊中で操作スキップ（プレイヤーの攻撃が無防備直撃）
-        if (isBasic(playerAction) || playerAction === '突き') {
-            const isTsuki = playerAction === '突き';
+        if (isBasic(playerAction) || playerAction === '必殺') {
+            const isSpecial = playerAction === '必殺';
+            if (isSpecial) {
+                triggerSpecialCutin('player', pMoveName, pTechInfo.isUnlocked, false);
+            }
             const jodanBonus = (isJodan && playerAction === '面') ? 1 : 0;
-            const eJodanKoteBonus = (eJodan && playerAction === '小手') ? 1 : 0;
-            const baseDmg = isTsuki ? (inTsuba ? 3 : 2) : ((pCounter || inTsuba) ? 2 : 1);
-            const dmg = baseDmg + (isTsuki ? (eJodan ? 1 : 0) : (jodanBonus + eJodanKoteBonus));
+            const eJodanKoteBonus = (eJodan && (playerAction === '小手' || playerAction === '突き')) ? 1 : 0;
+            const baseDmg = isSpecial
+                ? (inTsuba ? 3 : (pTechInfo.isUnlocked ? (pTechInfo.tech.power || 2) : 2))
+                : ((pCounter || inTsuba) ? 2 : 1) + pBuff.dmgBonus;
+            const rawDmg = baseDmg + jodanBonus + eJodanKoteBonus;
+            const dmg = Math.max(1, rawDmg - eBuff.dmgReduction);
             const isBoosted = dmg >= 2;
-            const kiaiGain = isTsuki ? 0 : 1;
+            const kiaiGain = isSpecial ? 0 : 1;
 
             state.enemyHealth -= dmg;
             if (kiaiGain > 0) gainKiai('player', kiaiGain);
@@ -5579,7 +6700,6 @@ function playRound(playerAction) {
             enemyOutcome = 'hit';
             impactWeight = isBoosted ? 'heavy' : 'normal';
 
-            message += `💥 体勢崩壊中の相手に「${pMoveName}」が無防備に確定直撃！！ ${dmg}ダメージ${kiaiGain ? '＆気合+1' : ''}！`;
             statusType = 'victory';
             impactSound = isBoosted ? 'special' : 'attack';
             zoomTargets.push(playerSpriteBox);
@@ -5593,6 +6713,7 @@ function playRound(playerAction) {
                 winner: 'player',
                 mainText: `${pMoveName}あり！`,
                 subText: `💫 体勢崩壊への直撃 (${dmg}点)`,
+                reasonBadge: '💫 崩壊直撃',
                 isCritical: isBoosted,
             };
         } else if (playerAction === '崩し') {
@@ -5601,9 +6722,6 @@ function playRound(playerAction) {
             gainKiai('player', 1);
             enemyAnim = 'hit';
             enemyOutcome = 'hit';
-            message += canDealDmg
-                ? `💥 体勢を崩している相手へさらに「${pMoveName}」を浴びせ、突き飛ばして1ダメージ！`
-                : `💥 体勢を崩している相手へさらに「${pMoveName}」を浴びせた！（※崩しではHP0にならず）`;
             statusType = 'victory';
             impactSound = 'break';
             zoomTargets.push(playerSpriteBox);
@@ -5616,21 +6734,27 @@ function playRound(playerAction) {
                 winner: 'player',
                 mainText: `${pMoveName}成功！`,
                 subText: '💥 体勢崩壊への追撃',
+                reasonBadge: '💥 崩し追撃',
             };
         } else {
-            message += '相手は体勢を崩して身動きが取れず、こちらも無理に追撃せず間合いを保ちました。';
             statusType = 'neutral';
         }
     } else if (playerAction === 'スキップ') {
         // プレイヤーが体勢崩壊中で操作スキップ（敵の攻撃が無防備直撃）
-        if (isBasic(enemyAction) || enemyAction === '突き') {
-            const isTsuki = enemyAction === '突き';
+        if (isBasic(enemyAction) || enemyAction === '必殺') {
+            const isSpecial = enemyAction === '必殺';
+            if (isSpecial) {
+                triggerSpecialCutin('enemy', eMoveName, eTechInfo.isUnlocked, false);
+            }
             const eJodanBonus = (eJodan && enemyAction === '面') ? 1 : 0;
-            const jodanKotePenalty = (isJodan && enemyAction === '小手') ? 1 : 0;
-            const baseDmg = isTsuki ? (inTsuba ? 3 : 2) : ((eCounter || inTsuba) ? 2 : 1);
-            const dmg = baseDmg + (isTsuki ? (isJodan ? 1 : 0) : (eJodanBonus + jodanKotePenalty));
+            const jodanKotePenalty = (isJodan && (enemyAction === '小手' || enemyAction === '突き')) ? 1 : 0;
+            const baseDmg = isSpecial
+                ? (inTsuba ? 3 : (eTechInfo.isUnlocked ? (eTechInfo.tech.power || 2) : 2))
+                : ((eCounter || inTsuba) ? 2 : 1) + eBuff.dmgBonus;
+            const rawDmg = baseDmg + eJodanBonus + jodanKotePenalty;
+            const dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
             const isBoosted = dmg >= 2;
-            const eKiaiGain = isTsuki ? 0 : 1;
+            const eKiaiGain = isSpecial ? 0 : 1;
 
             state.playerHealth -= dmg;
             if (eKiaiGain > 0) gainKiai('enemy', eKiaiGain);
@@ -5638,7 +6762,6 @@ function playRound(playerAction) {
             playerOutcome = 'hit';
             impactWeight = isBoosted ? 'heavy' : 'normal';
 
-            message += `💥 体勢を崩され動けないところへ、相手の「${eMoveName}」が無防備に直撃！！痛恨の${dmg}ダメージ！`;
             statusType = 'defeat';
             impactSound = 'hurt';
             zoomTargets.push(enemySpriteBox);
@@ -5652,6 +6775,7 @@ function playRound(playerAction) {
                 winner: 'enemy',
                 mainText: `${eMoveName}あり！`,
                 subText: `💫 体勢崩壊への被弾 (${dmg}点)`,
+                reasonBadge: '💫 崩壊被弾',
                 isCritical: isBoosted,
             };
         } else if (enemyAction === '崩し') {
@@ -5660,9 +6784,6 @@ function playRound(playerAction) {
             gainKiai('enemy', 1);
             playerAnim = 'hit';
             playerOutcome = 'hit';
-            message += canDealDmg
-                ? `💥 体勢を崩されたところへ、相手の「${eMoveName}」を浴びた！痛恨の1ダメージ！`
-                : `💥 体勢を崩されたところへ、相手の「${eMoveName}」を浴びた！（※崩しではHP0にならず）`;
             statusType = 'defeat';
             impactSound = 'break';
             zoomTargets.push(enemySpriteBox);
@@ -5675,90 +6796,182 @@ function playRound(playerAction) {
                 winner: 'enemy',
                 mainText: `${eMoveName}被弾！`,
                 subText: '💥 体勢崩壊への追撃',
+                reasonBadge: '💥 崩し追撃',
             };
         } else {
-            message += '体勢を崩して動けなかったが、相手も慎重に構えていたため追撃を免れました。';
             statusType = 'neutral';
         }
     }
-    // 1. 必殺技「突き」の判定
-    else if (playerAction === '突き' && enemyAction === '突き') {
-        state.playerHealth -= 1;
-        state.enemyHealth -= 1;
+    // 1. 必殺技（固有必殺技 / 気合一閃）の判定
+    else if (playerAction === '必殺' && enemyAction === '必殺') {
+        triggerSpecialCutin('both', `${pMoveName} vs ${eMoveName}`, true, true);
+        const pTechPower = pTechInfo.isUnlocked ? (pTechInfo.tech.power || 2) : 2;
+        const eTechPower = eTechInfo.isUnlocked ? (eTechInfo.tech.power || 2) : 2;
+        state.playerHealth -= eTechPower;
+        state.enemyHealth -= pTechPower;
         playerAnim = 'hit';
         enemyAnim = 'hit';
         playerOutcome = 'mutual_hit';
         enemyOutcome = 'mutual_hit';
         impactWeight = 'heavy';
-        message += `⚡ 互いに渾身の「${pMoveName}」が交錯！双方に1ダメージ！`;
         statusType = 'defeat';
         impactSound = 'special';
         shakeTargets.push({ el: playerSpriteBox, isHeavy: true }, { el: enemySpriteBox, isHeavy: true });
         doArenaFlash = true;
         popups.push(
-            { who: 'player', text: '-1 相打ち！', styleClass: 'popup-dmg' },
-            { who: 'enemy', text: '-1 相打ち！', styleClass: 'popup-dmg' }
+            { who: 'player', text: `-${eTechPower} 奥義激突！`, styleClass: 'popup-crit' },
+            { who: 'enemy', text: `-${pTechPower} 奥義激突！`, styleClass: 'popup-crit' }
         );
-        calloutData = { winner: 'both', mainText: '相打ち！', subText: `双方 ${pMoveName}`, isCritical: true };
-    } else if (playerAction === '突き') {
-        const eJodanPenalty = eJodan ? 1 : 0;
-        const tsukiDmg = (inTsuba ? 3 : 2) + eJodanPenalty;
-        state.enemyHealth -= tsukiDmg;
-        enemyAnim = 'hit';
-        enemyOutcome = 'hit';
-        impactWeight = 'heavy';
-        if (eJodan) {
-            message += `⚡ 相手の上段のガラ空きの喉元へ会心の「${pMoveName}」が突き刺さった！！大ダメージ（${tsukiDmg}点・上段弱点+1）！`;
-        } else if (enemyAction === '防御') {
-            message += `⚡ 会心の${pMoveName}！！相手の${eMoveName}を貫通し、大ダメージ（${tsukiDmg}点）！`;
+        calloutData = {
+            winner: 'both',
+            mainText: '奥義激突・相討ち！',
+            subText: `双方 ${pMoveName} vs ${eMoveName}`,
+            reasonBadge: '⚡ 奥義激突',
+            isCritical: true,
+        };
+    } else if (playerAction === '必殺') {
+        triggerSpecialCutin('player', pMoveName, pTechInfo.isUnlocked, false);
+        // プレイヤーの必殺技（解放済みなら無敵貫通、未解放なら気合一閃）
+        const isUnlocked = pTechInfo.isUnlocked;
+        let didHit = true;
+        let dmg = (inTsuba ? 3 : (isUnlocked ? (pTechInfo.tech.power || 2) : 2)) + (eJodan ? 1 : 0);
+
+        if (!isUnlocked && enemyAction === '防御') {
+            // 未解放の気合一閃 vs 防御：50%で貫通、50%で受け止められるが相手を体勢崩壊
+            if (Math.random() < 0.5) {
+                dmg = 1;
+            } else {
+                didHit = false;
+                roundEnemyBlocked = true;
+                state.enemyGuardBroken = true;
+                state.enemyStunned = true;
+            }
+        }
+
+        if (didHit) {
+            state.enemyHealth -= dmg;
+            enemyAnim = 'hit';
+            enemyOutcome = 'hit';
+            impactWeight = 'heavy';
+            statusType = 'victory';
+            impactSound = 'special';
+            zoomTargets.push(playerSpriteBox);
+            shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+            doArenaFlash = true;
+            popups.push({ who: 'enemy', text: `-${dmg} ${isUnlocked ? '必殺一閃！' : '気合一閃！'}`, styleClass: 'popup-crit' });
+            calloutData = {
+                winner: 'player',
+                mainText: `${pMoveName}あり！`,
+                subText: `⚡ 会心の奥義 (${dmg}点)`,
+                reasonBadge: isUnlocked ? '⚡ 秘技覚醒' : '🔥 気合一閃',
+                isCritical: true,
+            };
         } else {
-            message += `⚡ 電光石火の${pMoveName}！！相手の「${eMoveName}」を圧倒し、大ダメージ（${tsukiDmg}点）！`;
+            statusType = 'neutral';
+            impactSound = 'block';
+            zoomTargets.push(enemySpriteBox);
+            popups.push(
+                { who: 'enemy', text: '🛡️ ガード！', styleClass: 'popup-block' },
+                { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+            );
+            calloutData = {
+                winner: null,
+                mainText: '受け止められた！',
+                subText: '💥 相手は次ターン体勢崩壊！',
+                reasonBadge: '🛡️ 相手防御',
+            };
         }
-        statusType = 'victory';
-        impactSound = 'special';
-        zoomTargets.push(playerSpriteBox);
-        shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
-        doArenaFlash = true;
-        popups.push({ who: 'enemy', text: `-${tsukiDmg} 会心！`, styleClass: 'popup-crit' });
-        calloutData = { winner: 'player', mainText: `${pMoveName}あり！`, subText: `⚡ 会心の一閃 (${tsukiDmg}点)`, isCritical: true };
-    } else if (enemyAction === '突き') {
-        const jodanPenalty = isJodan ? 1 : 0;
-        const tsukiDmg = (inTsuba ? 3 : 2) + jodanPenalty;
-        state.playerHealth -= tsukiDmg;
-        playerAnim = 'hit';
-        playerOutcome = 'hit';
-        impactWeight = 'heavy';
-        message += isJodan
-            ? `⚡ 上段のガラ空きの喉元へ相手の必殺「${eMoveName}」が突き刺さった！！痛恨の${tsukiDmg}ダメージ（上段被弾+1）！`
-            : `⚡ 相手の必殺「${eMoveName}」が防具を貫いた！！痛恨の${tsukiDmg}ダメージ！`;
-        statusType = 'defeat';
-        impactSound = 'hurt';
-        zoomTargets.push(enemySpriteBox);
-        shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
-        doArenaFlash = true;
-        popups.push({ who: 'player', text: `-${tsukiDmg} 痛恨！`, styleClass: 'popup-crit' });
-        calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `⚡ 必殺の${eMoveName} (${tsukiDmg}点)`, isCritical: true };
+    } else if (enemyAction === '必殺') {
+        triggerSpecialCutin('enemy', eMoveName, eTechInfo.isUnlocked, false);
+        const isUnlocked = eTechInfo.isUnlocked;
+        let didHit = true;
+        let rawDmg = (inTsuba ? 3 : (isUnlocked ? (eTechInfo.tech.power || 2) : 2)) + (isJodan ? 1 : 0);
+        let dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
+
+        if (!isUnlocked && playerAction === '防御') {
+            if (Math.random() < 0.5) {
+                dmg = 1;
+            } else {
+                didHit = false;
+                roundPlayerBlocked = true;
+                state.playerGuardBroken = true;
+                state.playerStunned = true;
+            }
+        }
+
+        if (didHit) {
+            state.playerHealth -= dmg;
+            playerAnim = 'hit';
+            playerOutcome = 'hit';
+            impactWeight = 'heavy';
+            statusType = 'defeat';
+            impactSound = 'hurt';
+            zoomTargets.push(enemySpriteBox);
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+            doArenaFlash = true;
+            popups.push({ who: 'player', text: `-${dmg} 痛恨被弾！`, styleClass: 'popup-crit' });
+            calloutData = {
+                winner: 'enemy',
+                mainText: `${eMoveName}あり！`,
+                subText: `⚡ 必殺の${eMoveName} (${dmg}点)`,
+                reasonBadge: isUnlocked ? '⚠️ 相手奥義' : '⚠️ 相手気合一閃',
+                isCritical: true,
+            };
+        } else {
+            statusType = 'neutral';
+            impactSound = 'block';
+            zoomTargets.push(playerSpriteBox);
+            popups.push(
+                { who: 'player', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
+                { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+            );
+            calloutData = {
+                winner: null,
+                mainText: '受け止めた！',
+                subText: '💥 衝撃で体勢崩壊！',
+                reasonBadge: '🛡️ 鉄壁防御',
+            };
+        }
     }
-    // 2. 防御 vs 防御
+    // 2. 防御・気合 vs 防御・気合（互いに間合いを測り気勢激突・双方が気合+1！）
     else if (playerAction === '防御' && enemyAction === '防御') {
-        message += inTsuba
-            ? '互いに慎重に間合いを切り、鍔迫り合いを解いて構えを整えました。'
-            : '互いに守りを固め、静かに間合いを測り合っています。';
-        statusType = 'neutral';
-    }
-    // 3. 防御 vs 崩し（ガードブレイク / 突き放し ※崩しではHP0にできない仕様）
-    else if (playerAction === '崩し' && enemyAction === '防御') {
-        const canDealDmg = state.enemyHealth > 1;
-        if (canDealDmg) {
-            state.enemyHealth -= 1;
-        }
         gainKiai('player', 1);
-        const pStr = getFighterStats('player').str;
-        const eStr = getFighterStats('enemy').str;
-        const eSpi = getFighterStats('enemy').spi;
-        // 敵の気魄(spi)による踏みとどまり判定
-        const eResistChance = eSpi >= 14 ? (eSpi - 10) * 0.06 : 0;
-        const eDidResist = Math.random() < eResistChance;
+        gainKiai('enemy', 1);
+        if (pCounterStacks > 0) {
+            state.playerCounterStacks = pCounterStacks;
+            state.playerCounterReady = true;
+        }
+        if (eCounterStacks > 0) {
+            state.enemyCounterStacks = eCounterStacks;
+            state.enemyCounterReady = true;
+        }
+        playerAnim = 'counterReady';
+        enemyAnim = 'counterReady';
+        statusType = 'neutral';
+        impactSound = 'kiai';
+        zoomTargets.push(playerSpriteBox, enemySpriteBox);
+        popups.push(
+            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' },
+            { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
+        );
+        calloutData = {
+            winner: 'both',
+            mainText: '気勢激突！',
+            subText: '🔥 互いに間合いを測り気迫を高め合う (+1気合)',
+            reasonBadge: '🔥 気勢充実',
+        };
+    }
+    // 3. 防御 vs 崩し（ガードブレイク / 突き放し ※気合3の不動心でスタン無効）
+    else if (playerAction === '崩し' && enemyAction === '防御') {
+        const pStr = pStats.str || 10;
+        const eStr = eStats.str || 10;
+        const breakBaseDmg = (pStr - eStr >= 4) ? 2 : 1;
+        const canDealDmg = state.enemyHealth > 1;
+        const actualBreakDmg = canDealDmg ? Math.min(breakBaseDmg, state.enemyHealth - 1) : 0;
+        if (actualBreakDmg > 0) state.enemyHealth -= actualBreakDmg;
+        gainKiai('player', 1);
+
+        const eDidResist = eBuff.unshakable || (eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.06);
         if (!eDidResist) {
             state.enemyGuardBroken = true;
             state.enemyStunned = true;
@@ -5767,38 +6980,31 @@ function playRound(playerAction) {
         }
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
-        if (canDealDmg) {
-            message += `💥 ${pMoveName}成功！腕力「${pStr}」の体当たりで相手の${eMoveName}を突き崩し1ダメージ＆相手は次ターン操作スキップ！`;
-        } else {
-            message += `💥 ${pMoveName}成功！相手の${eMoveName}を体当たりで突き崩し、次ターン操作スキップ！（※崩しではHP0にできず、相手HP1で耐える！）`;
-        }
         statusType = 'victory';
         impactSound = 'break';
         zoomTargets.push(playerSpriteBox);
-        shakeTargets.push({ el: enemySpriteBox, isHeavy: false });
+        shakeTargets.push({ el: enemySpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
-            ...(canDealDmg ? [{ who: 'enemy', text: '-1', styleClass: 'popup-dmg' }] : [{ who: 'enemy', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
-            ...(eDidResist ? [{ who: 'enemy', text: '⚡ 踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
+            ...(actualBreakDmg > 0 ? [{ who: 'enemy', text: actualBreakDmg >= 2 ? '-2 剛腕崩し！' : '-1', styleClass: actualBreakDmg >= 2 ? 'popup-crit' : 'popup-dmg' }] : [{ who: 'enemy', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
+            ...(eDidResist ? [{ who: 'enemy', text: '⚡ 不動心・踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
             winner: 'player',
             mainText: `${pMoveName}成功！`,
-            subText: canDealDmg ? '💥 相手は次ターン操作スキップ！' : '💥 相手HP1で耐える！次ターン操作スキップ中に仕留めよ！'
+            subText: eDidResist ? '⚡ 相手は不動心で体勢維持' : (actualBreakDmg >= 2 ? '💥 剛腕体当たり！相手は次ターン操作スキップ！' : '💥 相手は次ターン操作スキップ！')
         };
     } else if (playerAction === '防御' && enemyAction === '崩し') {
-        const pSpi = getFighterStats('player').spi;
-        // 精神力(spi)が高いと、泰然自若の体幹で体当たりを踏みとどまり防御崩壊を回避できる
-        const resistChance = pSpi >= 14 ? (pSpi - 10) * 0.06 : 0;
-        const didResist = Math.random() < resistChance;
+        const pStr = pStats.str || 10;
+        const eStr = eStats.str || 10;
+        const breakBaseDmg = (eStr - pStr >= 4) ? 2 : 1;
+        const didResist = pBuff.unshakable || (pStats.spi >= 14 && Math.random() < (pStats.spi - 10) * 0.06);
         if (didResist) {
             roundPlayerBlocked = true;
         }
-
         const canDealDmg = state.playerHealth > 1;
-        if (canDealDmg) {
-            state.playerHealth -= 1;
-        }
+        const actualBreakDmg = canDealDmg ? Math.min(breakBaseDmg, state.playerHealth - 1) : 0;
+        if (actualBreakDmg > 0) state.playerHealth -= actualBreakDmg;
         gainKiai('enemy', 1);
         if (!didResist) {
             state.playerGuardBroken = true;
@@ -5806,96 +7012,94 @@ function playRound(playerAction) {
         }
         playerAnim = 'hit';
         playerOutcome = 'hit';
-        if (didResist) {
-            message += `💥 相手の「${eMoveName}」を被弾したが、精神力「${pSpi}」の気迫で踏みとどまり体勢崩壊を回避した！`;
-        } else if (canDealDmg) {
-            message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！1ダメージ＆次ターン操作スキップ！`;
-        } else {
-            message += `💥 相手の「${eMoveName}」で${pMoveName}を割られた！体勢崩壊！（※次ターン操作スキップ・HP1で耐えた！）`;
-        }
         statusType = 'defeat';
         impactSound = 'break';
         zoomTargets.push(enemySpriteBox);
-        shakeTargets.push({ el: playerSpriteBox, isHeavy: false });
+        shakeTargets.push({ el: playerSpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
-            ...(canDealDmg ? [{ who: 'player', text: '-1', styleClass: 'popup-dmg' }] : [{ who: 'player', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
-            ...(didResist ? [{ who: 'player', text: '⚡ 踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
+            ...(actualBreakDmg > 0 ? [{ who: 'player', text: actualBreakDmg >= 2 ? '-2 相手の剛腕崩し！' : '-1', styleClass: actualBreakDmg >= 2 ? 'popup-crit' : 'popup-dmg' }] : [{ who: 'player', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
+            ...(didResist ? [{ who: 'player', text: '⚡ 不動心・踏みとどまり！', styleClass: 'popup-counter' }] : [{ who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
             winner: 'enemy',
-            mainText: didResist ? '踏みとどまり！' : '体勢崩壊！',
-            subText: didResist ? '⚡ 精神力で崩れを防いだ' : (canDealDmg ? '💥 次ターン操作スキップ' : '💥 次ターン操作スキップ！HP1で耐えた！')
+            mainText: `${eMoveName}被弾！`,
+            subText: didResist ? '⚡ 不動心で体勢を維持した' : (actualBreakDmg >= 2 ? '💥 相手の剛腕体当たり！次ターン操作不能！' : '💥 体勢を崩された！次ターン操作スキップ！')
         };
     }
-    // 4. 防御 vs 基本打突（応じ技準備！）
+    // 4. 防御 vs 基本打突（応じ技準備！ 防御側は気合不変、見切りスタック蓄積で次打成功率UP！ 攻撃側は気合+1！ 中段・下段ともに防御成功でHP+1回復）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
         roundPlayerBlocked = true;
-        const kiaiBonus = 1;
-        gainKiai('player', kiaiBonus);
         let healed = 0;
         const pMaxHealth = getPlayerMaxHealth();
-        if (isWaki && state.playerHealth < pMaxHealth) {
+        if (state.playerHealth < pMaxHealth) {
             state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
             healed = 1;
         }
+        const newStacks = Math.min(3, pCounterStacks + 1);
+        state.playerCounterStacks = newStacks;
         state.playerCounterReady = true;
+
+        // 攻撃側（敵）に気合+1を付与
+        gainKiai('enemy', 1);
+
         playerOutcome = 'block_success';
-        message += isWaki
-            ? `🌊 下段の構えの「${pMoveName}」で相手の「${eMoveName}」を鮮やかに受け流した！気合+1${healed ? '＆体力+1回復' : ''}＆次ターン「🔥応じ技（2倍）」！`
-            : `🛡️ 相手の「${eMoveName}」を${pMoveName}で封じた！気合+1＆次ターン「🔥応じ技（威力2倍）」チャンス！`;
         statusType = 'victory';
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
         popups.push(
             { who: 'player', text: `🛡️ ${pMoveName}成功！`, styleClass: 'popup-block' },
-            ...(isWaki && healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
-            { who: 'player', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
+            ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
+            { who: 'player', text: newStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newStacks}！`, styleClass: 'popup-counter' },
+            { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
+        const stackLabel = newStacks >= 3 ? '⚡ 見切り極致 (2倍)' : `⚡ 見切りLv${newStacks} (2倍)`;
         calloutData = {
             winner: null,
-            mainText: isWaki ? '🌊 後の先の受け！' : '見事な受け！',
-            subText: isWaki ? (healed ? '💚 HP+1＆次打2倍' : '🔥 次ターン 応じ技(2倍)') : '🔥 次ターン 応じ技(2倍)',
+            mainText: isWaki ? '🌊 後の先！' : '見事な受け！',
+            subText: healed ? `💚 HP+1 ＆ ${stackLabel}` : stackLabel,
             isGuard: true,
         };
     } else if (isBasic(playerAction) && enemyAction === '防御') {
         roundEnemyBlocked = true;
-        const eKiaiBonus = 1;
-        gainKiai('enemy', eKiaiBonus);
         let eHealed = 0;
         const eMax = state.enemyMaxHealth || getCurrentEnemy().maxHealth;
-        if (eWaki && state.enemyHealth < eMax) {
+        if (state.enemyHealth < eMax) {
             state.enemyHealth = Math.min(eMax, state.enemyHealth + 1);
             eHealed = 1;
         }
+        const newEStacks = Math.min(3, eCounterStacks + 1);
+        state.enemyCounterStacks = newEStacks;
         state.enemyCounterReady = true;
+
+        // 攻撃側（プレイヤー）に気合+1を付与
+        gainKiai('player', 1);
+
         enemyOutcome = 'block_success';
-        message += eWaki
-            ? `🌊 相手の下段の構え「${eMoveName}」に「${pMoveName}」を受け流された！相手は気合+1${eHealed ? '＆体力+1回復' : ''}＆次ターン「🔥応じ技」の構え！`
-            : `🛡️ 相手に「${pMoveName}」を受け止められた！相手が「🔥応じ技」の構えに入った！`;
         statusType = 'neutral';
         impactSound = 'block';
         zoomTargets.push(enemySpriteBox);
         popups.push(
             { who: 'enemy', text: `🛡️ ${eMoveName}成功！`, styleClass: 'popup-block' },
-            ...(eWaki && eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
-            { who: 'enemy', text: '🔥 次打2倍！', styleClass: 'popup-counter' }
+            ...(eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
+            { who: 'enemy', text: newEStacks >= 3 ? '⚡ 相手見切り極致！' : `⚡ 相手見切りLv${newEStacks}！`, styleClass: 'popup-counter' },
+            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
+        const eStackLabel = newEStacks >= 3 ? '⚠️ 相手が見切り極致' : `⚠️ 相手見切りLv${newEStacks}`;
         calloutData = {
             winner: null,
-            mainText: eWaki ? '🌊 下段の構えで受け流された！' : '受け止められた！',
-            subText: eWaki ? (eHealed ? '⚠️ 相手 HP+1＆応じ構え' : '⚠️ 相手が応じ技の構え') : '⚠️ 相手が応じ技の構え',
+            mainText: eWaki ? '🌊 受け流された！' : '受け止められた！',
+            subText: eHealed ? `⚠️ 相手 HP+1＆${eStackLabel}` : eStackLabel,
             isGuard: true,
         };
     }
-    // 5. 崩し vs 崩し（鍔迫り合い突入・継続）
+    // 6. 崩し vs 崩し（鍔迫り合い突入・継続）
     else if (playerAction === '崩し' && enemyAction === '崩し') {
         gainKiai('player', 1);
         gainKiai('enemy', 1);
         state.tsubazeriai = true;
         playerOutcome = 'tsubazeriai_clash';
         enemyOutcome = 'tsubazeriai_clash';
-        message += '💥 激しい体当たりの交錯！「鍔迫り合い」に突入！（双方 気合+1・次ターン引き技威力2倍！）';
         statusType = 'neutral';
         impactSound = 'clash';
         popups.push(
@@ -5904,240 +7108,246 @@ function playRound(playerAction) {
         );
         calloutData = { winner: 'both', mainText: '鍔迫り合い突入！', subText: '💥 次ターン 引き技(2ダメ)チャンス' };
     }
-    // 6. 崩し vs 基本打突（打突側が迎撃）
+    // 7. 崩し vs 基本打突（打突側が迎撃 ※崩し側は気合+1されるが、相手の攻撃成功時は気合0！）
     else if (isBasic(playerAction) && enemyAction === '崩し') {
+        gainKiai('enemy', 1); // 崩し使用でまず気合+1
         const isNukiDo = isWaki && playerAction === '胴' && !inTsuba;
         const jodanBonus = (isJodan && playerAction === '面') ? 1 : 0;
-        const eJodanKoteBonus = (eJodan && playerAction === '小手') ? 1 : 0;
-        const baseDmg = (pCounter || inTsuba || isNukiDo) ? 2 : 1;
-        const dmg = baseDmg + jodanBonus + eJodanKoteBonus;
+        const eJodanKoteBonus = (eJodan && (playerAction === '小手' || playerAction === '突き')) ? 1 : 0;
+        const baseDmg = ((pCounter || inTsuba || isNukiDo) ? 2 : 1) + pBuff.dmgBonus;
+        const rawDmg = baseDmg + jodanBonus + eJodanKoteBonus;
+        let dmg = Math.max(1, rawDmg - eBuff.dmgReduction);
+
+        // 相手が崩し使用時の無防備迎撃: 相手の腕力または敏捷がプレイヤーを上回っていれば確率で被ダメ-1軽減
+        const pStr = pStats.str || 10;
+        const pAgi = pStats.agi || 10;
+        const eStr = eStats.str || 10;
+        const eAgi = eStats.agi || 10;
+        const strDiff = eStr - pStr;
+        const agiDiff = eAgi - pAgi;
+        const maxDiff = Math.max(strDiff, agiDiff);
+        const dodgeChance = maxDiff > 0 ? Math.min(0.40, maxDiff * 0.01) : 0;
+        const didMitigate = dodgeChance > 0 && Math.random() < dodgeChance;
+
+        if (didMitigate) {
+            dmg = Math.max(0, dmg - 1);
+        }
+
         const isBoosted = dmg >= 2;
         const kiaiGain = (isWaki && playerAction === '面' && !inTsuba) ? 0 : 1;
-        state.enemyHealth -= dmg;
-        if (kiaiGain > 0) gainKiai('player', kiaiGain);
-        enemyAnim = 'hit';
-        enemyOutcome = 'hit';
-        impactWeight = isBoosted ? 'heavy' : 'normal';
-        if (isNukiDo) {
-            message += `🌊 下段の構えの秘技「抜き胴」炸裂！！相手の「崩し」の突進を躱しざまに胴を抜き、${dmg}ダメージ！`;
-        } else if (eJodanKoteBonus > 0) {
-            message += `⚡ 相手の上段の手元（弱点）を突く出ばな「${pMoveName}」が直撃！！${dmg}ダメージ（上段弱点+1）！`;
-        } else if (inTsuba) {
-            message += `⚡ 鮮やかな「${pMoveName}」炸裂！相手の「${eMoveName}」を躱して斬り抜き、${dmg}ダメージ！`;
-        } else if (pCounter) {
-            message += `🔥 応じ技炸裂！相手の「崩し」の出端に強烈な「${pMoveName}」が決まり ${dmg}ダメージ！`;
-        } else if (jodanBonus > 0) {
-            message += `🔥 上段からの豪快な「${pMoveName}」で相手の「崩し」を迎撃！${dmg}ダメージ＆気合+1！`;
+
+        if (dmg > 0) {
+            state.enemyHealth -= dmg;
+            state.enemyKiai = 0; // 相手の攻撃成功により気合0にリセット！
+            enemyAnim = 'hit';
+            enemyOutcome = 'hit';
         } else {
-            message += `⚔️ 相手の「崩し」の出端を「${pMoveName}」で迎撃！ 1ダメージ${kiaiGain ? '＆気合+1' : ''}！`;
+            enemyAnim = 'block';
+            enemyOutcome = 'block';
         }
-        statusType = 'victory';
-        impactSound = isBoosted ? 'special' : 'attack';
+        if (kiaiGain > 0) gainKiai('player', kiaiGain);
+        impactWeight = isBoosted ? 'heavy' : 'normal';
+
+        statusType = (dmg > 0) ? 'victory' : 'neutral';
+        impactSound = (dmg > 0) ? (isBoosted ? 'special' : 'attack') : 'block';
         zoomTargets.push(playerSpriteBox);
-        shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
+        if (dmg > 0) shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
         if (isBoosted) doArenaFlash = true;
-        popups.push(
-            { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
-            ...(kiaiGain > 0 ? [{ who: 'player', text: `+${kiaiGain} 気合`, styleClass: 'popup-kiai' }] : [])
-        );
-        calloutData = {
+
+        if (didMitigate) {
+            const mitigateText = (strDiff >= agiDiff) ? '💪 剛腕受け！ (-1軽減)' : '⚡ 身のこなし！ (-1軽減)';
+            popups.push({ who: 'enemy', text: mitigateText, styleClass: 'popup-counter' });
+        }
+        if (dmg > 0) {
+            popups.push(
+                { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : `-1`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
+                { who: 'enemy', text: '気合 0！', styleClass: 'popup-break' }
+            );
+        }
+        if (kiaiGain > 0) {
+            popups.push({ who: 'player', text: `+${kiaiGain} 気合`, styleClass: 'popup-kiai' });
+        }
+
+        calloutData = (dmg > 0) ? {
             winner: 'player',
             mainText: `${pMoveName}あり！`,
             subText: isNukiDo
                 ? `🌊 下段の構え・抜き胴 (${dmg}点)`
                 : (inTsuba ? `⚡ 会心の${pMoveName} (${dmg}点)` : (isBoosted ? `🔥 豪快な${pMoveName} (${dmg}点)` : `⚔️ 出ばな${playerAction}一本`)),
             isCritical: isBoosted,
+        } : {
+            winner: null,
+            mainText: '芯外れ！',
+            subText: (strDiff >= agiDiff) ? '💪 相手は剛腕で衝撃を相殺 (0点)' : '⚡ 相手は身のこなしで芯を外した (0点)',
+            reasonBadge: (strDiff >= agiDiff) ? '💪 剛腕受け' : '⚡ 身のこなし',
         };
     } else if (playerAction === '崩し' && isBasic(enemyAction)) {
+        gainKiai('player', 1); // 崩し使用でまず気合+1
         const eNukiDo = eWaki && enemyAction === '胴' && !inTsuba;
         const eJodanBonus = (eJodan && enemyAction === '面') ? 1 : 0;
-        const jodanKotePenalty = (isJodan && enemyAction === '小手') ? 1 : 0;
-        const baseDmg = (eCounter || inTsuba || eNukiDo) ? 2 : 1;
-        const dmg = baseDmg + eJodanBonus + jodanKotePenalty;
+        const jodanKotePenalty = (isJodan && (enemyAction === '小手' || enemyAction === '突き')) ? 1 : 0;
+        const baseDmg = ((eCounter || inTsuba || eNukiDo) ? 2 : 1) + eBuff.dmgBonus;
+        const rawDmg = baseDmg + eJodanBonus + jodanKotePenalty;
+        let dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
+
+        // プレイヤーが崩し使用時の無防備迎撃: 自身の腕力または敏捷が相手を上回っていれば確率で被ダメ-1軽減
+        const pStr = pStats.str || 10;
+        const pAgi = pStats.agi || 10;
+        const eStr = eStats.str || 10;
+        const eAgi = eStats.agi || 10;
+        const strDiff = pStr - eStr;
+        const agiDiff = pAgi - eAgi;
+        const maxDiff = Math.max(strDiff, agiDiff);
+        const dodgeChance = maxDiff > 0 ? Math.min(0.40, maxDiff * 0.01) : 0;
+        const didMitigate = dodgeChance > 0 && Math.random() < dodgeChance;
+
+        if (didMitigate) {
+            dmg = Math.max(0, dmg - 1);
+        }
+
         const isBoosted = dmg >= 2;
         const eKiaiGain = (eWaki && enemyAction === '面' && !inTsuba) ? 0 : 1;
-        state.playerHealth -= dmg;
-        if (eKiaiGain > 0) gainKiai('enemy', eKiaiGain);
-        playerAnim = 'hit';
-        playerOutcome = 'hit';
-        impactWeight = isBoosted ? 'heavy' : 'normal';
-        if (eNukiDo) {
-            message += `🌊 相手の下段の構えの秘技「抜き胴」に突進を斬られた！！痛恨の${dmg}ダメージ！`;
-        } else if (jodanKotePenalty > 0) {
-            message += `上段の手元が浮いた隙に相手の「${eMoveName}」を浴びた！痛恨の${dmg}ダメージ（上段小手被弾+1）！`;
-        } else if (eJodanBonus > 0) {
-            message += `🔥 相手の上段からの豪快な「${eMoveName}」に出端を叩き割られた！痛恨の${dmg}ダメージ！`;
-        } else if (inTsuba) {
-            message += `相手の鋭い「${eMoveName}」に突き放しの出端を斬られた！痛恨の2ダメージ！`;
-        } else if (eCounter) {
-            message += `相手の応じ技「${enemyAction}」に出端を挫かれた！痛恨の ${dmg}ダメージ！`;
+
+        if (dmg > 0) {
+            state.playerHealth -= dmg;
+            state.playerKiai = 0; // 相手の攻撃成功により気合0にリセット！
+            playerAnim = 'hit';
+            playerOutcome = 'hit';
         } else {
-            message += `「崩し」に踏み込んだところへ相手の「${enemyAction}」を合わせられた！ 1ダメージ！`;
+            playerAnim = 'block';
+            playerOutcome = 'block';
         }
-        statusType = 'defeat';
-        impactSound = 'hurt';
+        if (eKiaiGain > 0) gainKiai('enemy', eKiaiGain);
+        impactWeight = isBoosted ? 'heavy' : 'normal';
+
+        statusType = (dmg > 0) ? 'defeat' : 'neutral';
+        impactSound = (dmg > 0) ? 'hurt' : 'block';
         zoomTargets.push(enemySpriteBox);
-        shakeTargets.push({ el: playerSpriteBox, isHeavy: isBoosted });
+        if (dmg > 0) shakeTargets.push({ el: playerSpriteBox, isHeavy: isBoosted });
         if (isBoosted) doArenaFlash = true;
-        popups.push(
-            { who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
-            ...(eKiaiGain > 0 ? [{ who: 'enemy', text: `+${eKiaiGain} 気合`, styleClass: 'popup-kiai' }] : [])
-        );
-        calloutData = {
+
+        if (didMitigate) {
+            const mitigateText = (strDiff >= agiDiff) ? '💪 剛腕受け！ (-1軽減)' : '⚡ 身のこなし！ (-1軽減)';
+            popups.push({ who: 'player', text: mitigateText, styleClass: 'popup-counter' });
+        }
+        if (dmg > 0) {
+            popups.push(
+                { who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : `-${dmg}`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
+                { who: 'player', text: '気合 0！', styleClass: 'popup-break' }
+            );
+        }
+        if (eKiaiGain > 0) {
+            popups.push({ who: 'enemy', text: `+${eKiaiGain} 気合`, styleClass: 'popup-kiai' });
+        }
+
+        calloutData = (dmg > 0) ? {
             winner: 'enemy',
             mainText: `${eMoveName}あり！`,
             subText: eNukiDo
                 ? `🌊 相手の下段の構え・抜き胴 (${dmg}点)`
                 : (inTsuba ? `⚡ 相手の${eMoveName} (${dmg}点)` : (isBoosted ? `🔥 相手の${eMoveName} (${dmg}点)` : `⚔️ 出ばな${enemyAction}一本`)),
             isCritical: isBoosted,
+        } : {
+            winner: null,
+            mainText: '芯外れ！',
+            subText: (strDiff >= agiDiff) ? '💪 剛腕で威力を殺した (有効打突なし)' : '⚡ 身のこなしで芯を外した (有効打突なし)',
+            reasonBadge: (strDiff >= agiDiff) ? '💪 剛腕受け' : '⚡ 身のこなし',
         };
     }
-    // 7. 基本打突 vs 基本打突（三すくみ＆応じ技＆鍔迫り合い＆上段相面判定）
-    else if (playerAction === enemyAction) {
-        if (isJodan && !eJodan && playerAction === '面' && !eCounter) {
-            // プレイヤー上段の構え特権：相手の通常の「面」を上から一方的に打ち破る（相面制覇）！
-            const dmg = (pCounter || inTsuba) ? 3 : 2;
-            state.enemyHealth -= dmg;
-            gainKiai('player', 1);
-            enemyAnim = 'hit';
-            enemyOutcome = 'hit';
-            impactWeight = 'heavy';
-            message += `🔥 上段からの渾身の「${pMoveName}」が相手の面を頭上から粉砕！相面を一方的に制し、${dmg}ダメージ！`;
-            statusType = 'victory';
-            impactSound = 'special';
-            zoomTargets.push(playerSpriteBox);
-            shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
-            doArenaFlash = true;
-            popups.push(
-                { who: 'enemy', text: `-${dmg} 相面粉砕！`, styleClass: 'popup-crit' },
-                { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
-            );
-            calloutData = {
-                winner: 'player',
-                mainText: `${pMoveName}あり！`,
-                subText: `🔥 上段・相面制覇 (${dmg}点)`,
-                isCritical: true,
-            };
-        } else if (eJodan && !isJodan && enemyAction === '面' && !pCounter) {
-            // 敵の上段の構え特権：プレイヤーの通常の「面」を上から一方的に打ち破る！
-            const dmg = (eCounter || inTsuba) ? 3 : 2;
-            state.playerHealth -= dmg;
-            gainKiai('enemy', 1);
-            playerAnim = 'hit';
-            playerOutcome = 'hit';
-            impactWeight = 'heavy';
-            message += `🔥 相手の上段からの渾身の「${eMoveName}」に上から面を打ち砕かれた！相面に敗れ痛恨の${dmg}ダメージ！`;
-            statusType = 'defeat';
-            impactSound = 'hurt';
-            zoomTargets.push(enemySpriteBox);
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
-            doArenaFlash = true;
-            popups.push(
-                { who: 'player', text: `-${dmg} 相面敗北！`, styleClass: 'popup-crit' },
-                { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
-            );
-            calloutData = {
-                winner: 'enemy',
-                mainText: `${eMoveName}あり！`,
-                subText: `🔥 相手の上段・相面制覇 (${dmg}点)`,
-                isCritical: true,
-            };
-        } else if (pCounter && !eCounter) {
-            const pBonus = ((isJodan && playerAction === '面') ? 1 : 0) + ((eJodan && playerAction === '小手') ? 1 : 0);
-            const dmg = 2 + pBonus;
-            state.enemyHealth -= dmg;
-            gainKiai('player', 1);
-            enemyAnim = 'hit';
-            enemyOutcome = 'hit';
-            impactWeight = 'heavy';
-            message += `🔥 応じ技の冴え！同じ「${pMoveName}」の打ち合いを制し、${dmg}ダメージ奪った！`;
-            statusType = 'victory';
-            impactSound = 'special';
-            zoomTargets.push(playerSpriteBox);
-            shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
-            doArenaFlash = true;
-            popups.push(
-                { who: 'enemy', text: `-${dmg} 応じ${playerAction}！`, styleClass: 'popup-crit' },
-                { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
-            );
-            calloutData = {
-                winner: 'player',
-                mainText: `${pMoveName}あり！`,
-                subText: `🔥 応じ${playerAction}・相打ち制覇(${dmg}点)`,
-                isCritical: true,
-            };
-        } else if (eCounter && !pCounter) {
-            const eBonus = ((eJodan && enemyAction === '面') ? 1 : 0) + ((isJodan && enemyAction === '小手') ? 1 : 0);
-            const dmg = 2 + eBonus;
-            state.playerHealth -= dmg;
-            gainKiai('enemy', 1);
-            playerAnim = 'hit';
-            playerOutcome = 'hit';
-            impactWeight = 'heavy';
-            message += `相手の応じ技「${eMoveName}」に打ち負けた！ ${dmg}ダメージ！`;
-            statusType = 'defeat';
-            impactSound = 'hurt';
-            zoomTargets.push(enemySpriteBox);
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
-            doArenaFlash = true;
-            popups.push(
-                { who: 'player', text: `-${dmg} 応じ${enemyAction}！`, styleClass: 'popup-crit' },
-                { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
-            );
-            calloutData = {
-                winner: 'enemy',
-                mainText: `${eMoveName}あり！`,
-                subText: `🔥 相手の応じ${enemyAction} (${dmg}点)`,
-                isCritical: true,
-            };
-        } else if (!inTsuba) {
-            // 通常間合いでの同技交錯 → 「速 (agi)」による出ばな打突判定！
-            const pAgi = getFighterStats('player').agi;
-            const eAgi = getFighterStats('enemy').agi;
-            const agiDiff = pAgi - eAgi;
+    // 8. 基本打突 vs 基本打突（4打突パラメータ対抗 ＆ 相性ボーナス ＆ 気合バフ判定 ＆ 基礎能力ボーナス！）
+    else if (isBasic(playerAction) && isBasic(enemyAction)) {
+        const pSkillVal = getSkillVal(pStats, playerAction);
+        const eSkillVal = getSkillVal(eStats, enemyAction);
 
-            if (agiDiff >= 4 && Math.random() < 0.45) {
-                // プレイヤーの敏捷性で相手の起こりを捉えた出ばな打突！
-                state.enemyHealth -= 1;
-                gainKiai('player', 1);
-                enemyAnim = 'hit';
-                enemyOutcome = 'hit';
-                impactWeight = 'heavy';
-                message += `⚡ 電光石火の出ばな技！敏捷「${pAgi}」の速さで相手の「${eMoveName}」の起こりを捉え、紙一重で「${pMoveName}」が決まった！`;
-                statusType = 'victory';
-                impactSound = 'special';
-                zoomTargets.push(playerSpriteBox);
-                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
-                popups.push(
-                    { who: 'enemy', text: `-1 出ばな！`, styleClass: 'popup-crit' },
-                    { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
-                );
-                calloutData = { winner: 'player', mainText: `${pMoveName}あり！`, subText: `⚡ 電光石火・出ばな一本！`, isCritical: true };
-            } else if (agiDiff <= -4 && Math.random() < 0.45) {
-                // 相手の敏捷性に出ばなを奪われた！
-                state.playerHealth -= 1;
-                gainKiai('enemy', 1);
-                playerAnim = 'hit';
-                playerOutcome = 'hit';
-                impactWeight = 'heavy';
-                message += `⚡ 相手の電光石火の出ばな技！相手の俊敏さに技の起こりを捉えられ、相手の「${eMoveName}」を許した！`;
-                statusType = 'defeat';
-                impactSound = 'hurt';
-                zoomTargets.push(enemySpriteBox);
-                shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
-                popups.push(
-                    { who: 'player', text: `-1 被弾！`, styleClass: 'popup-crit' },
-                    { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
-                );
-                calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `⚡ 相手の出ばな打突！`, isCritical: true };
-            } else {
-                // 互角のスピードで交錯 → 鍔迫り合いへ突入！
+        // 4打突理合相性ボーナス（技量連動スケーリング: 技の30%、最低保証 12）
+        const pHasAdv = attackMap[playerAction] && attackMap[playerAction].includes(enemyAction);
+        const eHasAdv = attackMap[enemyAction] && attackMap[enemyAction].includes(playerAction);
+        const pAdv = pHasAdv ? Math.max(12, Math.round(pSkillVal * 0.30)) : 0;
+        const eAdv = eHasAdv ? Math.max(12, Math.round(eSkillVal * 0.30)) : 0;
+
+        // 気合闘気パッシブバフ（技量連動スケーリング: 気合1=10%/最低5, 気合2=20%/最低10, 気合3=35%/最低18）
+        const pScaledBuff = getKiaiBuff('player', prevPlayerKiai, pSkillVal);
+        const eScaledBuff = getKiaiBuff('enemy', prevEnemyKiai, eSkillVal);
+        const pKiaiScoreBonus = pScaledBuff.scoreBonus;
+        const eKiaiScoreBonus = eScaledBuff.scoreBonus;
+
+        // 基礎能力値
+        const pStr = pStats.str || 10;
+        const eStr = eStats.str || 10;
+        const pAgi = pStats.agi || 10;
+        const eAgi = eStats.agi || 10;
+        const pSpi = pStats.spi || 10;
+        const eSpi = eStats.spi || 10;
+
+        // 腕力: 打突の重み (Math.round(str * 0.22))
+        const pStrBonus = Math.round(pStr * 0.22);
+        const eStrBonus = Math.round(eStr * 0.22);
+
+        // 敏捷: 防御成功後の見切り応じ技強化 (見切りスタック数に応じて倍率スケール: Lv1=0.35, Lv2=0.55, Lv3=0.80)
+        const pAgiMult = pCounterStacks >= 3 ? 0.80 : (pCounterStacks === 2 ? 0.55 : 0.35);
+        const eAgiMult = eCounterStacks >= 3 ? 0.80 : (eCounterStacks === 2 ? 0.55 : 0.35);
+        const pAgiBonus = pCounter ? Math.round(pAgi * pAgiMult) : 0;
+        const eAgiBonus = eCounter ? Math.round(eAgi * eAgiMult) : 0;
+
+        // 気力: 気力14以上で気迫の底上げ
+        const pSpiBonus = (pSpi >= 14) ? Math.round((pSpi - 10) * 0.25) : 0;
+        const eSpiBonus = (eSpi >= 14) ? Math.round((eSpi - 10) * 0.25) : 0;
+
+        // 構えボーナス
+        const pStanceMod = (isJodan && playerAction === '面') ? 6 : 0;
+        const eStanceMod = (eJodan && enemyAction === '面') ? 6 : 0;
+
+        // 応じ技基礎バフ（前ターン防御成功時、見切りスタック数に応じてスケール: Lv1=18, Lv2=32, Lv3=48）
+        const pBaseBonus = pCounterStacks >= 3 ? 48 : (pCounterStacks === 2 ? 32 : 18);
+        const eBaseBonus = eCounterStacks >= 3 ? 48 : (eCounterStacks === 2 ? 32 : 18);
+        const pCounterBonus = pCounter ? pBaseBonus : 0;
+        const eCounterBonus = eCounter ? eBaseBonus : 0;
+
+        const pExtraBonus = pCounterBonus + pAgiBonus + pStrBonus + pSpiBonus + pStanceMod;
+        const eExtraBonus = eCounterBonus + eAgiBonus + eStrBonus + eSpiBonus + eStanceMod;
+
+        const pTotal = pSkillVal + pAdv + pKiaiScoreBonus + pExtraBonus;
+        const eTotal = eSkillVal + eAdv + eKiaiScoreBonus + eExtraBonus;
+
+        const scoreDiff = pTotal - eTotal;
+        const isMutualTsuba = (playerAction === enemyAction && Math.abs(scoreDiff) <= 5);
+        const winnerSide = isMutualTsuba ? 'both' : (scoreDiff > 0 ? 'player' : 'enemy');
+
+        currentClashData = {
+            pMoveName,
+            eMoveName,
+            pScore: pTotal,
+            eScore: eTotal,
+            pSkillVal,
+            eSkillVal,
+            pAdv,
+            eAdv,
+            pKiaiLabel: pBuff.label,
+            eKiaiLabel: eBuff.label,
+            pKiaiBonus: pKiaiScoreBonus,
+            eKiaiBonus: eKiaiScoreBonus,
+            pStrBonus,
+            eStrBonus,
+            pAgiBonus,
+            eAgiBonus,
+            pSpiBonus,
+            eSpiBonus,
+            pCounterBonus,
+            eCounterBonus,
+            pCounterStacks,
+            eCounterStacks,
+            winner: winnerSide,
+        };
+        lastClashData = currentClashData;
+
+        if (playerAction === enemyAction && Math.abs(scoreDiff) <= 5) {
+            // 同技相打ち / 鍔迫り合い突入
+            if (!inTsuba) {
                 gainKiai('player', 1);
                 gainKiai('enemy', 1);
                 state.tsubazeriai = true;
                 playerOutcome = 'tsubazeriai_clash';
                 enemyOutcome = 'tsubazeriai_clash';
-                message += `💥 互いの「${pMoveName}」が激しく火花を散らし、そのまま「鍔迫り合い」に突入！（双方 気合+1・次ターン引き技2ダメージ！）`;
                 statusType = 'neutral';
                 impactSound = 'clash';
                 shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
@@ -6149,58 +7359,16 @@ function playRound(playerAction) {
                     winner: 'both',
                     mainText: '鍔迫り合い突入！',
                     subText: `💥 相${playerAction}から接近戦へ（次打・引き技2倍）`,
+                    reasonBadge: '💥 互角激突',
                 };
-            }
-        } else {
-            // 鍔迫り合い中の同技交錯 → 「力 (str)」の押し合い判定！
-            const pStr = getFighterStats('player').str;
-            const eStr = getFighterStats('enemy').str;
-            const strDiff = pStr - eStr;
-
-            if (strDiff >= 3 && Math.random() < 0.6) {
-                roundPushWin = true;
-                // プレイヤーが力で圧倒！相手の竹刀を跳ね除けて一方的な引き技有効打突！
-                state.enemyHealth -= 1;
-                gainKiai('player', 1);
-                enemyAnim = 'hit';
-                enemyOutcome = 'hit';
-                impactWeight = 'heavy';
-                message += `⚡ 力の差で制覇！腕力「${pStr}」で相手を押し込み、相手の「${eMoveName}」を弾いて「${pMoveName}」を叩き込んだ！`;
-                statusType = 'victory';
-                impactSound = 'special';
-                zoomTargets.push(playerSpriteBox);
-                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
-                popups.push(
-                    { who: 'enemy', text: `-1 押し出し！`, styleClass: 'popup-crit' },
-                    { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
-                );
-                calloutData = { winner: 'player', mainText: `${pMoveName}あり！`, subText: `💪 力で押し込み制覇 (1点)`, isCritical: true };
-            } else if (strDiff <= -3 && Math.random() < 0.6) {
-                // 相手が力で圧倒！
-                state.playerHealth -= 1;
-                gainKiai('enemy', 1);
-                playerAnim = 'hit';
-                playerOutcome = 'hit';
-                impactWeight = 'heavy';
-                message += `⚡ 相手の凄まじい腕力に圧倒され、相手の「${eMoveName}」を被弾した！`;
-                statusType = 'defeat';
-                impactSound = 'hurt';
-                zoomTargets.push(enemySpriteBox);
-                shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
-                popups.push(
-                    { who: 'player', text: `-1 押し負け！`, styleClass: 'popup-dmg' },
-                    { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
-                );
-                calloutData = { winner: 'enemy', mainText: `${eMoveName}あり！`, subText: `💪 相手の力押し込み (1点)`, isCritical: true };
             } else {
-                // 鍔迫り合い中の互角交錯 → 相打ち1ダメージ＆間合いが離れる（双方攻撃ヒットのため気合0）
+                // 鍔迫り合い中の互角交錯 → 相打ち
                 state.playerHealth -= 1;
                 state.enemyHealth -= 1;
                 state.playerKiai = 0;
                 state.enemyKiai = 0;
                 playerOutcome = 'mutual_hit';
                 enemyOutcome = 'mutual_hit';
-                message += `⚔️ 引き技の相打ち！互いに「${pMoveName}」を打ち合い、双方に1ダメージ＆間合いが離れた！`;
                 statusType = 'defeat';
                 impactSound = 'clash';
                 shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
@@ -6208,93 +7376,207 @@ function playRound(playerAction) {
                     { who: 'player', text: '-1 相打ち', styleClass: 'popup-dmg' },
                     { who: 'enemy', text: '-1 相打ち', styleClass: 'popup-dmg' }
                 );
-                calloutData = { winner: 'both', mainText: '相打ち！', subText: `互いに${pMoveName} (双方-1)` };
+                calloutData = {
+                    winner: 'both',
+                    mainText: '相打ち！',
+                    subText: `互いに${pMoveName} (双方-1)`,
+                    reasonBadge: '💥 相打ち',
+                };
             }
-        }
-    } else {
-        const isValid = attackMap[playerAction].includes(enemyAction);
-        if (isValid) {
-            const jodanBonus = (isJodan && playerAction === '面') ? 1 : 0;
-            const eJodanKoteBonus = (eJodan && playerAction === '小手') ? 1 : 0;
-            const dmg = ((pCounter || inTsuba) ? 2 : 1) + jodanBonus + eJodanKoteBonus;
-            const isBoosted = dmg >= 2;
-            const kiaiGain = (isWaki && playerAction === '面' && !inTsuba) ? 0 : 1;
-            state.enemyHealth -= dmg;
-            if (kiaiGain > 0) gainKiai('player', kiaiGain);
-            enemyAnim = 'hit';
-            enemyOutcome = 'hit';
-            impactWeight = isBoosted ? 'heavy' : 'normal';
-            if (eJodanKoteBonus > 0) {
-                message += `⚡ 相手の上段の構えの弱点である手元へ鋭い「${pMoveName}」が直撃！！${dmg}ダメージ（上段弱点+1）！`;
-            } else if (jodanBonus > 0) {
-                message += `🔥 上段から振り下ろす豪快な「${pMoveName}」が一閃！！相手の「${eMoveName}」を粉砕し、${dmg}ダメージ！`;
-            } else if (inTsuba) {
-                message += `⚡ 会心の「${pMoveName}」が一閃！！鍔迫り合いを制し、2ダメージの有効打突！`;
-            } else if (pCounter) {
-                message += `🔥 応じ技「${playerAction}」が一閃！！ 2ダメージの有効打突！`;
+        } else if (scoreDiff > 0) {
+            // プレイヤーが競り勝った！
+            // 技術未熟判定: 技パラメータが20未満の場合、低確率で打突が浅く不発（敏捷が高いと足捌きにより不発率低減）
+            const pShallowChance = Math.max(0, ((22 - pSkillVal) * 0.04) - Math.max(0, (pAgi - 10) * 0.015));
+            const isTooShallow = pSkillVal < 20 && Math.random() < pShallowChance;
+
+            if (isTooShallow) {
+                statusType = 'neutral';
+                impactSound = 'block';
+                popups.push({ who: 'player', text: '打突が浅い！', styleClass: 'popup-counter' });
+                calloutData = {
+                    winner: null,
+                    mainText: '打突浅し！',
+                    subText: `技量不足 (${playerAction}技術${pSkillVal})`,
+                    reasonBadge: '⚠️ 技術未熟（不発）',
+                };
             } else {
-                message += `⚔️ 鮮やかな「${playerAction}」が決まりました！ 1ダメージ${kiaiGain ? '＆気合+1' : '（下段の構えのため気合+0）'}！`;
+                const jodanBonus = (isJodan && playerAction === '面') ? 1 : 0;
+                const eJodanKoteBonus = (eJodan && (playerAction === '小手' || playerAction === '突き')) ? 1 : 0;
+                const isCrit = Math.random() < pBuff.critRate;
+
+                // 剛腕会心判定（攻撃側腕力 > 防御側腕力）: 差 × 1%、最大40%で追加ダメージ +1
+                const strDiff = pStr - eStr;
+                const isStrCrit = strDiff > 0 && Math.random() < Math.min(0.40, strDiff * 0.01);
+
+                // 紙一重の体捌き判定（防御側敏捷 > 攻撃側敏捷）: 差 × 1%、最大40%で被ダメ -1 軽減
+                const agiDiff = eAgi - pAgi;
+                const isAgiDodge = agiDiff > 0 && Math.random() < Math.min(0.40, agiDiff * 0.01);
+
+                const baseDmg = ((pCounter || inTsuba) ? 2 : 1) + pBuff.dmgBonus + (isCrit ? 1 : 0);
+                const rawDmg = baseDmg + jodanBonus + eJodanKoteBonus + (isStrCrit ? 1 : 0);
+                let dmg = Math.max(1, rawDmg - eBuff.dmgReduction);
+                if (isAgiDodge) {
+                    dmg = Math.max(0, dmg - 1);
+                }
+
+                const isBoosted = dmg >= 2;
+                const kiaiGain = (isWaki && playerAction === '面' && !inTsuba) ? 0 : 1;
+
+                if (dmg > 0) {
+                    state.enemyHealth -= dmg;
+                    enemyAnim = 'hit';
+                    enemyOutcome = 'hit';
+                } else {
+                    enemyAnim = 'block';
+                    enemyOutcome = 'block';
+                }
+                if (kiaiGain > 0) gainKiai('player', kiaiGain);
+                impactWeight = isBoosted ? 'heavy' : 'normal';
+
+                let pReasonBadge = '⚔️ 技量突破';
+                if (isStrCrit) pReasonBadge = `💥 剛腕会心 (${pStr} vs ${eStr})`;
+                else if (pCounter) {
+                    const lvText = pCounterStacks >= 2 ? `Lv${pCounterStacks}` : '応じ技';
+                    pReasonBadge = `⚡ 見切り${lvText} (+${pCounterBonus + pAgiBonus})`;
+                }
+                else if (pAdv > 0) pReasonBadge = `🚩 相性制覇 (+${pAdv})`;
+                else if (pSkillVal - eSkillVal >= 10) pReasonBadge = `⚡ 技量圧倒 (${pSkillVal} vs ${eSkillVal})`;
+                else if (pStrBonus - eStrBonus >= 3) pReasonBadge = `💪 剛腕押し切り (+${pStrBonus})`;
+                else if (pBuff.scoreBonus >= 10) pReasonBadge = `🔥 気迫制覇 (${pBuff.label})`;
+                else if (pCounter) pReasonBadge = '🌊 応じ技一閃';
+
+                statusType = (dmg > 0) ? 'victory' : 'neutral';
+                impactSound = (dmg > 0) ? (isBoosted ? 'special' : 'attack') : 'block';
+                zoomTargets.push(playerSpriteBox);
+                if (dmg > 0) shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
+                if (isBoosted) doArenaFlash = true;
+
+                if (isStrCrit) {
+                    popups.push({ who: 'player', text: '💥 剛腕会心！', styleClass: 'popup-crit' });
+                }
+                if (isAgiDodge) {
+                    popups.push({ who: 'enemy', text: '⚡ 紙一重の体捌き！ (-1軽減)', styleClass: 'popup-counter' });
+                }
+                if (dmg > 0) {
+                    popups.push({ who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : `-${dmg}`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' });
+                }
+                if (kiaiGain > 0) {
+                    popups.push({ who: 'player', text: `+${kiaiGain} 気合`, styleClass: 'popup-kiai' });
+                }
+
+                calloutData = (dmg > 0) ? {
+                    winner: 'player',
+                    mainText: `${pMoveName}あり！`,
+                    subText: isStrCrit
+                        ? `💥 剛腕の一閃 (${dmg}点)`
+                        : (isCrit
+                            ? `⚡ 会心の一閃 (${dmg}点)`
+                            : (pAdv > 0 ? `⚔️ 相性制覇 (${dmg}点)` : `🚩 技術制覇 (${dmg}点)`)),
+                    reasonBadge: pReasonBadge,
+                    isCritical: isBoosted,
+                } : {
+                    winner: null,
+                    mainText: '有効打突なし',
+                    subText: '⚡ 相手が身のこなしで芯を外した (0点)',
+                    reasonBadge: '⚡ 紙一重の体捌き',
+                };
             }
-            statusType = 'victory';
-            impactSound = isBoosted ? 'special' : 'attack';
-            zoomTargets.push(playerSpriteBox);
-            shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
-            if (isBoosted) doArenaFlash = true;
-            popups.push(
-                { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
-                ...(kiaiGain > 0 ? [{ who: 'player', text: `+${kiaiGain} 気合`, styleClass: 'popup-kiai' }] : [])
-            );
-            calloutData = {
-                winner: 'player',
-                mainText: `${pMoveName}あり！`,
-                subText: eJodanKoteBonus > 0
-                    ? `⚡ 上段の隙を射抜く小手 (${dmg}点)`
-                    : (jodanBonus > 0
-                        ? `🔥 上段の一閃・${pMoveName} (${dmg}点)`
-                        : (inTsuba ? `⚡ 鍔迫り合い制覇・${pMoveName} (2点)` : (pCounter ? `🔥 会心の応じ${playerAction} (2点)` : `🚩 有効打突・一本！`))),
-                isCritical: isBoosted,
-            };
         } else {
-            const eJodanBonus = (eJodan && enemyAction === '面') ? 1 : 0;
-            const jodanKotePenalty = (isJodan && enemyAction === '小手') ? 1 : 0;
-            const dmg = ((eCounter || inTsuba) ? 2 : 1) + eJodanBonus + jodanKotePenalty;
-            const isBoosted = dmg >= 2;
-            const eKiaiGain = (eWaki && enemyAction === '面' && !inTsuba) ? 0 : 1;
-            state.playerHealth -= dmg;
-            if (eKiaiGain > 0) gainKiai('enemy', eKiaiGain);
-            playerAnim = 'hit';
-            playerOutcome = 'hit';
-            impactWeight = isBoosted ? 'heavy' : 'normal';
-            if (jodanKotePenalty > 0) {
-                message += `⚠️ 上段の構えの弱点である手元へ相手の「${eMoveName}」が直撃！！痛恨の${dmg}ダメージ（上段小手被弾+1）！`;
-            } else if (eJodanBonus > 0) {
-                message += `🔥 相手の上段から振り下ろす豪快な「${eMoveName}」を浴びた！！痛恨の${dmg}ダメージ！`;
-            } else if (inTsuba) {
-                message += `相手の鋭い「${eMoveName}」に鍔迫り合いを制された！痛恨の2ダメージ！`;
-            } else if (eCounter) {
-                message += `相手の強烈な応じ技「${enemyAction}」を浴びた！ 2ダメージ！`;
+            // 敵が競り勝った！
+            const eShallowChance = Math.max(0, ((22 - eSkillVal) * 0.04) - Math.max(0, (eAgi - 10) * 0.015));
+            const isTooShallow = eSkillVal < 20 && Math.random() < eShallowChance;
+
+            if (isTooShallow) {
+                statusType = 'neutral';
+                impactSound = 'block';
+                popups.push({ who: 'enemy', text: '打突浅し！', styleClass: 'popup-counter' });
+                calloutData = {
+                    winner: null,
+                    mainText: '有効打突なし',
+                    subText: '相手の打突浅し',
+                    reasonBadge: '相手の技術未熟（不発）',
+                };
             } else {
-                message += `相手の「${enemyAction}」があなたに決まりました！ 1ダメージ！`;
+                const eJodanBonus = (eJodan && enemyAction === '面') ? 1 : 0;
+                const jodanKotePenalty = (isJodan && (enemyAction === '小手' || enemyAction === '突き')) ? 1 : 0;
+                const isCrit = Math.random() < eBuff.critRate;
+
+                // 剛腕会心判定（敵腕力 > プレイヤー腕力）: 差 × 1%、最大40%で追加ダメージ +1
+                const strDiff = eStr - pStr;
+                const isStrCrit = strDiff > 0 && Math.random() < Math.min(0.40, strDiff * 0.01);
+
+                // 紙一重の体捌き判定（プレイヤー敏捷 > 敵敏捷）: 差 × 1%、最大40%で被ダメ -1 軽減
+                const agiDiff = pAgi - eAgi;
+                const isAgiDodge = agiDiff > 0 && Math.random() < Math.min(0.40, agiDiff * 0.01);
+
+                const baseDmg = ((eCounter || inTsuba) ? 2 : 1) + eBuff.dmgBonus + (isCrit ? 1 : 0);
+                const rawDmg = baseDmg + eJodanBonus + jodanKotePenalty + (isStrCrit ? 1 : 0);
+                let dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
+                if (isAgiDodge) {
+                    dmg = Math.max(0, dmg - 1);
+                }
+
+                const isBoosted = dmg >= 2;
+                const eKiaiGain = (eWaki && enemyAction === '面' && !inTsuba) ? 0 : 1;
+
+                if (dmg > 0) {
+                    state.playerHealth -= dmg;
+                    playerAnim = 'hit';
+                    playerOutcome = 'hit';
+                } else {
+                    playerAnim = 'block';
+                    playerOutcome = 'block';
+                }
+                if (eKiaiGain > 0) gainKiai('enemy', eKiaiGain);
+                impactWeight = isBoosted ? 'heavy' : 'normal';
+
+                let eReasonBadge = '⚠️ 競り負け';
+                if (isStrCrit) eReasonBadge = `💥 相手の剛腕会心 (${eStr} vs ${pStr})`;
+                else if (eCounter) {
+                    const lvText = eCounterStacks >= 2 ? `Lv${eCounterStacks}` : '応じ技';
+                    eReasonBadge = `⚡ 相手見切り${lvText} (+${eCounterBonus + eAgiBonus})`;
+                }
+                else if (eAdv > 0) eReasonBadge = `⚠️ 相性被制 (+${eAdv})`;
+                else if (eSkillVal - pSkillVal >= 10) eReasonBadge = `⚠️ 技量及ばず (${eSkillVal} vs ${pSkillVal})`;
+                else if (eStrBonus - pStrBonus >= 3) eReasonBadge = `⚠️ 相手の剛腕押し切り (+${eStrBonus})`;
+                else if (eBuff.scoreBonus >= 10) eReasonBadge = `⚠️ 相手の気迫 (${eBuff.label})`;
+
+                statusType = (dmg > 0) ? 'defeat' : 'neutral';
+                impactSound = (dmg > 0) ? 'hurt' : 'block';
+                zoomTargets.push(enemySpriteBox);
+                if (dmg > 0) shakeTargets.push({ el: playerSpriteBox, isHeavy: isBoosted });
+                if (isBoosted) doArenaFlash = true;
+
+                if (isStrCrit) {
+                    popups.push({ who: 'enemy', text: '💥 相手の剛腕会心！', styleClass: 'popup-crit' });
+                }
+                if (isAgiDodge) {
+                    popups.push({ who: 'player', text: '⚡ 紙一重の体捌き！ (-1軽減)', styleClass: 'popup-counter' });
+                }
+                if (dmg > 0) {
+                    popups.push({ who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : `-${dmg}`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' });
+                }
+                if (eKiaiGain > 0) {
+                    popups.push({ who: 'enemy', text: `+${eKiaiGain} 気合`, styleClass: 'popup-kiai' });
+                }
+
+                calloutData = (dmg > 0) ? {
+                    winner: 'enemy',
+                    mainText: `${eMoveName}あり！`,
+                    subText: isStrCrit
+                        ? `💥 相手の剛腕の一閃 (${dmg}点)`
+                        : (isCrit
+                            ? `⚠️ 相手の会心の一閃 (${dmg}点)`
+                            : (eAdv > 0 ? `⚠️ 相手の相性制覇 (${dmg}点)` : `🏳️ 相手の技術制覇 (${dmg}点)`)),
+                    reasonBadge: eReasonBadge,
+                    isCritical: isBoosted,
+                } : {
+                    winner: null,
+                    mainText: '紙一重！',
+                    subText: '⚡ 身のこなしで芯を外した (有効打突なし)',
+                    reasonBadge: '⚡ 紙一重の体捌き',
+                };
             }
-            statusType = 'defeat';
-            impactSound = 'hurt';
-            zoomTargets.push(enemySpriteBox);
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: isBoosted });
-            if (isBoosted) doArenaFlash = true;
-            popups.push(
-                { who: 'player', text: isBoosted ? `-${dmg} ${eMoveName}！` : '-1', styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
-                ...(eKiaiGain > 0 ? [{ who: 'enemy', text: `+${eKiaiGain} 気合`, styleClass: 'popup-kiai' }] : [])
-            );
-            calloutData = {
-                winner: 'enemy',
-                mainText: `${eMoveName}あり！`,
-                subText: jodanKotePenalty > 0
-                    ? `⚠️ 上段への小手直撃 (${dmg}点)`
-                    : (eJodanBonus > 0
-                        ? `🔥 相手の上段一閃・${eMoveName} (${dmg}点)`
-                        : (inTsuba ? `⚡ 相手の${eMoveName} (2点)` : (eCounter ? `🔥 相手の応じ${enemyAction} (2点)` : `🏳️ 相手の一本`))),
-                isCritical: isBoosted,
-            };
         }
     }
 
@@ -6358,7 +7640,7 @@ function playRound(playerAction) {
         state.finalWinningKana = convertToKana(enemyAction, eMoveName);
         impactWeight = 'heavy';
         endGameSound = 'lose';
-        finalStatusMessage = `敗北… ${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。（${message}）`;
+        finalStatusMessage = `敗北… ${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。`;
         finalStatusType = 'defeat';
         calloutData = {
             winner: 'enemy',
@@ -6386,7 +7668,7 @@ function playRound(playerAction) {
                 || '本校';
             const pName = pData.name || 'あなた';
 
-            finalStatusMessage = `🏆 勝負あり！【${enemyData.name}】に勝利しました！（${message}）`;
+            finalStatusMessage = `🏆 勝負あり！【${enemyData.name}】に勝利しました！（第${state.round}合）`;
             finalStatusType = 'victory';
             calloutData = {
                 winner: 'player',
@@ -6397,7 +7679,7 @@ function playRound(playerAction) {
         } else {
             const allCleared = state.clearedStages.size === ENEMY_ROSTER.length;
             if (allCleared && state.stageIndex === ENEMY_ROSTER.length - 1) {
-                finalStatusMessage = `🎉 天下無双！！大将【${enemyData.name}】を破り、勝ち抜き五人掛けを完全制覇しました！！（${message}）`;
+                finalStatusMessage = `🎉 天下無双！！大将【${enemyData.name}】を破り、勝ち抜き五人掛けを完全制覇しました！！（第${state.round}合）`;
                 finalStatusType = 'victory';
                 calloutData = {
                     winner: 'player',
@@ -6407,7 +7689,7 @@ function playRound(playerAction) {
                 };
             } else if (state.stageIndex < ENEMY_ROSTER.length - 1) {
                 const nextEnemy = ENEMY_ROSTER[state.stageIndex + 1];
-                finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】を撃破！次は${nextEnemy.role}【${nextEnemy.name}】が待ち受ける！（${message}）`;
+                finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】を撃破！次は${nextEnemy.role}【${nextEnemy.name}】が待ち受ける！（第${state.round}合）`;
                 finalStatusType = 'victory';
                 calloutData = {
                     winner: 'player',
@@ -6416,7 +7698,7 @@ function playRound(playerAction) {
                     isCritical: true,
                 };
             } else {
-                finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】に勝利しました！（${message}）`;
+                finalStatusMessage = `🏆 勝負あり！${enemyData.role}【${enemyData.name}】に勝利しました！（第${state.round}合）`;
                 finalStatusType = 'victory';
                 calloutData = {
                     winner: 'player',
@@ -6448,23 +7730,40 @@ function playRound(playerAction) {
     updateStatus(`第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs ${enemyData.shortName}【${eMoveName}】 — 立ち合い…！`, 'neutral');
     if (intentText) intentText.textContent = inTsuba ? '💥 鍔迫り合いから技が交錯しています…' : '⚔️ 技が交錯しています…';
 
+    // ⚔️ 競り合いクラッシュメーターの展開（基本打突の激突判定時）
+    if (currentClashData) {
+        showClashMeter(currentClashData);
+    } else {
+        hideClashMeter();
+    }
+
+    // 選手カード・レーダーチャートの激突ハイライト
+    const pIsAdv = attackMap[playerAction] && attackMap[playerAction].includes(enemyAction);
+    const eIsAdv = attackMap[enemyAction] && attackMap[enemyAction].includes(playerAction);
+    if (playerRadarBox) playerRadarBox.innerHTML = generateFighterRadarSvg('player', playerAction, !!pIsAdv);
+    if (enemyRadarBox) enemyRadarBox.innerHTML = generateFighterRadarSvg('enemy', enemyAction, !!eIsAdv);
+
     // 攻撃がヒットした側の技名（面、小手、胴、突き）および発声剣士を判定
+    const pTechType = pTechInfo.tech ? pTechInfo.tech.type : '面';
+    const eTechType = eTechInfo.tech ? eTechInfo.tech.type : '面';
     let hittingAction = null;
     let hittingFighter = 'player';
-    if (enemyOutcome === 'hit') {
-        hittingAction = playerAction;
+    const isBothDefend = (playerAction === '防御' && enemyAction === '防御');
+
+    if (playerOutcome === 'mutual_hit' || enemyOutcome === 'mutual_hit') {
+        // 💥 相討ち時は双方が被弾（攻撃された側）となるため両者完全無言
+        hittingAction = null;
+    } else if (enemyOutcome === 'hit') {
+        hittingAction = (playerAction === '必殺') ? pTechType : playerAction;
         hittingFighter = 'player';
     } else if (playerOutcome === 'hit') {
-        hittingAction = enemyAction;
+        hittingAction = (enemyAction === '必殺') ? eTechType : enemyAction;
         hittingFighter = 'enemy';
-    } else if (playerOutcome === 'mutual_hit' || enemyOutcome === 'mutual_hit') {
-        hittingAction = playerAction;
-        hittingFighter = 'player';
     }
 
     // 2. 打突・被弾の連続キーフレームアニメーションを再生
-    triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight, inTsuba);
-    triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight, inTsuba);
+    triggerFighterAnimation('player', playerAction, playerOutcome, impactWeight, inTsuba, pTechType);
+    triggerFighterAnimation('enemy', enemyAction, enemyOutcome, impactWeight, inTsuba, eTechType);
 
     // 3. 打突の最後のコマ（STRIKE_IMPACT_T = 380ms）到達時に打突音・画面シェイク・ズームを発火
     pendingImpactCallback = () => {
@@ -6474,7 +7773,12 @@ function playRound(playerAction) {
                 fighterId: hittingFighter === 'player' ? 'player' : enemyData.id,
                 intensity: impactWeight > 1.2 ? 1.25 : 1.0,
             });
+        } else if (isBothDefend) {
+            playKiaiVoice('防御', { isPlayer: true, fighterId: 'player', intensity: 1.0 });
+            playKiaiVoice('防御', { isPlayer: false, fighterId: enemyData.id, intensity: 1.0 });
         }
+        // ※ 防御成功時（相手の打突ブロック時）は発声せず、受け止めSEのみ鳴らす
+
         if (impactSound) playSound(impactSound);
         zoomTargets.forEach((el) => triggerImpactZoom(el));
         shakeTargets.forEach((t) => triggerShake(t.el, t.isHeavy));
@@ -6554,9 +7858,10 @@ function playRound(playerAction) {
         }
     };
 
+    const maxRoundDuration = (playerAction === '必殺' || enemyAction === '必殺') ? 1750 : 1350;
     pendingRoundTimer = setTimeout(() => {
         flushPendingRound();
-    }, 1250);
+    }, maxRoundDuration);
 }
 
 function selectStage(stageIndex) {
@@ -6582,6 +7887,8 @@ function resetGame() {
         state.animResetTimer = null;
     }
     hideRefereeCallout();
+    hideClashMeter();
+    hideSpecialCutin();
     if (playerPopupLayer) playerPopupLayer.innerHTML = '';
     if (enemyPopupLayer) enemyPopupLayer.innerHTML = '';
     timeState.hitStopUntil = 0;
@@ -6596,6 +7903,8 @@ function resetGame() {
     state.enemyKiai = enemyData.initialKiai || 0;
     state.playerCounterReady = false;
     state.enemyCounterReady = false;
+    state.playerCounterStacks = 0;
+    state.enemyCounterStacks = 0;
     state.playerGuardBroken = false;
     state.enemyGuardBroken = false;
     state.playerStunned = false;
@@ -6632,9 +7941,15 @@ function resetGame() {
     }
 
     updateUI();
+
+    // 💬 試合前キャラクタ頭上吹き出しの表示
+    const pQuote = (state.customMatch && state.customMatch.player && state.customMatch.player.introQuote)
+        || '「お願いします！」';
+    showPreMatchSpeech(enemyData.introQuote, pQuote);
+
     if (state.customMatch && state.customMatch.active) {
         if (state.customMatch.isSpectating) {
-            updateStatus(`【観戦中・${enemyData.role}戦】${state.customMatch.player.name} vs ${enemyData.name} — まもなく立ち合いが始まります…`, 'neutral');
+            updateStatus(`【観戦中・${enemyData.role}戦】${state.customMatch.player.name} vs ${enemyData.name}`, 'neutral');
             clearTimeout(state.customMatch.spectateTurnTimer);
             state.customMatch.spectateTurnTimer = setTimeout(() => {
                 if (state.customMatch && state.customMatch.isSpectating && state.matchPhase === 'pre_match') {
@@ -6644,15 +7959,15 @@ function resetGame() {
         } else {
             const isIndiv = (state.customMatch && state.customMatch.isIndividual) || (enemyData.role && (enemyData.role.includes('回戦') || enemyData.role.includes('決勝')));
             const prefix = isIndiv ? `【${enemyData.role}】` : `【団体戦・${enemyData.role}戦】`;
-            updateStatus(`${prefix}相手校の強豪【${enemyData.name}】と対峙！ 「🙇 礼をして試合開始」で立ち合いを始めましょう。`, 'neutral');
+            updateStatus(`${prefix}${enemyData.name}${enemyData.rank ? `（${enemyData.rank}）` : ''}`, 'neutral');
         }
     } else {
-        updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）が登場！ ${enemyData.introQuote} — 「🙇 礼をして試合開始」で立ち合いを始めましょう。`, 'neutral');
+        updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）`, 'neutral');
     }
 }
 
 function animationLoop(timestamp) {
-    const now = timestamp || ((typeof performance !== 'undefined') ? performance.now() : Date.now());
+    const now = (typeof performance !== 'undefined') ? performance.now() : (timestamp || Date.now());
     updateAndDrawFighter(playerCtx, 'player', false, now);
     updateAndDrawFighter(enemyCtx, 'enemy', true, now);
     if ((pendingRoundCallback || pendingClosingCallback) && !animators.player.keyframes && !animators.enemy.keyframes) {
@@ -6671,6 +7986,14 @@ window.KendoGameEngine = {
 
     playRound: function (action) {
         return playRound(action);
+    },
+
+    getLastClashData: function () {
+        return lastClashData;
+    },
+
+    setEnemyActionOverride: function (override) {
+        enemyActionOverride = override;
     },
 
     analyzePlayerPattern: function (history, enemyData) {
@@ -7072,6 +8395,14 @@ window.KendoGameEngine = {
     // BGM・システム音量と連動して効果音・ボイスのマスター音量を更新
     updateAudioVolume: function () {
         updateSoundMasterGain();
+    },
+
+    getFighterMaxKiai: function (who) {
+        return getFighterMaxKiai(who);
+    },
+
+    getKiaiBuff: function (who, kiaiLevel, skillVal) {
+        return getKiaiBuff(who, kiaiLevel, skillVal);
     },
 };
 

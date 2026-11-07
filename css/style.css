@@ -576,9 +576,10 @@ body.bg-dojo {
     color: #94a3b8;
     margin-bottom: 6px;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.25;
+    word-break: break-all;
+    white-space: normal;
+    text-align: center;
 }
 
 .corner-tag {
@@ -601,14 +602,55 @@ body.bg-dojo {
     border: 1px solid rgba(226, 232, 240, 0.5);
 }
 
+.fighter-radar-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 2px 0 4px;
+    min-height: 104px;
+}
+
+.fighter-radar-svg {
+    width: 100%;
+    max-width: 160px;
+    height: auto;
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+.fighter-mini-stats {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #94a3b8;
+    margin-top: 3px;
+}
+
+.fighter-mini-stats span {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fighter-mini-stats span.stat-val {
+    color: #e2e8f0;
+    font-weight: 800;
+}
+
 .health-bar {
     position: relative;
-    height: 12px;
-    background: rgba(255,255,255,0.12);
+    height: 11px;
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 999px;
     overflow: hidden;
-    margin-bottom: 4px;
-    border: 1px solid rgba(255,255,255,0.2);
+    margin-bottom: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .health-trail {
@@ -638,9 +680,10 @@ body.bg-dojo {
 }
 
 .health-text {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-bottom: 6px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin-bottom: 4px;
 }
 
 .kiai-row {
@@ -648,24 +691,31 @@ body.bg-dojo {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-bottom: 8px;
+    gap: 5px;
+    margin-bottom: 2px;
 }
 
 .kiai-label {
     font-size: 0.78rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: #fcd34d;
 }
 
 .kiai-pips {
     display: flex;
-    gap: 5px;
+    gap: 3px;
+    gap: 2px;
+    align-items: center;
 }
 
 .kiai-pip {
-    width: 18px;
-    height: 8px;
-    border-radius: 4px;
+    width: 14px;
+    height: 7px;
+    border-radius: 3px;
+    width: 10px;
+    height: 5px;
+    border-radius: 2px;
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(251, 191, 36, 0.35);
     transition: all 0.25s ease;
@@ -674,11 +724,81 @@ body.bg-dojo {
 .kiai-pip.filled {
     background: linear-gradient(90deg, #f59e0b, #fde047);
     box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+    box-shadow: 0 0 5px rgba(251, 191, 36, 0.6);
     border-color: #fef08a;
+}
+
+.kiai-pip.special-ready {
+    border-color: #facc15;
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.95);
+    box-shadow: 0 0 7px rgba(250, 204, 21, 0.95);
+    animation: kiaiPulse 0.8s infinite alternate;
 }
 
 .kiai-pip.max-glow {
     animation: kiaiPulse 1s infinite alternate;
+}
+
+/* ⚡ 見切りゲージ（応じ技・後の先スタック） */
+.counter-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.counter-label {
+    font-size: 0.78rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #38bdf8;
+}
+
+.counter-pips {
+    display: flex;
+    gap: 3px;
+    gap: 2px;
+    align-items: center;
+}
+
+.counter-pip {
+    width: 14px;
+    height: 7px;
+    border-radius: 3px;
+    width: 10px;
+    height: 5px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    transition: all 0.25s ease;
+}
+
+.counter-pip.filled {
+    background: linear-gradient(90deg, #0284c7, #38bdf8);
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+    box-shadow: 0 0 5px rgba(56, 189, 248, 0.7);
+    border-color: #7dd3fc;
+}
+
+.counter-pip.max-glow {
+    background: linear-gradient(90deg, #06b6d4, #22d3ee);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.95);
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.95);
+    animation: counterPulse 0.8s infinite alternate;
+}
+
+@keyframes counterPulse {
+    from {
+        box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+        transform: scale(1);
+    }
+    to {
+        box-shadow: 0 0 14px rgba(34, 211, 238, 1);
+        transform: scale(1.08);
+    }
 }
 
 .stance-badge {
@@ -744,6 +864,12 @@ body.bg-dojo {
     box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
 }
 
+.fighter-sprite-wrapper {
+    position: relative;
+    width: 182px;
+    margin: 0 auto;
+}
+
 .sprite-container {
     background: url("../img/fighter-bg.svg") center / cover no-repeat;
     border: 2px solid rgba(139, 90, 43, 0.55);
@@ -757,6 +883,79 @@ body.bg-dojo {
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 0 10px rgba(107, 68, 35, 0.18);
     transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+
+/* 💬 試合前キャラクタセリフ吹き出し（キャラクタ枠の上方にフロート配置） */
+.fighter-speech-bubble {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 4px;
+    right: 4px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #0f172a;
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.5);
+    z-index: 30;
+    pointer-events: none;
+    animation: speechBubblePop 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+.fighter-speech-bubble.enemy-bubble {
+    border: 2px solid #94a3b8;
+}
+
+.fighter-speech-bubble.enemy-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 6px 0 6px;
+    border-style: solid;
+    border-color: #94a3b8 transparent transparent transparent;
+}
+
+.fighter-speech-bubble.player-bubble {
+    border: 2px solid #ef4444;
+}
+
+.fighter-speech-bubble.player-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 6px 0 6px;
+    border-style: solid;
+    border-color: #ef4444 transparent transparent transparent;
+}
+
+.fighter-speech-bubble::before {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px 5px 0 5px;
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.96) transparent transparent transparent;
+    z-index: 1;
+}
+
+@keyframes speechBubblePop {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .sprite-container.counter-aura {
@@ -782,6 +981,45 @@ body.bg-dojo {
 .sprite-container.waki-aura {
     border-color: #38bdf8;
     box-shadow: 0 0 18px rgba(56, 189, 248, 0.4), inset 0 0 12px rgba(56, 189, 248, 0.18);
+}
+
+/* 気合闘気オーラ（気迫充実・気位高揚・気合最高潮） */
+.sprite-container.kiai-1-aura {
+    box-shadow: 0 0 14px rgba(226, 232, 240, 0.4), inset 0 0 10px rgba(226, 232, 240, 0.2);
+}
+
+.sprite-container.kiai-2-aura {
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.65), inset 0 0 14px rgba(14, 165, 233, 0.35);
+    border-color: #38bdf8;
+}
+
+.sprite-container.kiai-3-aura {
+    box-shadow: 0 0 26px rgba(250, 204, 21, 0.85), inset 0 0 18px rgba(245, 158, 11, 0.5);
+    border-color: #facc15;
+    animation: kiaiAuraGlow 1.2s infinite alternate ease-in-out;
+}
+
+/* 気合5以上：神気・紫電虹彩オーラ（天下無双・極致） */
+.sprite-container.kiai-god-aura {
+    box-shadow: 0 0 32px rgba(168, 85, 247, 0.95), 0 0 16px rgba(250, 204, 21, 0.8), inset 0 0 22px rgba(217, 70, 239, 0.6);
+    border-color: #c084fc;
+    animation: kiaiGodAuraGlow 1s infinite alternate ease-in-out;
+}
+
+@keyframes kiaiAuraGlow {
+    from { box-shadow: 0 0 20px rgba(250, 204, 21, 0.7), inset 0 0 14px rgba(245, 158, 11, 0.4); }
+    to { box-shadow: 0 0 32px rgba(251, 191, 36, 1), inset 0 0 22px rgba(217, 119, 6, 0.65); }
+}
+
+@keyframes kiaiGodAuraGlow {
+    from {
+        box-shadow: 0 0 24px rgba(168, 85, 247, 0.85), 0 0 12px rgba(250, 204, 21, 0.7), inset 0 0 16px rgba(217, 70, 239, 0.5);
+        filter: brightness(1.05);
+    }
+    to {
+        box-shadow: 0 0 40px rgba(192, 132, 252, 1), 0 0 24px rgba(251, 191, 36, 0.95), inset 0 0 28px rgba(236, 72, 153, 0.75);
+        filter: brightness(1.2);
+    }
 }
 
 .sprite-container.hit-shake {
@@ -926,6 +1164,351 @@ body.bg-dojo {
     color: #cbd5e1;
     margin-top: 1px;
     white-space: nowrap;
+}
+
+/* 審判コール用 勝因バッジ */
+.referee-reason-tag {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 5px;
+    letter-spacing: 0.04em;
+    background: rgba(250, 204, 21, 0.22);
+    color: #fde047;
+    border: 1px solid rgba(250, 204, 21, 0.6);
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
+    white-space: nowrap;
+}
+
+.referee-reason-tag.red-tag {
+    background: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    border-color: #ef4444;
+}
+
+.referee-reason-tag.white-tag {
+    background: rgba(56, 189, 248, 0.25);
+    color: #bae6fd;
+    border-color: #38bdf8;
+}
+
+/* ───────────────────────────────────────────
+   ⚔️ 競り合いクラッシュメーター（激突パワーゲージ）
+─────────────────────────────────────────── */
+.clash-meter-wrap {
+    position: absolute;
+    left: 50%;
+    top: 48%;
+    transform: translate(-50%, -50%) scale(0.92);
+    z-index: 28;
+    width: 290px;
+    max-width: calc(100% - 24px);
+    padding: 8px 12px 6px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 2px solid rgba(250, 204, 21, 0.75);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), 0 0 22px rgba(234, 179, 8, 0.35);
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    user-select: none;
+}
+
+.clash-meter-wrap.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.clash-meter-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    font-weight: 800;
+    margin-bottom: 5px;
+}
+
+.clash-actor.player {
+    color: #f87171;
+}
+
+.clash-actor.enemy {
+    color: #38bdf8;
+}
+
+.clash-vs-tag {
+    font-size: 0.7rem;
+    color: #facc15;
+    letter-spacing: 0.05em;
+    font-weight: 900;
+}
+
+.clash-meter-bar {
+    position: relative;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.clash-fill.player {
+    height: 100%;
+    background: linear-gradient(90deg, #dc2626, #f87171);
+    transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    width: 50%;
+}
+
+.clash-fill.enemy {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #0284c7);
+    transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    width: 50%;
+}
+
+.clash-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 3px;
+    background: #facc15;
+    box-shadow: 0 0 6px #facc15;
+    transform: translateX(-50%);
+    z-index: 2;
+    transition: left 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 左右対比カラム（左：自身、右：敵側） */
+.clash-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    margin-top: 6px;
+}
+
+.clash-col {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.clash-col.player {
+    align-items: flex-start;
+}
+
+.clash-col.enemy {
+    align-items: flex-end;
+}
+
+.clash-empty {
+    font-size: 0.62rem;
+    color: #64748b;
+    padding: 1px 4px;
+}
+
+.clash-badge {
+    font-size: 0.63rem;
+    font-weight: 800;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.clash-badge.adv-player {
+    background: rgba(220, 38, 38, 0.3);
+    color: #fca5a5;
+    border-color: #ef4444;
+}
+
+.clash-badge.adv-enemy {
+    background: rgba(14, 165, 233, 0.3);
+    color: #bae6fd;
+    border-color: #38bdf8;
+}
+
+.clash-badge.skill-player {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fde047;
+    border-color: #f59e0b;
+}
+
+.clash-badge.skill-enemy {
+    background: rgba(56, 189, 248, 0.3);
+    color: #7dd3fc;
+    border-color: #0284c7;
+}
+
+.clash-badge.kiai-buff {
+    background: rgba(168, 85, 247, 0.3);
+    color: #e9d5ff;
+    border-color: #c084fc;
+}
+
+.clash-close-hint {
+    font-size: 0.58rem;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 5px;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+.clash-badge.adv-player {
+    background: rgba(220, 38, 38, 0.3);
+    color: #fca5a5;
+    border-color: #ef4444;
+}
+
+.clash-badge.adv-enemy {
+    background: rgba(14, 165, 233, 0.3);
+    color: #bae6fd;
+    border-color: #38bdf8;
+}
+
+.clash-badge.skill-player {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fde047;
+    border-color: #f59e0b;
+}
+
+.clash-badge.skill-enemy {
+    background: rgba(56, 189, 248, 0.3);
+    color: #7dd3fc;
+    border-color: #0284c7;
+}
+
+.clash-badge.kiai-buff {
+    background: rgba(168, 85, 247, 0.3);
+    color: #e9d5ff;
+    border-color: #c084fc;
+}
+
+/* ⚡ 必殺技（奥義／気合一閃）演出（画面全体効果抑制・中央テロップのみ表示） */
+.special-fx-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 28;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.special-darken,
+.special-speed-lines,
+.special-screen-slash {
+    display: none !important;
+}
+
+/* 奥義名カットインテロップ帯 */
+.special-cutin-banner {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 30;
+}
+.special-cutin-banner.show-player {
+    animation: cutinSlidePlayer 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.special-cutin-banner.show-enemy {
+    animation: cutinSlideEnemy 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.special-cutin-banner.show-clash {
+    animation: cutinClash 0.88s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cutinSlidePlayer {
+    0% { opacity: 0; transform: translateY(-50%) translateX(-45px) scale(0.96); }
+    15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+    82% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-50%) translateX(35px) scale(1.02); }
+}
+
+@keyframes cutinSlideEnemy {
+    0% { opacity: 0; transform: translateY(-50%) translateX(45px) scale(0.96); }
+    15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+    82% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-50%) translateX(-35px) scale(1.02); }
+}
+
+@keyframes cutinClash {
+    0% { opacity: 0; transform: translateY(-50%) scale(1.15); }
+    15% { opacity: 1; transform: translateY(-50%) scale(1); }
+    82% { opacity: 1; transform: translateY(-50%) scale(1); }
+    100% { opacity: 0; transform: translateY(-50%) scale(1.04); }
+}
+
+.cutin-ribbon {
+    position: relative;
+    padding: 10px 48px;
+    background: linear-gradient(90deg, rgba(2, 6, 23, 0.95) 0%, rgba(15, 23, 42, 0.98) 50%, rgba(2, 6, 23, 0.95) 100%);
+    border-top: 2.5px solid #facc15;
+    border-bottom: 2.5px solid #facc15;
+    box-shadow: 0 0 28px rgba(250, 204, 21, 0.65), 0 4px 20px rgba(0, 0, 0, 0.8), inset 0 0 16px rgba(250, 204, 21, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    border-radius: 4px;
+}
+.cutin-ribbon::before,
+.cutin-ribbon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 28px;
+    height: 2px;
+    background: #fde047;
+    box-shadow: 0 0 8px #fde047;
+}
+.cutin-ribbon::before { left: 10px; }
+.cutin-ribbon::after { right: 10px; }
+
+.cutin-sub {
+    font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Meiryo', serif;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.28em;
+    color: #fde047;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(250, 204, 21, 0.8);
+}
+
+.cutin-title {
+    font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Meiryo', serif;
+    font-size: 1.65rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    color: #ffffff;
+    text-shadow:
+        0 0 12px rgba(250, 204, 21, 0.9),
+        0 2px 0 #0f172a,
+        -1.5px -1.5px 0 #0f172a,
+        1.5px -1.5px 0 #0f172a,
+        -1.5px 1.5px 0 #0f172a,
+        1.5px 1.5px 0 #0f172a,
+        0 4px 14px rgba(0, 0, 0, 0.95);
+    white-space: nowrap;
+}
+
+/* レーダーチャート激突ハイライト */
+.radar-active-point {
+    filter: drop-shadow(0 0 6px #facc15);
 }
 
 /* フローティングダメージ＆バフポップアップ */
@@ -1150,9 +1733,125 @@ canvas {
 
 .actions {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.attack-btn-grid {
+    display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
+}
+
+.tactical-btn-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+button.btn-attack {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    padding: 10px 18px;
+    font-size: 0.95rem;
+}
+
+button.btn-attack:hover:not(:disabled) {
+    background: linear-gradient(135deg, #334155, #475569);
+    border-color: #f59e0b;
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35);
+}
+
+button.kiai-btn {
+    background: linear-gradient(135deg, #7c2d12, #c2410c, #ea580c);
+    color: #fff7ed;
+    border: 1px solid rgba(253, 186, 116, 0.5);
+    box-shadow: 0 4px 14px rgba(194, 65, 12, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+button.kiai-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #9a3412, #ea580c, #f97316);
+    border-color: #ffedd5;
+    box-shadow: 0 6px 20px rgba(234, 88, 12, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+button.special-btn {
+    background: linear-gradient(135deg, #475569, #334155);
+    color: #94a3b8;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 800;
+    transition: all 0.25s ease;
+}
+
+/* 必殺技覚醒・発動可能状態 */
+button.special-btn.ready-unlocked {
+    background: linear-gradient(135deg, #b91c1c, #ea580c, #facc15);
+    color: #fff;
+    border: 1px solid #fef08a;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 0 24px rgba(249, 115, 22, 0.75), inset 0 0 12px rgba(254, 240, 138, 0.45);
+    animation: specialPulse 0.85s infinite alternate;
+}
+
+/* 必殺技未解放（気合一閃・渾身打突） */
+button.special-btn.ready-kiai-strike {
+    background: linear-gradient(135deg, #991b1b, #dc2626, #f97316);
+    color: #fff;
+    border: 1px solid #fca5a5;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.65);
+    animation: specialPulse 1.05s infinite alternate;
+}
+
+/* 必殺技ロック中（技術不足） */
+button.special-btn.locked {
+    background: rgba(30, 41, 59, 0.7);
+    color: #64748b;
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+    cursor: not-allowed;
+}
+
+@keyframes specialPulse {
+    from { transform: scale(1); box-shadow: 0 0 16px rgba(249, 115, 22, 0.6); }
+    to { transform: scale(1.05); box-shadow: 0 0 28px rgba(250, 204, 21, 0.95); }
+}
+
+/* 部員カードやモーダル用の得意技バッジ */
+.special-skill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.special-skill-badge.unlocked {
+    background: linear-gradient(135deg, rgba(234, 88, 12, 0.25), rgba(250, 204, 21, 0.25));
+    border: 1px solid rgba(250, 204, 21, 0.6);
+    color: #fde047;
+    text-shadow: 0 0 6px rgba(250, 204, 21, 0.4);
+}
+
+.special-skill-badge.locked {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: #94a3b8;
 }
 
 button {
@@ -1265,9 +1964,13 @@ button.reset-btn:hover:not(:disabled) {
     .vs-divider.tsubazeriai { display: block; font-size: 0.76rem; padding: 4px 10px; }
     .fighter-card { max-width: 170px; }
     .fighter-school { font-size: 0.65rem; }
+    .fighter-sprite-wrapper { width: 165px; }
     .sprite-container { width: 165px; height: 185px; }
+    .clash-meter-wrap { top: 46%; width: 260px; padding: 6px 8px 4px; }
     .referee-callout { top: 52%; min-width: 128px; padding: 6px 12px; }
     .referee-main { font-size: 1rem; }
+    .cutin-title { font-size: 1.25rem; }
+    .cutin-ribbon { padding: 8px 24px; }
     .header h1 { font-size: 1.4rem; }
     .rule-pill { font-size: 0.72rem; padding: 3px 9px; }
     button { padding: 9px 13px; font-size: 0.85rem; }
@@ -1308,6 +2011,7 @@ button.reset-btn:hover:not(:disabled) {
 
 @media (max-width: 380px) {
     .fighter-card { max-width: 145px; }
+    .fighter-sprite-wrapper { width: 140px; }
     .sprite-container { width: 140px; height: 160px; }
 }
 

@@ -94,7 +94,7 @@
                     <div class="mode-card-icon">🥋</div>
                     <h2 class="mode-card-title">全国制覇モード</h2>
                     <p class="mode-card-tagline">世代を紡ぎ仲間と共に目指す日本一！</p>
-                    <p class="mode-card-desc">高校剣道部の2年生主将として仲間を鍛え上げ、夏のインターハイ（個人戦）や春の全国選抜（団体戦）での全国制覇を目指す育成シミュレーション。</p>
+                    <p class="mode-card-desc">高校剣道部の3年生主将として仲間を鍛え上げ、夏のインターハイ（個人戦）や春の全国選抜（団体戦）での全国制覇を目指す育成シミュレーション。</p>
                     <div class="mode-card-features">
                         <span>⚔️ 個人戦 ＆ 👥 団体戦</span>
                         <span>👑 世代交代・新主将指名</span>
@@ -124,30 +124,72 @@
                 </div>
 
                 <div class="fighter-card" id="playerCard">
-                <div class="fighter-school" id="playerSchoolText"></div>
-                <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
-                <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
-                <div class="health-bar">
-                    <div id="playerHealthTrail" class="health-trail"></div>
-                    <div id="playerHealthBar" class="health-fill"></div>
-                </div>
-                <div class="health-text" id="playerHealthText">体力: 5 / 5</div>
-                <div class="kiai-row">
-                    <span class="kiai-label" id="playerKiaiText">気合: 0 / 3</span>
-                    <div class="kiai-pips" id="playerKiaiPips">
-                        <span class="kiai-pip"></span>
-                        <span class="kiai-pip"></span>
-                        <span class="kiai-pip"></span>
+                    <div class="fighter-school" id="playerSchoolText"></div>
+                    <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
+                    <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
+                    <div class="health-bar">
+                        <div id="playerHealthTrail" class="health-trail"></div>
+                        <div id="playerHealthBar" class="health-fill"></div>
+                    </div>
+                    <div class="health-text" id="playerHealthText">体力: 5 / 5</div>
+                    <div class="fighter-radar-box" id="playerRadarBox"></div>
+                    <div class="kiai-row">
+                        <span class="kiai-label" id="playerKiaiText">気合: 0 / 3</span>
+                        <div class="kiai-pips" id="playerKiaiPips">
+                            <span class="kiai-pip"></span>
+                            <span class="kiai-pip"></span>
+                            <span class="kiai-pip"></span>
+                        </div>
+                    </div>
+                    <div class="counter-row" id="playerCounterRow">
+                        <span class="counter-label" id="playerCounterText">見切り: 0 / 3</span>
+                        <div class="counter-pips" id="playerCounterPips">
+                            <span class="counter-pip"></span>
+                            <span class="counter-pip"></span>
+                            <span class="counter-pip"></span>
+                        </div>
+                    </div>
+                    <div class="fighter-sprite-wrapper">
+                        <div class="fighter-speech-bubble player-bubble" id="playerSpeechBubble" style="display: none;">
+                            <span class="speech-bubble-text" id="playerSpeechText"></span>
+                        </div>
+                        <div class="sprite-container" id="playerSpriteBox">
+                            <canvas id="playerCanvas" width="182" height="200"></canvas>
+                            <div class="popup-layer" id="playerPopupLayer"></div>
+                        </div>
                     </div>
                 </div>
-                <div id="playerBadge" class="stance-badge">中段の構え</div>
-                <div class="sprite-container" id="playerSpriteBox">
-                    <canvas id="playerCanvas" width="182" height="200"></canvas>
-                    <div class="popup-layer" id="playerPopupLayer"></div>
+
+            <div class="vs-divider" id="vsDivider">VS</div>
+
+            <!-- ⚡ 必殺技演出オーバーレイ（奥義カットイン） -->
+            <div id="specialFxOverlay" class="special-fx-overlay" style="display: none;">
+                <div id="specialCutinBanner" class="special-cutin-banner">
+                    <div class="cutin-ribbon" id="specialCutinRibbon">
+                        <span class="cutin-sub" id="specialCutinSub">奥義覚醒</span>
+                        <span class="cutin-title" id="specialCutinTitle">天光一刀面</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="vs-divider" id="vsDivider">VS</div>
+            <!-- ⚔️ 競り合いクラッシュメーター（技量・相性・気合のパワーバランス可視化） -->
+            <div id="clashMeterWrap" class="clash-meter-wrap" style="display: none;" title="クリックで閉じる">
+                <div class="clash-meter-header">
+                    <span class="clash-actor player" id="clashPlayerLabel">面 42</span>
+                    <span class="clash-vs-tag" id="clashVsTag">激突！</span>
+                    <span class="clash-actor enemy" id="clashEnemyLabel">小手 28</span>
+                </div>
+                <div class="clash-meter-bar">
+                    <div class="clash-fill player" id="clashFillPlayer"></div>
+                    <div class="clash-fill enemy" id="clashFillEnemy"></div>
+                    <div class="clash-marker" id="clashMarker"></div>
+                </div>
+                <div class="clash-reasons" id="clashReasons">
+                    <span class="clash-badge" id="clashAdvBadge">相性有利 +12</span>
+                    <span class="clash-badge" id="clashSkillBadge">技量差 +14</span>
+                    <span class="clash-badge" id="clashKiaiBadge">気位高揚 +10</span>
+                </div>
+            </div>
 
             <div id="refereeCallout" class="referee-callout" aria-live="polite">
                 <div class="referee-flags">
@@ -156,6 +198,7 @@
                 </div>
                 <div class="referee-main" id="refereeMainText">一本！</div>
                 <div class="referee-sub" id="refereeSubText">面あり</div>
+                <div class="referee-reason-tag" id="refereeReasonBadge" style="display: none;">🚩 相性制覇</div>
             </div>
 
             <div class="fighter-card" id="enemyCard">
@@ -167,6 +210,7 @@
                     <div id="enemyHealthBar" class="health-fill"></div>
                 </div>
                 <div class="health-text" id="enemyHealthText">体力: 4 / 4</div>
+                <div class="fighter-radar-box" id="enemyRadarBox"></div>
                 <div class="kiai-row">
                     <span class="kiai-label" id="enemyKiaiText">気合: 0 / 3</span>
                     <div class="kiai-pips" id="enemyKiaiPips">
@@ -175,10 +219,22 @@
                         <span class="kiai-pip"></span>
                     </div>
                 </div>
-                <div id="enemyBadge" class="stance-badge">中段の構え</div>
-                <div class="sprite-container" id="enemySpriteBox">
-                    <canvas id="enemyCanvas" width="182" height="200"></canvas>
-                    <div class="popup-layer" id="enemyPopupLayer"></div>
+                <div class="counter-row" id="enemyCounterRow">
+                    <span class="counter-label" id="enemyCounterText">見切り: 0 / 3</span>
+                    <div class="counter-pips" id="enemyCounterPips">
+                        <span class="counter-pip"></span>
+                        <span class="counter-pip"></span>
+                        <span class="counter-pip"></span>
+                    </div>
+                </div>
+                <div class="fighter-sprite-wrapper">
+                    <div class="fighter-speech-bubble enemy-bubble" id="enemySpeechBubble" style="display: none;">
+                        <span class="speech-bubble-text" id="enemySpeechText"></span>
+                    </div>
+                    <div class="sprite-container" id="enemySpriteBox">
+                        <canvas id="enemyCanvas" width="182" height="200"></canvas>
+                        <div class="popup-layer" id="enemyPopupLayer"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -224,25 +280,32 @@
 
             <div class="actions">
                 <button id="btnStartMatch" class="start-btn" onclick="startMatchCeremony()">🙇 礼をして試合開始</button>
-                <button id="btnMen" onclick="playRound('面')" style="display: none;">⚔️ 面</button>
-                <button id="btnKote" onclick="playRound('小手')" style="display: none;">⚔️ 小手</button>
-                <button id="btnDo" onclick="playRound('胴')" style="display: none;">⚔️ 胴</button>
-                <button id="btnDefend" class="secondary" onclick="playRound('防御')" style="display: none;">🛡️ 防御</button>
-                <button id="btnBreak" class="tactical" onclick="playRound('崩し')" style="display: none;">💥 崩し</button>
-                <button id="btnTsuki" class="special" onclick="playRound('突き')" style="display: none;" disabled>⚡ 突き (気合3)</button>
+                <div class="attack-btn-grid" id="attackBtnGrid">
+                    <button id="btnMen" class="btn-attack" onclick="playRound('面')" style="display: none;">⚔️ 面</button>
+                    <button id="btnKote" class="btn-attack" onclick="playRound('小手')" style="display: none;">⚔️ 小手</button>
+                    <button id="btnDo" class="btn-attack" onclick="playRound('胴')" style="display: none;">⚔️ 胴</button>
+                    <button id="btnTsuki" class="btn-attack" onclick="playRound('突き')" style="display: none;">⚡ 突き</button>
+                </div>
+                <div class="tactical-btn-grid" id="tacticalBtnGrid">
+                    <button id="btnDefend" class="secondary" onclick="playRound('防御')" style="display: none;">🛡️ 防御・気合</button>
+                    <button id="btnBreak" class="tactical" onclick="playRound('崩し')" style="display: none;">💥 崩し</button>
+                </div>
+                <button id="btnSpecial" class="special-btn" onclick="playRound('必殺')" style="display: none;" disabled>
+                    🔥 必殺技 (気合3)
+                </button>
                 <button id="btnNextStage" class="next-btn" onclick="advanceStage()" style="display: none;">⏭️ 次の相手へ進む</button>
                 <button id="btnReturnToClub" class="next-btn club-return-btn" onclick="window.KendoGameEngine.returnFromCombatToClub()" style="display: none;">🥋 大会画面へ戻る</button>
                 <button id="btnReset" class="reset-btn" onclick="resetGame()" style="display: none;">🔄 もう一度</button>
             </div>
             <div class="footer-guide">
-                <p>相手の気配を読み、三すくみ・防御・崩し・必殺の突きで一本を奪え！</p>
+                <p>技パラメータ対決・気合闘気・固有の必殺技で一本を奪え！</p>
                 <div class="rule-pills">
-                    <span class="rule-pill">⚔️ 面 ＞ 小手 ＞ 胴 ＞ 面</span>
-                    <span class="rule-pill">🛡️ 防御：打突を防ぎ次ターン「応じ技(2ダメ)」</span>
-                    <span class="rule-pill">💥 崩し：防御を破る（打突には負ける）</span>
-                    <span class="rule-pill">🔥 鍔迫り合い：同技・崩し交錯で突入 ➔ 引き技(2ダメ)</span>
-                    <span class="rule-pill">🎋 構え切替：中段(万能) / 上段(面2ダメ・防不可) / 下段の構え(防でHP回復)</span>
-                    <span class="rule-pill">⚡ 突き：気合3で防御貫通2ダメージ（鍔迫り合い時は3ダメ）</span>
+                    <span class="rule-pill">⚔️ 4打突理合：面 ＞ 小手 ＞ 胴 ＞ 突き ＞ 面（相性＋パラメータ対決）</span>
+                    <span class="rule-pill">⚡ 気合闘気：気合1で判定+5 / 気合2で与ダメ+1・被ダメ-1 / 気合3で与ダメ特大・不動心</span>
+                    <span class="rule-pill">🔥 固有必殺技：技術修得で覚醒！気合3で無敵・防御貫通の一撃（未覚醒時は気合一閃）</span>
+                    <span class="rule-pill">🛡️ 防御・気合：打突を防ぎ次ターン「応じ技(2ダメ)」。互いに使うと気合+1！</span>
+                    <span class="rule-pill">💥 崩し：防御を破る（打突には負ける・成功時に掛け声）</span>
+                    <span class="rule-pill">🎋 構え切替：中段(万能) / 上段(面2ダメ・防不可) / 下段(防でHP回復)</span>
                 </div>
             </div>
         </div>

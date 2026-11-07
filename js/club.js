@@ -1,7 +1,7 @@
 /**
  * ⚔️ 剣道 (Kendo) - 全国制覇モード (高校剣道部 世代交代シミュレーション)
  *
- * プレイヤーは2年生主将として剣道部を率い、
+ * プレイヤーは3年生主将として剣道部を率い、
  * 12月3週の地区大会（都道府県予選）で優勝し、
  * 毎年3月4週の全国選抜大会（47都道府県代表）での優勝を目指す。
  * 4月1週に進級と新入部員、9月1週に3年生引退と新主将指名。
@@ -1124,12 +1124,13 @@
     // ───────────────────────────────────────────
     let memberIdCounter = 1;
 
-    // 部員の個性アーキタイプ（パラメータの強弱付け）
+    // 部員の個性アーキタイプ（パラメータの強弱付け ＆ 得意技アサイン）
     const MEMBER_ARCHETYPES = [
         {
             id: 'power',
             typeName: '剛腕パワー型',
             stance: 'jodan',
+            specialTechnique: 'gouriki_men',
             statMod: { hp: 1, str: 6, agi: -2, spi: 1 },
             skillMod: { men: 5, kote: 0, do: 1, tsuki: -1 },
             desc: '恵まれた体格と豪腕から繰り出す重烈な上段面が武器。力で相手を圧倒する。'
@@ -1138,6 +1139,7 @@
             id: 'speed',
             typeName: '韋駄天スピード型',
             stance: 'chudan',
+            specialTechnique: 'dengeki_kote',
             statMod: { hp: 0, str: -2, agi: 7, spi: 1 },
             skillMod: { men: 1, kote: 6, do: 0, tsuki: 2 },
             desc: '驚異的な足さばきと瞬発力を誇り、電光石火の出ばな小手を的確に狙い撃つ。'
@@ -1146,6 +1148,7 @@
             id: 'spirit',
             typeName: '不動心気魄型',
             stance: 'chudan',
+            specialTechnique: 'shiden_tsuki',
             statMod: { hp: 1, str: 1, agi: -1, spi: 7 },
             skillMod: { men: 1, kote: 1, do: 5, tsuki: 0 },
             desc: '強靭な精神力と粘り強さを持ち、激しい競り合いから鋭い胴を抜く不動の剣士。'
@@ -1154,6 +1157,7 @@
             id: 'tsuki',
             typeName: '電光石火・突き技巧型',
             stance: 'chudan',
+            specialTechnique: 'tensho_tsuki',
             statMod: { hp: 0, str: 1, agi: 4, spi: 2 },
             skillMod: { men: 0, kote: 1, do: -1, tsuki: 8 },
             desc: '針の穴を通すような高精度の突きを放ち、一瞬の隙から喉元を射抜く精密技術派。'
@@ -1162,6 +1166,7 @@
             id: 'counter',
             typeName: '後の先カウンター型',
             stance: 'waki',
+            specialTechnique: 'hayate_do',
             statMod: { hp: 0, str: 0, agi: 2, spi: 5 },
             skillMod: { men: -1, kote: 2, do: 7, tsuki: 1 },
             desc: '刀を低く構える下段の構えから相手の打ち気を誘い、電撃の返し胴を炸裂させる職人肌。'
@@ -1170,6 +1175,7 @@
             id: 'allround',
             typeName: '万能バランス型',
             stance: 'chudan',
+            specialTechnique: 'hien_men',
             statMod: { hp: 1, str: 3, agi: 3, spi: 3 },
             skillMod: { men: 3, kote: 3, do: 3, tsuki: 2 },
             desc: '心技体の基本が極めて高水準で穴がなく、どんな相手とも互角以上に戦える優等生。'
@@ -1178,6 +1184,7 @@
             id: 'talent',
             typeName: '大器晩成・原石型',
             stance: 'chudan',
+            specialTechnique: 'tenkou_men',
             statMod: { hp: 0, str: -1, agi: -1, spi: 2 },
             skillMod: { men: 1, kote: 1, do: 1, tsuki: 1 },
             desc: '経験はまだ浅いものの底知れぬ素質を秘めており、今後の稽古での急成長が期待される。'
@@ -1189,6 +1196,7 @@
         {
             club: '陸上部',
             badge: '陸上部',
+            specialTechnique: 'dengeki_kote',
             desc: '陸上部と掛け持ちの助っ人部員。圧倒的なスプリント力で瞬時に間合いを詰めるが、掛け持ちのため剣道の成長は緩やか。',
             stance: 'chudan',
             statMod: { hp: 0, str: -1, agi: 6, spi: 1 },
@@ -1197,6 +1205,7 @@
         {
             club: '柔道部',
             badge: '柔道部',
+            specialTechnique: 'gouriki_men',
             desc: '柔道部と掛け持ちの助っ人部員。強靭な体幹と膂力を誇るが、竹刀の扱いにまだ慣れておらず成長は控えめ。',
             stance: 'chudan',
             statMod: { hp: 2, str: 6, agi: -2, spi: 2 },
@@ -1205,6 +1214,7 @@
         {
             club: '野球部',
             badge: '野球部',
+            specialTechnique: 'hien_men',
             desc: '野球部と掛け持ちの助っ人部員。鋭いバットスイングを活かした面打ちは強烈だが、掛け持ちのため技術の習得に時間を要する。',
             stance: 'jodan',
             statMod: { hp: 1, str: 5, agi: 1, spi: 2 },
@@ -1213,6 +1223,7 @@
         {
             club: '吹奏楽部',
             badge: '吹奏楽部',
+            specialTechnique: 'shiden_tsuki',
             desc: '吹奏楽部と掛け持ちの助っ人部員。金管楽器で鍛えた肺活量と響き渡る気合が武器だが、剣道の練習量は限られる。',
             stance: 'chudan',
             statMod: { hp: -1, str: -2, agi: 0, spi: 7 },
@@ -1221,6 +1232,7 @@
         {
             club: '卓球部',
             badge: '卓球部',
+            specialTechnique: 'dengeki_kote',
             desc: '卓球部と掛け持ちの助っ人部員。卓越した動体視力と瞬時の反射速度で小手を狙うが、竹刀を振る筋力の成長は緩やか。',
             stance: 'chudan',
             statMod: { hp: 0, str: -2, agi: 5, spi: 1 },
@@ -1229,6 +1241,7 @@
         {
             club: '将棋部',
             badge: '将棋部',
+            specialTechnique: 'hayate_do',
             desc: '将棋部と掛け持ちの助っ人部員。相手の打ち気を先読みする洞察力を持つが、体力・筋力の成長速度は通常より控えめ。',
             stance: 'waki',
             statMod: { hp: -1, str: -2, agi: 1, spi: 6 },
@@ -1594,6 +1607,7 @@
             agi: baseAgi,
             spi: baseSpi,
             skills: skills,
+            specialTechnique: archetype.specialTechnique || 'hien_men',
             favStance: stance,
             condition: getRandomItem(['good', 'normal', 'normal', 'best']),
             fatigue: 0,
@@ -1644,6 +1658,7 @@
             agi: baseAgi,
             spi: baseSpi,
             skills: skills,
+            specialTechnique: tpl.specialTechnique || 'hien_men',
             favStance: tpl.stance || 'chudan',
             condition: getRandomItem(['good', 'normal', 'normal']),
             fatigue: 0,
@@ -1656,11 +1671,27 @@
         return m;
     }
 
-    // 初期チーム生成（主将＝2年生、他に3年・2年・1年が在籍し個性多彩）
+    // 部員の得意技バッジHTML生成
+    function getMemberSpecialTechBadgeHtml(m) {
+        if (!m) return '';
+        const techId = m.specialTechnique || 'hien_men';
+        const tech = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[techId])
+            ? SPECIAL_TECHNIQUES[techId]
+            : { name: '飛燕二段面', type: '面', reqStat: 'men', reqVal: 38, desc: '電光石火の二段面' };
+        const currentVal = (m.skills && m.skills[tech.reqStat]) || 0;
+        const isUnlocked = currentVal >= tech.reqVal;
+        if (isUnlocked) {
+            return `<span class="special-skill-badge unlocked" title="${escapeHtml(tech.desc || '')}（必要: ${tech.type}${tech.reqVal} 達成・覚醒済）">🌟 秘技: ${escapeHtml(tech.name)}</span>`;
+        } else {
+            return `<span class="special-skill-badge locked" title="${escapeHtml(tech.desc || '')}（${tech.type}${tech.reqVal}以上で覚醒 / 現在:${currentVal}）">🔒 秘技: ${escapeHtml(tech.name)} (${tech.type}${currentVal}/${tech.reqVal})</span>`;
+        }
+    }
+
+    // 初期チーム生成（主将＝3年生、他に3年・2年・1年が在籍し個性多彩）
     function createInitialTeam(schoolName, pref, captainName) {
         const members = [];
-        // 主将（2年生プレイヤー）
-        const captain = createMember(captainName, 2, true, MEMBER_ARCHETYPES.find(a => a.id === 'allround'));
+        // 主将（3年生プレイヤー）
+        const captain = createMember(captainName, 3, true, MEMBER_ARCHETYPES.find(a => a.id === 'allround'));
         captain.str += 2;
         captain.agi += 2;
         captain.spi += 2;
@@ -1691,7 +1722,7 @@
             members[4].id, // 2年（次鋒）
             members[1].id, // 3年（中堅）
             members[2].id, // 3年（副将）
-            captain.id,    // 2年主将（大将）
+            captain.id,    // 3年主将（大将）
         ];
 
         return { members, order };
@@ -2633,7 +2664,19 @@
         const menu = menuId === 'special' ? null : PRACTICE_MENUS.find((m) => m.id === menuId);
         if (!menu && menuId !== 'special') return;
 
-        // 実行前の部員全体ステータス合計を計測
+        // 実行前の部員全体ステータス合計および得意技解放状況を計測
+        const checkUnlocked = (m) => {
+            const techId = m.specialTechnique || 'hien_men';
+            const tech = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[techId])
+                ? SPECIAL_TECHNIQUES[techId]
+                : { reqStat: 'men', reqVal: 38 };
+            return ((m.skills && m.skills[tech.reqStat]) || 0) >= tech.reqVal;
+        };
+        const prevUnlockedMap = new Map();
+        ClubState.members.forEach((m) => {
+            prevUnlockedMap.set(m.id, checkUnlocked(m));
+        });
+
         const getTeamStatSum = () => {
             let sum = 0;
             ClubState.members.forEach((m) => {
@@ -2689,6 +2732,21 @@
             });
             const exhaustWarn = hadExhaustedMember ? ' ⚠️過度の疲労（100%）を抱えた部員の能力が低下しました！' : '';
             logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】全体稽古【${menu.name}】を実施！心技体を鍛えました。${exhaustWarn}`;
+        }
+
+        // 稽古による得意技の開眼・覚醒判定
+        const newlyUnlocked = [];
+        ClubState.members.forEach((m) => {
+            if (!prevUnlockedMap.get(m.id) && checkUnlocked(m)) {
+                const techId = m.specialTechnique || 'hien_men';
+                const tech = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[techId])
+                    ? SPECIAL_TECHNIQUES[techId]
+                    : { name: '飛燕二段面' };
+                newlyUnlocked.push(`✨【${m.name}】が得意技【${tech.name}】を開眼・覚醒！`);
+            }
+        });
+        if (newlyUnlocked.length > 0) {
+            logEntry += ' ' + newlyUnlocked.join(' ');
         }
 
         // パラメータがUPしていれば、爽やかなステータスUP効果音を再生！
@@ -2777,6 +2835,15 @@
     // ───────────────────────────────────────────
     // トーナメント生成エンジン
     // ───────────────────────────────────────────
+    function getRandomSpecialTechnique(stance = 'chudan') {
+        const pool = stance === 'jodan'
+            ? ['gouriki_men', 'hien_men', 'tenkou_men']
+            : (stance === 'waki'
+                ? ['hayate_do', 'gen_do', 'dengeki_kote']
+                : ['hien_men', 'dengeki_kote', 'shiden_tsuki', 'hayate_do', 'tensho_tsuki']);
+        return getRandomItem(pool);
+    }
+
     // 個人戦用 対戦相手剣士の生成
     const FIGHTER_TITLES = [
         '疾風の小手使い', '剛腕の上段', '冷静沈着な間合いの鬼', '名門の切り札',
@@ -2814,6 +2881,7 @@
                 do: 9 + (powerGrade + gradeBonus) * 2,
                 tsuki: 8 + (powerGrade + gradeBonus) * 2,
             },
+            specialTechnique: getRandomSpecialTechnique(stance),
             stance: stance,
         };
     }
@@ -2879,6 +2947,7 @@
             agi: m.agi,
             spi: m.spi,
             skills: m.skills,
+            specialTechnique: m.specialTechnique || 'hien_men',
             favStance: m.favStance || 'chudan',
             stance: m.favStance || 'chudan',
             condition: m.condition || 'normal',
@@ -2964,6 +3033,7 @@
                     agi: fighter.agi,
                     spi: fighter.spi,
                     skills: fighter.skills,
+                    specialTechnique: fighter.specialTechnique,
                     stance: fighter.stance,
                     favStance: fighter.stance,
                     armorTheme: null,
@@ -2987,6 +3057,7 @@
                     agi: fighter.agi,
                     spi: fighter.spi,
                     skills: fighter.skills,
+                    specialTechnique: fighter.specialTechnique,
                     stance: fighter.stance,
                     favStance: fighter.stance,
                     armorTheme: null,
@@ -3201,6 +3272,7 @@
                     do: 8 + powerGrade * 2,
                     tsuki: 7 + powerGrade * 2,
                 },
+                specialTechnique: getRandomSpecialTechnique(stance),
                 stance: stance,
             });
         }
@@ -4207,7 +4279,7 @@
                     <div class="setup-header">
                         <span class="setup-icon">⚔️</span>
                         <h2>高校剣道部 創設</h2>
-                        <p class="setup-sub">あなたは2年生主将として部を率い、全国選抜大会での日本一を目指します。</p>
+                        <p class="setup-sub">あなたは3年生主将として部を率い、夏のインターハイ・春の全国選抜での日本一を目指します。</p>
                     </div>
 
                     <form class="setup-form" onsubmit="event.preventDefault(); window.KendoClub.submitSetup();">
@@ -4224,7 +4296,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="inpCaptainName">🧑‍🎓 2年生 主将の名前（あなたの名前）</label>
+                            <label for="inpCaptainName">🧑‍🎓 3年生 主将の名前（あなたの名前）</label>
                             <input type="text" id="inpCaptainName" value="${defaultCaptain}" required maxlength="10" />
                         </div>
 
@@ -4490,6 +4562,9 @@
                             <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
                             <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
                         </div>
+                        <div class="member-special-tech-row" style="margin: 4px 0 6px 0; text-align: center;">
+                            ${getMemberSpecialTechBadgeHtml(m)}
+                        </div>
                         <div class="member-fatigue-row">
                             <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
                             <div class="fatigue-bar-wrap">
@@ -4535,6 +4610,9 @@
                         <div class="member-stats-summary-row">
                             <span class="stat-summary-tag">構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '脇' : '中段'}</span>
                             <span class="stat-summary-tag">戦力: ${Math.round(getMemberCombatPower(m))}</span>
+                        </div>
+                        <div class="member-special-tech-row" style="margin: 4px 0 6px 0; text-align: center;">
+                            ${getMemberSpecialTechBadgeHtml(m)}
                         </div>
                         <div class="member-fatigue-row">
                             <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
@@ -6415,6 +6493,7 @@
                     initialKiai: 0,
                     favStance: playerMember.favStance || 'chudan',
                     skills: playerMember.skills,
+                    specialTechnique: playerMember.specialTechnique,
                     str: playerMember.str,
                     agi: playerMember.agi,
                     spi: playerMember.spi,
@@ -6435,6 +6514,7 @@
                     agi: targetMember.agi,
                     spi: targetMember.spi,
                     skills: targetMember.skills,
+                    specialTechnique: targetMember.specialTechnique,
                     introQuote: enemyQuote,
                     armorTheme: enemyArmorTheme,
                     patterns: enemyPatterns,
@@ -6609,7 +6689,7 @@
             const initTeam = createInitialTeam(sName, pref, cName);
             ClubState.members = initTeam.members;
             ClubState.order = initTeam.order;
-            ClubState.activityLog = [`${ClubState.schoolName}剣道部（${ClubState.prefecture}）創立！2年生主将【${cName}】を中心に全国制覇へ始動！`];
+            ClubState.activityLog = [`${ClubState.schoolName}剣道部（${ClubState.prefecture}）創立！3年生主将【${cName}】を中心に全国制覇へ始動！`];
             ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
             ClubState.viewPhase = 'dashboard';
 
@@ -7135,6 +7215,7 @@
                         initialKiai: 0,
                         favStance: playerMember.favStance || 'chudan',
                         skills: playerMember.skills,
+                        specialTechnique: playerMember.specialTechnique,
                         str: playerMember.str,
                         agi: playerMember.agi,
                         spi: playerMember.spi,
@@ -7158,6 +7239,8 @@
                         str: enemyMember.str,
                         agi: enemyMember.agi,
                         spi: enemyMember.spi,
+                        skills: enemyMember.skills || { men: 10, kote: 10, do: 10, tsuki: 8 },
+                        specialTechnique: enemyMember.specialTechnique || 'hien_men',
                         introQuote: enemyIntroQuote,
                         armorTheme: enemyArmorTheme,
                         patterns: enemyPatterns,
