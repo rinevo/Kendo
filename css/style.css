@@ -7008,6 +7008,35 @@ button.reset-btn:hover:not(:disabled) {
     box-shadow: 0 0 16px rgba(234, 179, 8, 0.65);
 }
 
+.event-pending-banner.spring-welcome-banner {
+    background: linear-gradient(135deg, rgba(244, 114, 182, 0.28) 0%, rgba(251, 191, 36, 0.16) 100%);
+    border-color: rgba(244, 114, 182, 0.65);
+    box-shadow: 0 4px 16px rgba(244, 114, 182, 0.25);
+}
+
+.event-pending-banner.spring-welcome-banner .event-pending-badge {
+    background: linear-gradient(135deg, #f472b6, #fb7185);
+    color: #ffffff;
+}
+
+.event-pending-banner.spring-welcome-banner .event-pending-title {
+    color: #fce7f3;
+}
+
+.event-pending-banner.spring-welcome-banner .event-pending-desc {
+    color: #fbcfe8;
+}
+
+.event-pending-banner.spring-welcome-banner .btn-event-pending-open {
+    background: linear-gradient(135deg, #f472b6, #e11d48);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(244, 114, 182, 0.45);
+}
+
+.event-pending-banner.spring-welcome-banner .btn-event-pending-open:hover {
+    box-shadow: 0 0 18px rgba(244, 114, 182, 0.75);
+}
+
 @media (max-width: 768px) {
     .event-pending-banner {
         flex-direction: column;

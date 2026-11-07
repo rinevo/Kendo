@@ -1859,6 +1859,7 @@
         lastRetiredSeniors: null,    // 当年度9月に引退した3年生先輩部員リスト { year: number, members: Array }
         currentEventData: null,      // 高校生部活ライフイベント画面データ
         pendingEventData: null,      // 保留中の高校生部活ライフイベント（大会直後等、ダッシュボード確認後に表示）
+        pendingNewSchoolYear: false, // 全国大会（3月4週）直後等、ダッシュボード確認後に新年度進級・新入生入部セレモニーを実行する保留フラグ
         advanceWeekOnEventComplete: false, // 練習実行後に保留イベントを開いた場合、イベント完了時に週を進めるフラグ
         currentMatchData: null,      // 進行中の大会試合
         selectedSpecialTargetId: null, // 前回選択した特別指導対象部員ID
@@ -1912,6 +1913,7 @@
                 newTeamCeremonyData: ClubState.newTeamCeremonyData,
                 currentEventData: ClubState.currentEventData,
                 pendingEventData: ClubState.pendingEventData,
+                pendingNewSchoolYear: !!ClubState.pendingNewSchoolYear,
                 advanceWeekOnEventComplete: !!ClubState.advanceWeekOnEventComplete,
                 currentMatchData: ClubState.currentMatchData,
                 selectedSpecialTargetId: ClubState.selectedSpecialTargetId,
@@ -1989,6 +1991,7 @@
             ClubState.newTeamCeremonyData = data.newTeamCeremonyData || null;
             ClubState.currentEventData = data.currentEventData || null;
             ClubState.pendingEventData = data.pendingEventData || null;
+            ClubState.pendingNewSchoolYear = !!data.pendingNewSchoolYear;
             ClubState.advanceWeekOnEventComplete = !!data.advanceWeekOnEventComplete;
             ClubState.currentMatchData = data.currentMatchData || null;
             if (ClubState.currentMatchData && ClubState.currentMatchData.bracket) {
@@ -2286,6 +2289,7 @@
         ClubState.viewPhase = 'setup';
         ClubState.currentEventData = null;
         ClubState.pendingEventData = null;
+        ClubState.pendingNewSchoolYear = false;
         ClubState.lastRetiredSeniors = null;
         ClubState.currentMatchData = null;
         ClubState.selectedSpecialTargetId = null;
@@ -2337,6 +2341,13 @@
 
         // 1. 4月1週：進級 ＆ 新入生入部
         if (ClubState.month === 4 && ClubState.week === 1) {
+            if (deferEvent) {
+                // 大会終了直後など：即時遷移させず保留し、まず道場（練習メニュー画面）を表示
+                ClubState.pendingNewSchoolYear = true;
+                saveClubData();
+                renderClubUI();
+                return;
+            }
             executeNewSchoolYear();
             return;
         }
@@ -2946,6 +2957,13 @@
         }
 
         ClubState.activityLog.unshift(logEntry);
+
+        // 大会直後などで保留されていた新年度進級＆新入部員歓迎セレモニーがあれば表示
+        if (ClubState.pendingNewSchoolYear) {
+            ClubState.pendingNewSchoolYear = false;
+            executeNewSchoolYear();
+            return;
+        }
 
         // 大会直後などで保留されていた高校生イベントがあれば、練習メニュー終了後に表示
         if (ClubState.pendingEventData) {
@@ -5075,6 +5093,20 @@
         // 活動日誌
         const logHtml = ClubState.activityLog.slice(0, 5).map((log) => `<li>${log}</li>`).join('');
 
+        // 保留中の新年度進級＆新入生入部歓迎セレモニーバナー
+        const pendingNewSchoolYearHtml = ClubState.pendingNewSchoolYear ? `
+            <div class="event-pending-banner spring-welcome-banner">
+                <div class="event-pending-info">
+                    <span class="event-pending-badge">🌸 新年度始動（第${ClubState.year}期 4月1週）</span>
+                    <strong class="event-pending-title">新年度進級 ＆ 新入生歓迎セレモニー</strong>
+                    <p class="event-pending-desc">春の陽光が差す道場に、新たな仲間たちがやってきます！</p>
+                </div>
+                <button type="button" class="btn-event-pending-open pulse-gold" onclick="window.KendoClub.launchNewSchoolYear()">
+                    🌸 新入部員を迎える
+                </button>
+            </div>
+        ` : '';
+
         // 保留中の高校生部活イベントバナー
         const pendingEventHtml = ClubState.pendingEventData ? `
             <div class="event-pending-banner">
@@ -5108,6 +5140,7 @@
                     </div>
 
                     ${bannerHtml}
+                    ${pendingNewSchoolYearHtml}
                     ${pendingEventHtml}
                 </div>
 
@@ -8485,6 +8518,11 @@
         },
 
         proceedFromCeremonyToDashboard: function () {
+            // 🏆 表彰状画面のBGMを確実に停止
+            if (window.KendoBGM && window.KendoBGM.stop) {
+                window.KendoBGM.stop();
+            }
+
             ClubState.ceremonyResultData = null;
             ClubState.currentMatchData = null;
             ClubState.viewPhase = 'dashboard';
@@ -8603,6 +8641,12 @@
             ClubState.viewPhase = 'event_scene';
             saveClubData();
             renderClubUI();
+        },
+
+        launchNewSchoolYear: function () {
+            if (!ClubState.pendingNewSchoolYear) return;
+            ClubState.pendingNewSchoolYear = false;
+            executeNewSchoolYear();
         },
 
         triggerEventById: function (eventId) {
