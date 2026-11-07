@@ -6404,10 +6404,17 @@ function analyzePlayerPattern(history, enemyData) {
             const useWaki = enemyData && (enemyData.id === 'sasaki' || enemyData.id === 'kasumi');
             const useJodan = enemyData && enemyData.id === 'onizuka';
             const targetStance = useWaki ? 'waki' : (useJodan ? 'jodan' : 'chudan');
+            const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
                 type: 'counter_alert',
                 counterMove: '防御',
                 stance: targetStance,
+                hint: useWaki
+                    ? `🌊【下段・見切り警戒】${enemyShort}はあなたの見切り強打を警戒し、下段「後の先防御」で受け流しを狙っている！`
+                    : (useJodan
+                        ? `🔥【上段・剛腕勝負】${enemyShort}はあなたの見切りに臆さず、「上段面」で力押し勝負を挑んできた！`
+                        : `🛡️【中段・防御警戒】${enemyShort}はあなたの見切り強打を察知し、油断なく「防御」で受け流しを狙っている！`),
+                isDanger: useJodan,
                 weights: getCounterAlertWeights(enemyData),
             };
         }
@@ -6417,10 +6424,13 @@ function analyzePlayerPattern(history, enemyData) {
     // 崩しを出すのは「見切りがあるのに攻撃せず、2手連続で防御を重ねてきた守り癖」のみ！
     if (last1.action === '防御' && last2.action === '防御') {
         if (Math.random() < learnChance) {
+            const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
                 type: 'defend_spam',
                 counterMove: '崩し',
                 stance: 'chudan',
+                hint: `💥【崩し警戒】${enemyShort}はあなたの守り癖を見抜き、体当たり（崩し）でこじ開けようとしている！（打突で迎撃せよ！）`,
+                isDanger: true,
                 weights: { 崩し: 65, 小手: 20, 面: 15, 防御: 0, 突き: 0, 胴: 0 },
             };
         }
@@ -6430,10 +6440,13 @@ function analyzePlayerPattern(history, enemyData) {
     const recentMen = history.slice(-3).filter((h) => h.action === '面').length;
     if (recentMen >= 2 && last1.action === '面') {
         if (Math.random() < learnChance) {
+            const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
                 type: 'men_spam',
                 counterMove: '胴',
                 stance: 'waki',
+                hint: `🌊【抜き胴警戒】${enemyShort}はあなたの面の連打を見切り、下段から「抜き胴」を狙っている！（「小手」で胴を断て！）`,
+                isDanger: true,
                 weights: { 胴: 65, 防御: 25, 小手: 10, 面: 0, 崩し: 0, 突き: 0 },
             };
         }
@@ -6443,10 +6456,13 @@ function analyzePlayerPattern(history, enemyData) {
     const recentKote = history.slice(-3).filter((h) => h.action === '小手').length;
     if (recentKote >= 2 && last1.action === '小手') {
         if (Math.random() < learnChance) {
+            const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
                 type: 'kote_spam',
                 counterMove: '面',
                 stance: 'chudan',
+                hint: `🔥【相面警戒】${enemyShort}はあなたの小手狙いを見切り、上から乗り切る鋭い「面」を狙っている！（「胴」で面を抜け！）`,
+                isDanger: true,
                 weights: { 面: 72, 胴: 15, 防御: 13, 小手: 0, 崩し: 0, 突き: 0 },
             };
         }
@@ -6456,10 +6472,13 @@ function analyzePlayerPattern(history, enemyData) {
     const recentDo = history.slice(-3).filter((h) => h.action === '胴').length;
     if (recentDo >= 2 && last1.action === '胴') {
         if (Math.random() < learnChance) {
+            const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
                 type: 'do_spam',
                 counterMove: '小手',
                 stance: 'chudan',
+                hint: `⚡【出ばな小手警戒】${enemyShort}はあなたの胴の連打を察知し、電光石火の「小手」で手元を断つ気配！（「面」で上から叩け！）`,
+                isDanger: true,
                 weights: { 小手: 70, 面: 20, 防御: 10, 胴: 0, 崩し: 0, 突き: 0 },
             };
         }
@@ -6469,10 +6488,13 @@ function analyzePlayerPattern(history, enemyData) {
     if (state.playerKiai >= 3) {
         const pastTsuki = history.some((h) => h.action === '突き');
         if (pastTsuki && Math.random() < learnChance) {
+            const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
                 type: 'tsuki_spam',
                 counterMove: '突き',
                 stance: 'chudan',
+                hint: `⚡【先手警戒】${enemyShort}は必殺の突きを警戒し、出端の「突き」や「小手」で先手を狙っている！`,
+                isDanger: true,
                 weights: { 突き: 50, 小手: 30, 崩し: 20, 面: 0, 胴: 0, 防御: 0 },
             };
         }
@@ -6540,19 +6562,22 @@ function decideEnemyIntent() {
         const eUnlocked = eTechInfo.isUnlocked;
         intent = {
             stance: 'chudan',
-            hint: `⚠️ ${enemyData.shortName}の気合が充実している！${eUnlocked ? `固有の必殺技「${eTech.name}」` : '渾身の「気合一閃」'}が来るぞ！`,
+            hint: `⚠️ ${enemyData.shortName}の気合が最高潮！${eUnlocked ? `奥義「${eTech.name}」` : '「気合一閃」'}か強烈な「崩し」が来るぞ！（打突で先手を取るか、見極めよ！）`,
             isDanger: true,
             weights: { 必殺: 65, 崩し: 15, 面: 8, 小手: 6, 胴: 4, 突き: 2, 防御: 0 },
         };
     } else if (state.enemyCounterReady) {
         const keepStance = state.enemyStanceStyle || 'chudan';
+        const isRyuzen = enemyData && enemyData.id === 'ryuzen';
         intent = {
             stance: keepStance,
             hint: keepStance === 'jodan'
-                ? `🔥【上段・応じ構え】${enemyData.shortName}は上段から威力3倍の「応じ上段面」を狙っているぞ！`
+                ? `🔥【上段・応じ構え】${enemyData.shortName}は上段から威力3倍の「応じ上段面」を狙っているぞ！（「胴」で面を抜け！）`
                 : `🔥 ${enemyData.shortName}は「応じ技」の構え！強烈な打突（威力2倍）で一気に打ち込んでくる気配！`,
             isDanger: true,
-            weights: { 面: 42, 胴: 35, 小手: 18, 崩し: 5, 防御: 0, 突き: 0 },
+            weights: isRyuzen
+                ? { 面: 45, 胴: 35, 小手: 20, 崩し: 0, 防御: 0, 突き: 0 }
+                : { 面: 42, 胴: 35, 小手: 18, 崩し: 5, 防御: 0, 突き: 0 },
         };
     } else {
         // プレイヤーの直近の行動パターンを学習・見切り
@@ -6561,15 +6586,14 @@ function decideEnemyIntent() {
             : null;
 
         if (learnedPattern) {
-            // 敵パターンの通常ヒントを取得（「見切った」等の予告を表示せず、崩しやカウンターを自然に繰り出す）
             const targetStance = learnedPattern.stance || 'chudan';
             const matchingPattern = (enemyData.patterns && enemyData.patterns.find((p) => (p.stance || 'chudan') === targetStance))
                 || (enemyData.patterns && enemyData.patterns[0]);
 
             intent = {
                 stance: targetStance,
-                hint: matchingPattern ? matchingPattern.hint : `⚖️【中段の構え】${enemyData.shortName}は油断なく竹刀を構え、間合いを測っている…`,
-                isDanger: matchingPattern ? matchingPattern.isDanger : false,
+                hint: learnedPattern.hint || (matchingPattern ? matchingPattern.hint : `⚖️【中段の構え】${enemyData.shortName}は油断なく竹刀を構え、間合いを測っている…`),
+                isDanger: (learnedPattern.isDanger !== undefined) ? learnedPattern.isDanger : (matchingPattern ? matchingPattern.isDanger : false),
                 weights: { ...learnedPattern.weights },
             };
             state.enemyLearnedPattern = learnedPattern;
@@ -7437,7 +7461,8 @@ function playRound(playerAction) {
             };
         } else {
             statusType = 'neutral';
-            impactSound = 'block';
+            impactSound = 'special';
+            enemyOutcome = 'hit';
             zoomTargets.push(enemySpriteBox);
             popups.push(
                 { who: 'enemy', text: '🛡️ ガード！', styleClass: 'popup-block' },
@@ -7488,7 +7513,8 @@ function playRound(playerAction) {
             };
         } else {
             statusType = 'neutral';
-            impactSound = 'block';
+            impactSound = 'hurt';
+            playerOutcome = 'hit';
             zoomTargets.push(playerSpriteBox);
             popups.push(
                 { who: 'player', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
@@ -7544,13 +7570,14 @@ function playRound(playerAction) {
         if (!eDidResist) {
             state.enemyGuardBroken = true;
             state.enemyStunned = true;
+            impactSound = 'attack';
         } else {
             roundEnemyBlocked = true;
+            impactSound = 'block';
         }
         enemyAnim = 'hit';
         enemyOutcome = 'hit';
         statusType = 'victory';
-        impactSound = 'break';
         zoomTargets.push(playerSpriteBox);
         shakeTargets.push({ el: enemySpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
@@ -7578,11 +7605,13 @@ function playRound(playerAction) {
         if (!didResist) {
             state.playerGuardBroken = true;
             state.playerStunned = true;
+            impactSound = 'hurt';
+        } else {
+            impactSound = 'block';
         }
         playerAnim = 'hit';
         playerOutcome = 'hit';
         statusType = 'defeat';
-        impactSound = 'break';
         zoomTargets.push(enemySpriteBox);
         shakeTargets.push({ el: playerSpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
