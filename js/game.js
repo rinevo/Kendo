@@ -7654,21 +7654,20 @@ function playRound(playerAction) {
         let dmg = (inTsuba ? 3 : (isUnlocked ? (pTechInfo.tech.power || 2) : 2)) + (eJodan ? 1 : 0);
 
         if (enemyAction === '防御') {
+            roundEnemyBlocked = true;
+            // 🛡️ 敵の渾身の防御により、大技を読まれたプレイヤー側が体勢崩壊！
+            state.playerGuardBroken = true;
+            state.playerStunned = true; // 次ターンプレイヤー操作スキップ（相手の反撃を受ける）
+
             if (isUnlocked) {
-                // 覚醒奥義 vs 防御: 渾身の受け止めで被ダメ1に軽減されるが、相手を体勢崩壊させる
+                // 覚醒奥義 vs 防御: 渾身の受け止めで被ダメ1に抑え込まれ、技を読まれたプレイヤーが体勢崩壊
                 dmg = 1;
-                roundEnemyBlocked = true;
-                state.enemyGuardBroken = true;
-                state.enemyStunned = true;
             } else {
-                // 未解放の気合一閃 vs 防御：50%で貫通1ダメ、50%で受け止められ相手を体勢崩壊
+                // 未解放の気合一閃 vs 防御：50%で貫通1ダメ、50%で完全ガード＆プレイヤー体勢崩壊
                 if (Math.random() < 0.5) {
                     dmg = 1;
                 } else {
                     didHit = false;
-                    roundEnemyBlocked = true;
-                    state.enemyGuardBroken = true;
-                    state.enemyStunned = true;
                 }
             }
         }
@@ -7678,35 +7677,40 @@ function playRound(playerAction) {
             enemyAnim = 'hit';
             enemyOutcome = 'hit';
             impactWeight = 'heavy';
-            statusType = 'victory';
+            statusType = enemyAction === '防御' ? 'neutral' : 'victory';
             impactSound = 'special';
             zoomTargets.push(playerSpriteBox);
             shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+            if (enemyAction === '防御') {
+                shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+            }
             doArenaFlash = true;
             popups.push(
                 { who: 'enemy', text: `-${dmg} ${isUnlocked ? '必殺一閃！' : '気合一閃！'}`, styleClass: 'popup-crit' },
-                ...(enemyAction === '防御' ? [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }] : [])
+                ...(enemyAction === '防御' ? [{ who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }] : [])
             );
             calloutData = {
-                winner: 'player',
-                mainText: enemyAction === '防御' ? '奥義受け止められるも突破！' : `${pMoveName}あり！`,
-                subText: enemyAction === '防御' ? `💥 相手は次ターン体勢崩壊！ (${dmg}点)` : `⚡ 会心の奥義 (${dmg}点)`,
-                reasonBadge: isUnlocked ? '⚡ 秘技覚醒' : '🔥 気合一閃',
+                winner: enemyAction === '防御' ? null : 'player',
+                mainText: enemyAction === '防御' ? '奥義を受け止められた！' : `${pMoveName}あり！`,
+                subText: enemyAction === '防御' ? `💥 衝撃で体勢崩壊！反撃に警戒！ (${dmg}点)` : `⚡ 会心の奥義 (${dmg}点)`,
+                reasonBadge: enemyAction === '防御' ? '🛡️ 相手防御' : (isUnlocked ? '⚡ 秘技覚醒' : '🔥 気合一閃'),
                 isCritical: true,
             };
         } else {
-            statusType = 'neutral';
+            statusType = 'defeat';
             impactSound = 'special';
-            enemyOutcome = 'hit';
+            enemyOutcome = 'block_success';
+            playerOutcome = 'hit';
             zoomTargets.push(enemySpriteBox);
+            shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
             popups.push(
-                { who: 'enemy', text: '🛡️ ガード！', styleClass: 'popup-block' },
-                { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                { who: 'enemy', text: '🛡️ 完全ガード！', styleClass: 'popup-block' },
+                { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
             );
             calloutData = {
                 winner: null,
-                mainText: '受け止められた！',
-                subText: '💥 相手は次ターン体勢崩壊！',
+                mainText: '完全に受け止められた！',
+                subText: '💥 衝撃で体勢崩壊！相手の反撃の好機！',
                 reasonBadge: '🛡️ 相手防御',
             };
         }
