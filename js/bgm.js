@@ -55,6 +55,7 @@
     // デフォルト音量 (0.0 〜 1.0)
     let masterVolume = 0.65;
     let isMuted = false;
+    let initialPromptDismissed = false; // 初回起動時のガイダンス表示フラグ（一度でも再生または画面遷移したらtrue）
 
     // localStorage から設定復元
     try {
@@ -375,12 +376,19 @@
 
             // 音量設定ラッパーとBGM再生ガイダンスの切り替え表示
             const sliderWrap = document.getElementById('bgmVolumeSliderWrap');
+            const modeSelectScreen = typeof document !== 'undefined' ? document.getElementById('modeSelectScreen') : null;
+            const isModeSelect = !modeSelectScreen || modeSelectScreen.style.display !== 'none';
 
-            // ガイダンスを表示すべき条件: 未再生 かつ ミュートOFF かつ 再生終了前 かつ 音量>0
-            const shouldShowPrompt = !isAudioPlaying && !isMuted && !bgmAudio.ended && masterVolume > 0;
+            // 一度でもBGMが再生された、または起動時画面以外に遷移した場合は初回ガイダンスを終了
+            if (isAudioPlaying || !isModeSelect) {
+                initialPromptDismissed = true;
+            }
+
+            // ガイダンスを表示すべき条件: 初回起動時（未終了） かつ 起動時画面が表示中 かつ 未再生 かつ ミュートOFF かつ 再生終了前 かつ 音量>0
+            const shouldShowPrompt = !initialPromptDismissed && isModeSelect && !isAudioPlaying && !isMuted && !bgmAudio.ended && masterVolume > 0;
 
             if (shouldShowPrompt) {
-                // 未再生時は音量設定を消し、その位置にガイダンスを表示
+                // 初回起動時の未再生時は音量設定を消し、その位置にガイダンスを表示
                 if (sliderWrap) sliderWrap.style.display = 'none';
                 if (promptBadge) {
                     promptBadge.style.display = 'inline-flex';
@@ -389,10 +397,18 @@
                     promptBadge.title = 'クリックでBGMを再生';
                 }
             } else {
-                // 再生開始後、またはミュート時、再生終了後は音量設定を表示し、ガイダンスは非表示
+                // 再生開始後、または起動時以外、ミュート時、再生終了後は音量設定を表示し、ガイダンスは非表示
                 if (sliderWrap) sliderWrap.style.display = 'inline-flex';
                 if (promptBadge) promptBadge.style.display = 'none';
             }
+        },
+
+        /**
+         * 初回起動ガイダンスを明示的に終了
+         */
+        dismissInitialPrompt: function () {
+            initialPromptDismissed = true;
+            this.updateUi();
         },
 
         /**

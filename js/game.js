@@ -9217,6 +9217,9 @@ window.KendoGameEngine = {
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'none';
         if (headerModeBar) headerModeBar.style.display = 'flex';
+        if (window.KendoBGM && window.KendoBGM.updateUi) {
+            window.KendoBGM.updateUi();
+        }
         if (currentModeBadge) currentModeBadge.textContent = '🏆 勝ち抜き五人掛け';
         if (classicStageWrap) classicStageWrap.style.display = 'none';
         if (clubView) clubView.style.display = 'none';
@@ -9307,6 +9310,9 @@ window.KendoGameEngine = {
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'none';
         if (headerModeBar) headerModeBar.style.display = 'flex';
+        if (window.KendoBGM && window.KendoBGM.updateUi) {
+            window.KendoBGM.updateUi();
+        }
 
         if (mode === 'classic') {
             state.customMatch = null;
@@ -9356,6 +9362,9 @@ window.KendoGameEngine = {
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'none';
         if (headerModeBar) headerModeBar.style.display = 'flex';
+        if (window.KendoBGM && window.KendoBGM.updateUi) {
+            window.KendoBGM.updateUi();
+        }
         if (classicStageWrap) classicStageWrap.style.display = 'none';
         if (clubView) clubView.style.display = '';
         if (combatArea) combatArea.style.display = 'none';
