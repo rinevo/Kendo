@@ -2249,8 +2249,6 @@ const enemyCounterText = document.getElementById('enemyCounterText');
 const playerCounterPips = document.getElementById('playerCounterPips');
 const enemyCounterPips = document.getElementById('enemyCounterPips');
 
-const playerBadge = document.getElementById('playerBadge');
-const enemyBadge = document.getElementById('enemyBadge');
 const playerSpriteBox = document.getElementById('playerSpriteBox');
 const enemySpriteBox = document.getElementById('enemySpriteBox');
 const playerPopupLayer = document.getElementById('playerPopupLayer');
@@ -2276,13 +2274,10 @@ let enemyActionOverride = null;
 
 // ⚡ 必殺技演出オーバーレイ要素
 const specialFxOverlay = document.getElementById('specialFxOverlay');
-const specialDarken = document.getElementById('specialDarken');
-const specialSpeedLines = document.getElementById('specialSpeedLines');
 const specialCutinBanner = document.getElementById('specialCutinBanner');
 const specialCutinRibbon = document.getElementById('specialCutinRibbon');
 const specialCutinSub = document.getElementById('specialCutinSub');
 const specialCutinTitle = document.getElementById('specialCutinTitle');
-const specialScreenSlash = document.getElementById('specialScreenSlash');
 let specialCutinTimer = null;
 let specialSlashTimer = null;
 
@@ -4992,10 +4987,7 @@ function hideSpecialCutin() {
         clearTimeout(specialSlashTimer);
         specialSlashTimer = null;
     }
-    if (specialDarken) specialDarken.classList.remove('active');
-    if (specialSpeedLines) specialSpeedLines.classList.remove('active');
     if (specialCutinBanner) specialCutinBanner.classList.remove('show-player', 'show-enemy', 'show-clash');
-    if (specialScreenSlash) specialScreenSlash.classList.remove('flash-slash');
     if (specialFxOverlay) specialFxOverlay.style.display = 'none';
 }
 
@@ -5676,7 +5668,7 @@ function renderHealthPips(container, hp, maxHp) {
     });
 }
 
-function updateBadge(badgeEl, spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai, stanceStyle = 'chudan', who = 'player') {
+function updateBadge(spriteBoxEl, counterReady, guardBroken, kiai, isTsubazeriai, stanceStyle = 'chudan', who = 'player', badgeEl = null) {
     if (badgeEl) badgeEl.className = 'stance-badge';
     if (spriteBoxEl) {
         spriteBoxEl.classList.remove('counter-aura', 'broken-aura', 'tsubazeriai-aura', 'jodan-aura', 'waki-aura', 'kiai-1-aura', 'kiai-2-aura', 'kiai-3-aura', 'kiai-god-aura');
@@ -6065,8 +6057,7 @@ function updateUI() {
 
             if (matchIntraBadge) {
                 if (isSpecial) {
-                    matchIntraBadge.style.display = 'inline-block';
-                    matchIntraBadge.textContent = '🤝 部内実戦稽古';
+                    matchIntraBadge.style.display = 'none';
                 } else {
                     matchIntraBadge.style.display = isIntra ? 'inline-block' : 'none';
                     matchIntraBadge.textContent = '🔥 同門対決';
@@ -6118,8 +6109,14 @@ function updateUI() {
         }
         if (playerTitleBadge) {
             let cleanTitle = cleanFighterSubtitle(pData.roleTitle || '', pSchool);
-            if (pGrade && cleanTitle.startsWith(`${pGrade}年・`)) {
-                cleanTitle = cleanTitle.substring(`${pGrade}年・`.length);
+            if (pGrade) {
+                if (cleanTitle === `${pGrade}年` || cleanTitle === `${pGrade}年生`) {
+                    cleanTitle = '';
+                } else if (cleanTitle.startsWith(`${pGrade}年・`)) {
+                    cleanTitle = cleanTitle.substring(`${pGrade}年・`.length);
+                } else if (cleanTitle.startsWith(`${pGrade}年 `)) {
+                    cleanTitle = cleanTitle.substring(`${pGrade}年 `.length);
+                }
             }
             setFighterSubtitleText(playerTitleBadge, cleanTitle);
         }
@@ -6188,8 +6185,14 @@ function updateUI() {
         }
         if (enemyTitleBadge) {
             let cleanEnemyRole = cleanFighterSubtitle(eData.role || '', eSchool);
-            if (eGrade && cleanEnemyRole.startsWith(`${eGrade}年・`)) {
-                cleanEnemyRole = cleanEnemyRole.substring(`${eGrade}年・`.length);
+            if (eGrade) {
+                if (cleanEnemyRole === `${eGrade}年` || cleanEnemyRole === `${eGrade}年生`) {
+                    cleanEnemyRole = '';
+                } else if (cleanEnemyRole.startsWith(`${eGrade}年・`)) {
+                    cleanEnemyRole = cleanEnemyRole.substring(`${eGrade}年・`.length);
+                } else if (cleanEnemyRole.startsWith(`${eGrade}年 `)) {
+                    cleanEnemyRole = cleanEnemyRole.substring(`${eGrade}年 `.length);
+                }
             }
             const cleanRank = cleanFighterSubtitle(eData.rank || '', eSchool);
             const styleTag = eData.styleTag ? eData.styleTag.replace(/[（\(）\)]/g, '').trim() : '';
@@ -6262,8 +6265,8 @@ function updateUI() {
     renderCounterPips(playerCounterPips, pCounterStacks, 3);
     renderCounterPips(enemyCounterPips, eCounterStacks, 3);
 
-    updateBadge(playerBadge, playerSpriteBox, state.playerCounterReady, state.playerGuardBroken || state.playerStunned, state.playerKiai, state.tsubazeriai, state.playerStanceStyle, 'player');
-    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle, 'enemy');
+    updateBadge(playerSpriteBox, state.playerCounterReady, state.playerGuardBroken || state.playerStunned, state.playerKiai, state.tsubazeriai, state.playerStanceStyle, 'player');
+    updateBadge(enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle, 'enemy');
 
     const inTsuba = state.tsubazeriai && !state.gameOver;
     const isJodan = state.playerStanceStyle === 'jodan';
@@ -6750,7 +6753,7 @@ function decideEnemyIntent() {
     if (!state.gameOver) {
         state.enemyAnimState = getNeutralAnim('enemy');
     }
-    updateBadge(enemyBadge, enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle, 'enemy');
+    updateBadge(enemySpriteBox, state.enemyCounterReady, state.enemyGuardBroken || state.enemyStunned, state.enemyKiai, state.tsubazeriai, state.enemyStanceStyle, 'enemy');
 
     if (state.round > 0 && prevEnemyStance !== state.enemyStanceStyle && !state.tsubazeriai && !state.enemyGuardBroken && !state.enemyStunned) {
         if (animators.enemy) {
