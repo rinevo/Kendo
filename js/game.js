@@ -94,6 +94,7 @@ const SPECIAL_TECHNIQUES = {
         power: 3,
     },
 };
+window.SPECIAL_TECHNIQUES = SPECIAL_TECHNIQUES;
 
 // 勝ち抜き五人掛け：個性・剣風・胴カラーが異なる5人の剣士データ
 const ENEMY_ROSTER = [
@@ -2303,7 +2304,9 @@ const matchStageBanner = document.getElementById('matchStageBanner');
 const matchStageBadge = document.getElementById('matchStageBadge');
 const matchIntraBadge = document.getElementById('matchIntraBadge');
 const playerSchoolText = document.getElementById('playerSchoolText');
+const playerGradeBadge = document.getElementById('playerGradeBadge');
 const enemySchoolText = document.getElementById('enemySchoolText');
+const enemyGradeBadge = document.getElementById('enemyGradeBadge');
 const enemyNameText = document.getElementById('enemyNameText');
 const enemyTitleBadge = document.getElementById('enemyTitleBadge');
 const playerTitleBadge = document.getElementById('playerTitleBadge');
@@ -2481,7 +2484,7 @@ function closeStoryDialogue() {
 function showMenkyoKaidenModal() {
     if (!menkyoKaidenModal) return;
     if (window.KendoBGM && window.KendoBGM.play) {
-        window.KendoBGM.play('gold');
+        window.KendoBGM.play('victory');
     }
     if (menkyoFellowsTributes) {
         menkyoFellowsTributes.innerHTML = '';
@@ -2507,7 +2510,7 @@ function showMenkyoKaidenModal() {
         menkyoStats.innerHTML = `
             <div class="menkyo-stats-title">🏆 試練達成戦績</div>
             <div>撃破人数: 5人（先鋒・健太 / 次鋒・佐々木 / 中堅・鬼塚 / 副将・霞 / 大将・龍禅）</div>
-            <div>最終決まり手: ${state.lastWinningMove || '面'}あり</div>
+            <div>最終決まり手: ${state.finalWinningMove || state.lastWinningMove || '面'}あり</div>
             <div>免許皆伝位: 龍神館道場 師範代之皆伝</div>
         `;
     }
@@ -2533,7 +2536,11 @@ window.addEventListener('keydown', (e) => {
             advanceStoryDialogue();
         }
     } else if (e.key === 'Escape') {
-        if (storyDialogueModal && storyDialogueModal.style.display !== 'none') {
+        const hbModal = document.getElementById('studentHandbookModal');
+        if (hbModal && hbModal.style.display !== 'none' && window.FaceGenerator && typeof window.FaceGenerator.closeHandbookModal === 'function') {
+            e.preventDefault();
+            window.FaceGenerator.closeHandbookModal();
+        } else if (storyDialogueModal && storyDialogueModal.style.display !== 'none') {
             e.preventDefault();
             skipStoryDialogue();
         } else if (menkyoKaidenModal && menkyoKaidenModal.style.display !== 'none') {
@@ -2578,6 +2585,10 @@ function clearCeremonyTimers() {
 
 function clearPendingRoundTimers() {
     clearCeremonyTimers();
+    if (state.customMatch && state.customMatch.spectateTurnTimer) {
+        clearTimeout(state.customMatch.spectateTurnTimer);
+        state.customMatch.spectateTurnTimer = null;
+    }
     if (playerStunAutoTimer) {
         clearTimeout(playerStunAutoTimer);
         playerStunAutoTimer = null;
@@ -3164,7 +3175,7 @@ function ensureAudio() {
         soundCompressor.connect(audioCtx.destination);
     }
     if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        audioCtx.resume().catch(() => {});
     }
     updateSoundMasterGain();
     return true;
@@ -4547,6 +4558,10 @@ function updateAndDrawFighter(ctx, who, flip, now) {
 
     // 1. キーフレーム連続再生中か、待機モーション（60fps呼吸・すり足）かを計算
     if (anim.keyframes) {
+        if (!Array.isArray(anim.keyframes) || anim.keyframes.length === 0) {
+            anim.keyframes = null;
+            return;
+        }
         anim.virtualElapsed += effectiveDt;
         const elapsed = anim.virtualElapsed;
         const kfs = anim.keyframes;
@@ -4587,7 +4602,7 @@ function updateAndDrawFighter(ctx, who, flip, now) {
                 }
             }
             const k0 = kfs[idx];
-            const k1 = kfs[idx + 1];
+            const k1 = kfs[idx + 1] || k0;
             const span = Math.max(1, k1.t - k0.t);
             const rawT = Math.min(1, Math.max(0, (elapsed - k0.t) / span));
             const easedT = k1.ease ? k1.ease(rawT) : rawT;
@@ -4952,10 +4967,11 @@ function triggerSpecialCutin(side, techName, isUnlocked = true, isClash = false)
 
     specialCutinTimer = setTimeout(() => {
         if (specialCutinBanner) specialCutinBanner.classList.remove('show-player', 'show-enemy', 'show-clash');
-        setTimeout(() => {
+        specialSlashTimer = setTimeout(() => {
             if (specialFxOverlay) {
                 specialFxOverlay.style.display = 'none';
             }
+            specialSlashTimer = null;
         }, 150);
         specialCutinTimer = null;
     }, 850);
@@ -5027,8 +5043,12 @@ function showClashMeter(data) {
         winner = null,
     } = data;
 
-    if (clashPlayerLabel) clashPlayerLabel.textContent = `${pMoveName} ${pSkillVal}`;
-    if (clashEnemyLabel) clashEnemyLabel.textContent = `${eMoveName} ${eSkillVal}`;
+    if (clashPlayerLabel) {
+        clashPlayerLabel.innerHTML = `${pMoveName} ${pSkillVal} <span class="clash-total-pill player" title="判定総合パワー">計 ${pScore}</span>`;
+    }
+    if (clashEnemyLabel) {
+        clashEnemyLabel.innerHTML = `<span class="clash-total-pill enemy" title="判定総合パワー">計 ${eScore}</span> ${eMoveName} ${eSkillVal}`;
+    }
     if (clashVsTag) {
         if (winner === 'player') clashVsTag.textContent = '優勢！';
         else if (winner === 'enemy') clashVsTag.textContent = '劣勢！';
@@ -5108,6 +5128,11 @@ function showClashMeter(data) {
             <div class="clash-columns">
                 <div class="clash-col player">${pBadges.length > 0 ? pBadges.join('') : '<span class="clash-empty">-</span>'}</div>
                 <div class="clash-col enemy">${eBadges.length > 0 ? eBadges.join('') : '<span class="clash-empty">-</span>'}</div>
+            </div>
+            <div class="clash-summary-row">
+                <span class="clash-summary-val player">判定計 ${pScore}</span>
+                <span class="clash-summary-vs">VS</span>
+                <span class="clash-summary-val enemy">判定計 ${eScore}</span>
             </div>
             <div class="clash-close-hint">クリックで閉じる</div>
         `;
@@ -5590,10 +5615,11 @@ function getNeutralAnim(who) {
 
 function renderPips(container, count, maxKiai = 3) {
     if (!container) return;
+    const safeMax = Math.max(1, maxKiai || 3);
     let pips = container.querySelectorAll('.kiai-pip');
-    if (pips.length !== maxKiai) {
+    if (pips.length !== safeMax) {
         container.innerHTML = '';
-        for (let i = 0; i < maxKiai; i++) {
+        for (let i = 0; i < safeMax; i++) {
             const pip = document.createElement('span');
             pip.className = 'kiai-pip';
             container.appendChild(pip);
@@ -5602,17 +5628,18 @@ function renderPips(container, count, maxKiai = 3) {
     }
     pips.forEach((pip, idx) => {
         pip.classList.toggle('filled', idx < count);
-        pip.classList.toggle('max-glow', count >= maxKiai);
+        pip.classList.toggle('max-glow', count >= safeMax);
         pip.classList.toggle('special-ready', count >= 3 && idx === 2);
     });
 }
 
 function renderCounterPips(container, count, maxStacks = 3) {
     if (!container) return;
+    const safeMax = Math.max(1, maxStacks || 3);
     let pips = container.querySelectorAll('.counter-pip');
-    if (pips.length !== maxStacks) {
+    if (pips.length !== safeMax) {
         container.innerHTML = '';
-        for (let i = 0; i < maxStacks; i++) {
+        for (let i = 0; i < safeMax; i++) {
             const pip = document.createElement('span');
             pip.className = 'counter-pip';
             container.appendChild(pip);
@@ -5621,17 +5648,18 @@ function renderCounterPips(container, count, maxStacks = 3) {
     }
     pips.forEach((pip, idx) => {
         pip.classList.toggle('filled', idx < count);
-        pip.classList.toggle('max-glow', count >= maxStacks);
+        pip.classList.toggle('max-glow', count >= safeMax);
     });
 }
 
 function renderHealthPips(container, hp, maxHp) {
     if (!container) return;
-    const count = Math.max(0, Math.min(hp, maxHp));
+    const safeMax = Math.max(1, maxHp || 5);
+    const count = Math.max(0, Math.min(hp, safeMax));
     let pips = container.querySelectorAll('.health-pip');
-    if (pips.length !== maxHp) {
+    if (pips.length !== safeMax) {
         container.innerHTML = '';
-        for (let i = 0; i < maxHp; i++) {
+        for (let i = 0; i < safeMax; i++) {
             const pip = document.createElement('span');
             pip.className = 'health-pip';
             container.appendChild(pip);
@@ -5779,6 +5807,8 @@ function updateStanceBarUI() {
 
 function selectStanceStyle(style) {
     if (style !== 'chudan' && style !== 'jodan' && style !== 'waki') return;
+    if (state.customMatch && state.customMatch.isSpectating) return;
+    if (state.gameOver) return;
     if (pendingRoundCallback) {
         flushPendingRound();
     }
@@ -6076,8 +6106,21 @@ function updateUI() {
         if (playerNameText) {
             playerNameText.textContent = pData.name || 'あなた';
         }
+        const pGrade = pData.grade || (pData.roleTitle && pData.roleTitle.match(/([1-3])年/)?.[1]);
+        if (playerGradeBadge) {
+            if (pGrade) {
+                playerGradeBadge.textContent = `${pGrade}年`;
+                playerGradeBadge.style.display = 'inline-block';
+            } else {
+                playerGradeBadge.textContent = '';
+                playerGradeBadge.style.display = 'none';
+            }
+        }
         if (playerTitleBadge) {
             let cleanTitle = cleanFighterSubtitle(pData.roleTitle || '', pSchool);
+            if (pGrade && cleanTitle.startsWith(`${pGrade}年・`)) {
+                cleanTitle = cleanTitle.substring(`${pGrade}年・`.length);
+            }
             setFighterSubtitleText(playerTitleBadge, cleanTitle);
         }
     } else {
@@ -6086,6 +6129,10 @@ function updateUI() {
             playerSchoolText.style.display = 'none';
         }
         if (playerNameText) playerNameText.textContent = 'あなた';
+        if (playerGradeBadge) {
+            playerGradeBadge.textContent = '';
+            playerGradeBadge.style.display = 'none';
+        }
         if (playerTitleBadge) {
             const pTitle = state.clearedStages.size === ENEMY_ROSTER.length
                 ? '🏆 天下無双・五人掛け覇者'
@@ -6129,8 +6176,21 @@ function updateUI() {
         if (enemyNameText) {
             enemyNameText.textContent = eName;
         }
+        const eGrade = eData.grade || (eData.role && eData.role.match(/([1-3])年/)?.[1]);
+        if (enemyGradeBadge) {
+            if (eGrade) {
+                enemyGradeBadge.textContent = `${eGrade}年`;
+                enemyGradeBadge.style.display = 'inline-block';
+            } else {
+                enemyGradeBadge.textContent = '';
+                enemyGradeBadge.style.display = 'none';
+            }
+        }
         if (enemyTitleBadge) {
-            const cleanEnemyRole = cleanFighterSubtitle(eData.role || '', eSchool);
+            let cleanEnemyRole = cleanFighterSubtitle(eData.role || '', eSchool);
+            if (eGrade && cleanEnemyRole.startsWith(`${eGrade}年・`)) {
+                cleanEnemyRole = cleanEnemyRole.substring(`${eGrade}年・`.length);
+            }
             const cleanRank = cleanFighterSubtitle(eData.rank || '', eSchool);
             const styleTag = eData.styleTag ? eData.styleTag.replace(/[（\(）\)]/g, '').trim() : '';
 
@@ -6154,9 +6214,24 @@ function updateUI() {
             enemySchoolText.style.display = 'none';
         }
         if (enemyNameText) enemyNameText.textContent = enemyData.name;
+        if (enemyGradeBadge) {
+            enemyGradeBadge.textContent = '';
+            enemyGradeBadge.style.display = 'none';
+        }
         if (enemyTitleBadge) {
             const cleanEnemyRole = (enemyData.role || '').replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
-            const subtitle = `${cleanEnemyRole}・${enemyData.rank}（${enemyData.styleTag}）`;
+            const cleanRank = (enemyData.rank && String(enemyData.rank).trim()) || '';
+            const styleTag = enemyData.styleTag ? enemyData.styleTag.replace(/[（\(）\)]/g, '').trim() : '';
+            const roleParts = [cleanEnemyRole, cleanRank].filter(Boolean);
+            const roleText = roleParts.join('・');
+            let subtitle = '';
+            if (roleText && styleTag) {
+                subtitle = `${roleText}（${styleTag}）`;
+            } else if (roleText) {
+                subtitle = roleText;
+            } else if (styleTag) {
+                subtitle = styleTag;
+            }
             setFighterSubtitleText(enemyTitleBadge, subtitle);
         }
     }
@@ -6387,7 +6462,7 @@ function analyzePlayerPattern(history, enemyData) {
     const agiBonus = Math.max(0, (agi - 10) * 0.02);
     learnChance = Math.min(0.98, 0.85 + spiBonus + agiBonus);
 
-    // クラシック5人掛けの1人目（初心者・森）でも連続ワンパターンなら75%で見切る
+    // クラシック5人掛けの1人目（初段・健太）でも連続ワンパターンなら75%で見切る
     if (state.stageIndex === 0 && !(state.customMatch && state.customMatch.active)) {
         learnChance = 0.75;
     }
@@ -6506,6 +6581,7 @@ function analyzePlayerPattern(history, enemyData) {
 // 敵AIの次ターンの気配（剣士ごとの思考傾向）を決定
 function decideEnemyIntent() {
     const enemyData = getCurrentEnemy();
+    const eShort = (enemyData && (enemyData.shortName || enemyData.name)) || '相手';
     if (state.matchPhase === 'pre_match') {
         intentBox.className = 'intent-box';
         intentText.textContent = '静かに間合いを測り、立ち合いの合図を待っています…';
@@ -6635,13 +6711,22 @@ function decideEnemyIntent() {
                     };
                 }
             } else {
-                const patterns = enemyData.patterns;
+                const patterns = (enemyData && Array.isArray(enemyData.patterns) && enemyData.patterns.length > 0)
+                    ? enemyData.patterns
+                    : [
+                        {
+                            stance: 'chudan',
+                            hint: `⚔️【中段の構え】${eShort}は静かに構え、機を窺っている…`,
+                            isDanger: false,
+                            weights: { 面: 35, 小手: 30, 胴: 25, 突き: 10, 防御: 0, 崩し: 0 },
+                        }
+                    ];
                 const picked = patterns[Math.floor(Math.random() * patterns.length)];
                 intent = {
-                    stance: picked.stance || 'chudan',
-                    hint: picked.hint,
-                    isDanger: picked.isDanger,
-                    weights: { ...picked.weights },
+                    stance: (picked && picked.stance) || 'chudan',
+                    hint: (picked && picked.hint) || `⚔️【中段の構え】${eShort}は静かに構えている…`,
+                    isDanger: !!(picked && picked.isDanger),
+                    weights: (picked && picked.weights) ? { ...picked.weights } : { 面: 35, 小手: 30, 胴: 25, 突き: 10, 防御: 0, 崩し: 0 },
                 };
             }
         }
@@ -6651,7 +6736,7 @@ function decideEnemyIntent() {
     if (state.enemyStunned || state.enemyGuardBroken) {
         intent.stance = 'chudan';
         intent.weights = { スキップ: 100 };
-        intent.hint = `💫 【体勢崩壊中】${enemyData.shortName}は体勢を崩しており無防備！好機、一気に打ち込め！`;
+        intent.hint = `💫 【体勢崩壊中】${eShort}は体勢を崩しており無防備！好機、一気に打ち込め！`;
         intent.isDanger = false;
     }
 
@@ -6689,10 +6774,10 @@ function chooseEnemyAction() {
     if (enemyActionOverride !== null) {
         return typeof enemyActionOverride === 'function' ? enemyActionOverride() : enemyActionOverride;
     }
-    if (!state.enemyIntent) {
+    if (!state.enemyIntent || !state.enemyIntent.weights) {
         decideEnemyIntent();
     }
-    const weights = state.enemyIntent.weights;
+    const weights = (state.enemyIntent && state.enemyIntent.weights) || { 面: 50, 小手: 30, 胴: 20 };
     const entries = Object.entries(weights).filter(([, w]) => w > 0);
     const total = entries.reduce((sum, [, w]) => sum + w, 0);
     let r = Math.random() * total;
@@ -6700,7 +6785,7 @@ function chooseEnemyAction() {
         if (r < w) return act;
         r -= w;
     }
-    return entries[0][0];
+    return (entries.length > 0 && entries[0]) ? entries[0][0] : '面';
 }
 
 function chooseFriendlyAIAction() {
@@ -6758,6 +6843,14 @@ function chooseFriendlyAIAction() {
         if (!isBroken) wDefend += 12;
         wDo += 10;
     }
+    if (inTsuba) {
+        wDefend = 0;
+        wBreak = Math.max(0, wBreak - 4);
+        wMen += 14;
+        wKote += 10;
+        wDo += 10;
+        wTsuki += 8;
+    }
 
     const pool = [
         { act: '面', w: wMen },
@@ -6774,7 +6867,7 @@ function chooseFriendlyAIAction() {
         if (r < item.w) return item.act;
         r -= item.w;
     }
-    return pool[0].act;
+    return (pool.length > 0 && pool[0]) ? pool[0].act : '面';
 }
 
 function scheduleNextSpectateTurn(delayMs = 1200) {
@@ -6866,7 +6959,9 @@ function proceedOpeningCeremony() {
     state.matchPhase = 'opening_ceremony';
 
     // 敵の初手パターン・構えをあらかじめ決定しておく
-    const patterns = enemyData.patterns;
+    const patterns = (enemyData.patterns && enemyData.patterns.length > 0)
+        ? enemyData.patterns
+        : [{ stance: 'chudan', hint: '油断なき構え', isDanger: false, weights: { 面: 25, 小手: 25, 胴: 25, 突き: 15, 防御: 10 } }];
     const picked = patterns[Math.floor(Math.random() * patterns.length)];
     state.enemyStanceStyle = picked.stance || 'chudan';
     if (state.enemyStanceStyle === 'jodan' && picked.weights['防御'] > 0) {
@@ -6957,7 +7052,8 @@ function proceedOpeningCeremony() {
             updateStatus(`始め！【指名特訓】${enemyData.shortName}との実戦稽古開始！技を選んで打ち込め！`, 'neutral');
         } else {
             const cleanRole = (enemyData.role || '').replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
-            updateStatus(`始め！【${cleanRole}】${enemyData.name}（${enemyData.rank}）との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
+            const cleanRank = (enemyData.rank && String(enemyData.rank).trim()) ? `（${String(enemyData.rank).trim()}）` : '';
+            updateStatus(`始め！【${cleanRole}】${enemyData.name}${cleanRank}との立ち合い開始！構えと技を選んで打ち込め！`, 'neutral');
         }
     };
     pendingRoundTimer = setTimeout(() => {
@@ -7110,6 +7206,10 @@ function playRound(playerAction) {
     }
 
     if (state.gameOver) {
+        if (state.customMatch && state.customMatch.active) {
+            window.KendoGameEngine.returnFromCombatToClub();
+            return;
+        }
         if (state.lastOutcome === 'victory' && state.stageIndex < ENEMY_ROSTER.length - 1) {
             advanceStage();
         } else {
@@ -7174,8 +7274,6 @@ function playRound(playerAction) {
     const eCounterStacks = state.enemyCounterStacks || (eCounter ? 1 : 0);
     state.playerCounterReady = false;
     state.enemyCounterReady = false;
-    state.playerCounterStacks = 0;
-    state.enemyCounterStacks = 0;
     state.playerCounterStacks = 0;
     state.enemyCounterStacks = 0;
     state.playerGuardBroken = false;
@@ -7702,6 +7800,8 @@ function playRound(playerAction) {
         impactSound = 'clash';
         popups.push(
             { who: 'player', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
+            { who: 'enemy', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
+            { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = { winner: 'both', mainText: '鍔迫り合い突入！', subText: '💥 次ターン 引き技(2ダメ)チャンス' };
@@ -7758,7 +7858,7 @@ function playRound(playerAction) {
         }
         if (dmg > 0) {
             popups.push(
-                { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : `-1`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
+                { who: 'enemy', text: isBoosted ? `-${dmg} ${pMoveName}！` : `-${dmg}`, styleClass: isBoosted ? 'popup-crit' : 'popup-dmg' },
                 { who: 'enemy', text: '気合 0！', styleClass: 'popup-break' }
             );
         }
@@ -7951,6 +8051,8 @@ function playRound(playerAction) {
                 shakeTargets.push({ el: playerSpriteBox, isHeavy: false }, { el: enemySpriteBox, isHeavy: false });
                 popups.push(
                     { who: 'player', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
+                    { who: 'enemy', text: '💥 鍔迫り合い！', styleClass: 'popup-counter' },
+                    { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' },
                     { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
                 );
                 calloutData = {
@@ -8041,7 +8143,6 @@ function playRound(playerAction) {
                 else if (pSkillVal - eSkillVal >= 10) pReasonBadge = `⚡ 技量圧倒 (${pSkillVal} vs ${eSkillVal})`;
                 else if (pStrBonus - eStrBonus >= 3) pReasonBadge = `💪 剛腕押し切り (+${pStrBonus})`;
                 else if (pBuff.scoreBonus >= 10) pReasonBadge = `🔥 気迫制覇 (${pBuff.label})`;
-                else if (pCounter) pReasonBadge = '🌊 応じ技一閃';
 
                 statusType = (dmg > 0) ? 'victory' : 'neutral';
                 impactSound = (dmg > 0) ? (isBoosted ? 'special' : 'attack') : 'block';
@@ -8092,7 +8193,7 @@ function playRound(playerAction) {
                     winner: null,
                     mainText: '有効打突なし',
                     subText: '相手の打突浅し',
-                    reasonBadge: '相手の技術未熟（不発）',
+                    reasonBadge: '⚠️ 相手の技術未熟（不発）',
                 };
             } else {
                 const eJodanBonus = (eJodan && enemyAction === '面') ? 1 : 0;
@@ -8238,12 +8339,21 @@ function playRound(playerAction) {
         state.finalWinningKana = convertToKana(enemyAction, eMoveName);
         impactWeight = 'heavy';
         endGameSound = 'lose';
-        finalStatusMessage = `敗北… ${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。`;
+        const isSpectating = state.customMatch && state.customMatch.isSpectating;
+        const pData = state.customMatch && state.customMatch.player;
+        const pDisplayName = pData
+            ? (isSpectating ? pData.name : (pData.name === 'あなた' ? 'あなた' : `${pData.name}（あなた）`))
+            : 'あなた';
+        const eShort = enemyData.shortName || enemyData.name || '相手';
+
+        finalStatusMessage = isSpectating
+            ? `【観戦終了】${pDisplayName}が${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。`
+            : `敗北… ${enemyData.role}【${enemyData.name}】に第${state.round}合で敗れました。`;
         finalStatusType = 'defeat';
         calloutData = {
             winner: 'enemy',
             mainText: '勝負あり！',
-            subText: `🏳️ 白（${enemyData.shortName}）の勝利（${eMoveName}）`,
+            subText: `🏳️ 白（${eShort}）の勝利（${eMoveName}）`,
             isCritical: false,
         };
     } else if (state.enemyHealth <= 0) {
@@ -8325,7 +8435,13 @@ function playRound(playerAction) {
     // 1. アニメーション開始時：前回の旗表示を消し、立ち合い中テキストを表示してボタンを一時ロック
     hideRefereeCallout();
     setActionButtonsLocked(true);
-    updateStatus(`第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: あなた【${pMoveName}】 vs ${enemyData.shortName}【${eMoveName}】 — 立ち合い…！`, 'neutral');
+    const isSpectating = state.customMatch && state.customMatch.isSpectating;
+    const pData = state.customMatch && state.customMatch.player;
+    const pDisplayName = pData
+        ? (isSpectating ? pData.name : (pData.name === 'あなた' ? 'あなた' : `${pData.name}（あなた）`))
+        : 'あなた';
+    const eShort = enemyData.shortName || enemyData.name || '相手';
+    updateStatus(`第${state.round}合${inTsuba ? '【鍔迫り合い】' : ''}: ${pDisplayName}【${pMoveName}】 vs ${eShort}【${eMoveName}】 — 立ち合い…！`, 'neutral');
     if (intentText) intentText.textContent = inTsuba ? '💥 鍔迫り合いから技が交錯しています…' : '⚔️ 技が交錯しています…';
 
     // ⚔️ 競り合いクラッシュメーターの展開（基本打突の激突判定時）
@@ -8511,6 +8627,7 @@ function resetGame() {
     state.playerStunned = false;
     state.enemyStunned = false;
     state.tsubazeriai = false;
+    state.playerStanceStyle = 'chudan';
     state.enemyStanceStyle = 'chudan';
     state.matchPhase = 'pre_match';
     state.round = 0;
@@ -8561,10 +8678,12 @@ function resetGame() {
         } else {
             const isIndiv = (state.customMatch && state.customMatch.isIndividual) || (enemyData.role && (enemyData.role.includes('回戦') || enemyData.role.includes('決勝')));
             const prefix = isIndiv ? `【${enemyData.role}】` : `【団体戦・${enemyData.role}戦】`;
-            updateStatus(`${prefix}${enemyData.name}${enemyData.rank ? `（${enemyData.rank}）` : ''}`, 'neutral');
+            const cleanRank = (enemyData.rank && String(enemyData.rank).trim()) ? `（${String(enemyData.rank).trim()}）` : '';
+            updateStatus(`${prefix}${enemyData.name}${cleanRank}`, 'neutral');
         }
     } else {
-        updateStatus(`【${enemyData.role}戦】${enemyData.name}（${enemyData.rank}）`, 'neutral');
+        const cleanRank = (enemyData.rank && String(enemyData.rank).trim()) ? `（${String(enemyData.rank).trim()}）` : '';
+        updateStatus(`【${enemyData.role}戦】${enemyData.name}${cleanRank}`, 'neutral');
     }
 }
 
@@ -8665,8 +8784,11 @@ window.KendoGameEngine = {
             const r = Math.random();
             return r < 0.45 ? 'メ' : (r < 0.75 ? 'コ' : (r < 0.95 ? 'ド' : 'ツ'));
         };
-        const winningKana = state.finalWinningKana || ((state.scoringMoves && state.scoringMoves.player && state.scoringMoves.player.length)
-            ? state.scoringMoves.player[state.scoringMoves.player.length - 1]
+        const targetScores = isPlayerWin
+            ? (state.scoringMoves && state.scoringMoves.player)
+            : (state.scoringMoves && state.scoringMoves.enemy);
+        const winningKana = state.finalWinningKana || ((targetScores && targetScores.length)
+            ? targetScores[targetScores.length - 1]
             : randomTech());
         const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
         const winningMove = getBaseMoveName(rawWinningMove, winningKana);
@@ -8717,6 +8839,12 @@ window.KendoGameEngine = {
 
     // 試合終了後に団体戦スコアボードへ戻る
     returnFromCombatToClub: function () {
+        clearPendingRoundTimers();
+        clearCeremonyTimers();
+        hideRefereeCallout();
+        hideClashMeter();
+        hideSpecialCutin();
+        hideSpeechBubbles();
         if (state.customMatch && typeof state.customMatch.onComplete === 'function') {
             const cb = state.customMatch.onComplete;
             const isDraw = state.lastOutcome === 'draw' || (state.playerHealth <= 0 && state.enemyHealth <= 0);
@@ -8764,6 +8892,11 @@ window.KendoGameEngine = {
 
     // モード選択メニュー（タイトル画面）を表示
     showModeSelect: function () {
+        clearPendingRoundTimers();
+        hideRefereeCallout();
+        hideClashMeter();
+        hideSpecialCutin();
+        hideSpeechBubbles();
         const modeSelectScreen = document.getElementById('modeSelectScreen');
         const headerModeBar = document.getElementById('headerModeBar');
         const classicStageWrap = document.getElementById('classicStageBarWrap');
@@ -8856,6 +8989,11 @@ window.KendoGameEngine = {
     },
 
     showClubScreen: function () {
+        clearPendingRoundTimers();
+        hideRefereeCallout();
+        hideClashMeter();
+        hideSpecialCutin();
+        hideSpeechBubbles();
         const modeSelectScreen = document.getElementById('modeSelectScreen');
         const headerModeBar = document.getElementById('headerModeBar');
         const classicStageWrap = document.getElementById('classicStageBarWrap');

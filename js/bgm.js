@@ -41,6 +41,10 @@
             url: 'bgm/Gold_in_the_Dojo.mp3',
             loop: false, // 大会優勝・表彰状表示画面は1回のみ再生（ループなし）
         },
+        gold: {
+            url: 'bgm/Gold_in_the_Dojo.mp3',
+            loop: false, // 免許皆伝・完全制覇画面（エイリアス）
+        },
         tournament: null,
         farewell: {
             url: 'bgm/The_Sunlit_Dojo.mp3',

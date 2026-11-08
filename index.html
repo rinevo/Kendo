@@ -128,12 +128,20 @@
                         <div class="fighter-card-photo-wrap" id="playerCardPhotoWrap"></div>
                         <div class="fighter-card-info-col">
                             <div class="fighter-school" id="playerSchoolText"></div>
-                            <div class="fighter-name"><span id="playerNameText">あなた</span> <span class="corner-tag red-tag">赤</span></div>
+                            <div class="fighter-name">
+                                <span id="playerNameText">あなた</span>
+                            </div>
                             <div class="fighter-subtitle" id="playerTitleBadge">挑戦者・五人掛け</div>
                         </div>
                     </div>
                     <div class="health-pips" id="playerHealthPips" aria-label="プレイヤー体力ゲージ"></div>
-                    <div class="fighter-radar-box" id="playerRadarBox"></div>
+                    <div class="fighter-radar-wrap" id="playerRadarWrap">
+                        <div class="fighter-badges-overlay" id="playerBadgesOverlay">
+                            <span class="fighter-grade-badge" id="playerGradeBadge" style="display: none;"></span>
+                            <span class="corner-tag red-tag">赤</span>
+                        </div>
+                        <div class="fighter-radar-box" id="playerRadarBox"></div>
+                    </div>
                     <div class="kiai-row">
                         <span class="kiai-label" id="playerKiaiText">気合: 0 / 3</span>
                         <div class="kiai-pips" id="playerKiaiPips">
@@ -207,12 +215,20 @@
                     <div class="fighter-card-photo-wrap" id="enemyCardPhotoWrap"></div>
                     <div class="fighter-card-info-col">
                         <div class="fighter-school" id="enemySchoolText"></div>
-                        <div class="fighter-name"><span id="enemyNameText">門下生・健太</span> <span class="corner-tag white-tag">白</span></div>
+                        <div class="fighter-name">
+                            <span id="enemyNameText">門下生・健太</span>
+                        </div>
                         <div class="fighter-subtitle" id="enemyTitleBadge">先鋒・初段（素直な面打ち）</div>
                     </div>
                 </div>
                 <div class="health-pips" id="enemyHealthPips" aria-label="相手体力ゲージ"></div>
-                <div class="fighter-radar-box" id="enemyRadarBox"></div>
+                <div class="fighter-radar-wrap" id="enemyRadarWrap">
+                    <div class="fighter-badges-overlay" id="enemyBadgesOverlay">
+                        <span class="fighter-grade-badge" id="enemyGradeBadge" style="display: none;"></span>
+                        <span class="corner-tag white-tag">白</span>
+                    </div>
+                    <div class="fighter-radar-box" id="enemyRadarBox"></div>
+                </div>
                 <div class="kiai-row">
                     <span class="kiai-label" id="enemyKiaiText">気合: 0 / 3</span>
                     <div class="kiai-pips" id="enemyKiaiPips">

@@ -56,7 +56,6 @@
     const UNIFORMS = [
         { id: 'gakuran', name: '学ラン（詰襟）' },
         { id: 'blazer_tie', name: 'ブレザー（タイ）' },
-        { id: 'blazer_ribbon', name: 'ブレザー（リボン）' },
         { id: 'shirt', name: '白ワイシャツ' },
         { id: 'dougi_white', name: '白稽古着' },
         { id: 'dougi_navy', name: '紺稽古着' }
@@ -71,6 +70,7 @@
         { id: 'mole_eye', weight: 5 } // 泣きぼくろ
     ];
 
+    // 男子高校生・高校剣士らしい髪型（短髪・坊主・マッシュ・ツーブロック等）
     const HAIR_STYLES = [
         'short_sporty', // 剣道ショート
         'buzz_cut',      // 気合の坊主・丸刈り
@@ -78,9 +78,6 @@
         'center_part',   // センター分け
         'spiky',         // スパイキーショート
         'two_block',     // 爽やかツーブロック
-        'ponytail',      // すっきりポニーテール
-        'bob_cut',       // ナチュラルボブ
-        'medium_wave',   // セミロング・ミディアム
         'side_part',     // 七三・優等生
         'all_back',      // オールバック・威風
         'messy_short'    // 癖毛風ショート
@@ -90,11 +87,14 @@
 
     const FaceGenerator = {
         /**
-         * 顔データオブジェクトを生成する
+         * 顔データオブジェクトを生成する（男子高校生限定）
          * @param {Object} options { seed, name, gender, isPlayer, uniformType }
          */
         generateFace: function (options = {}) {
-            const seedVal = options.seed !== undefined ? options.seed : (options.name || Math.random() * 1000000);
+            const opts = (options && typeof options === 'object')
+                ? options
+                : (typeof options === 'string' || typeof options === 'number' ? { seed: options } : {});
+            const seedVal = opts.seed !== undefined ? opts.seed : (opts.name || Math.random() * 1000000);
             const rng = createRng(seedVal);
 
             const skin = pickRandom(SKIN_COLORS, rng);
@@ -103,16 +103,16 @@
             const hairStyle = pickRandom(HAIR_STYLES, rng);
             const bgStyle = pickRandom(BG_STYLES, rng);
 
-            // 服装の決定
-            let uniformType = options.uniformType;
+            // 服装の決定（男子高校生制服：学ラン、ネクタイブレザー、夏服ワイシャツ、稽古着）
+            let uniformType = opts.uniformType;
             if (!uniformType) {
-                // デフォルトは学ランかブレザー中心、稀に道着
                 const uRand = rng();
-                if (uRand < 0.40) uniformType = 'gakuran';
-                else if (uRand < 0.70) uniformType = 'blazer_tie';
-                else if (uRand < 0.85) uniformType = 'blazer_ribbon';
-                else if (uRand < 0.93) uniformType = 'shirt';
+                if (uRand < 0.45) uniformType = 'gakuran';
+                else if (uRand < 0.80) uniformType = 'blazer_tie';
+                else if (uRand < 0.90) uniformType = 'shirt';
                 else uniformType = (rng() < 0.5 ? 'dougi_navy' : 'dougi_white');
+            } else if (uniformType === 'blazer_ribbon' && seedVal !== 'boss_kasumi') {
+                uniformType = 'blazer_tie';
             }
 
             // アクセサリーの決定（重み付け）
@@ -161,16 +161,32 @@
                 face = this.generateFace({ seed: face?.seed || 'default' });
             }
 
+            const rOpts = (renderOptions && typeof renderOptions === 'object') ? renderOptions : {};
             const {
                 withFrame = true,
                 stampText = '青雲証',
                 schoolName = '青雲高校'
-            } = renderOptions;
+            } = rOpts;
 
             const skin = face.skin || SKIN_COLORS[1];
             const hair = face.hairColor || HAIR_COLORS[0];
             const bg = face.bgStyle || BG_STYLES[0];
-            const hairStyle = face.hairStyle || 'short_sporty';
+
+            // 男子高校生制服・髪型への自動後方互換マッピング（五人掛けボスの霞を除く）
+            let effectiveHairStyle = face.hairStyle || 'short_sporty';
+            let effectiveUniform = face.uniformType || 'gakuran';
+            if (face.seed !== 'boss_kasumi') {
+                if (effectiveUniform === 'blazer_ribbon') {
+                    effectiveUniform = 'blazer_tie';
+                }
+                if (effectiveHairStyle === 'ponytail') {
+                    effectiveHairStyle = 'short_sporty';
+                } else if (effectiveHairStyle === 'bob_cut') {
+                    effectiveHairStyle = 'mash_natural';
+                } else if (effectiveHairStyle === 'medium_wave') {
+                    effectiveHairStyle = 'messy_short';
+                }
+            }
 
             // SVG内部サイズ：120 x 160（証明写真の標準 3:4 比率）
             let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="${width}" height="${height}" class="student-face-svg" style="display:block; border-radius:inherit; overflow:hidden;">`;
@@ -209,7 +225,7 @@
             svg += `<circle cx="60" cy="70" r="50" fill="white" opacity="0.08" />`;
 
             // 3. 後ろ髪（ポニーテールやボブなど後ろに髪が出る場合）
-            svg += this._renderBackHair(hairStyle, `url(#${hairGradId})`);
+            svg += this._renderBackHair(effectiveHairStyle, `url(#${hairGradId})`);
 
             // 4. 首と首の影
             svg += `
@@ -218,7 +234,7 @@
             `;
 
             // 5. 服装（学生服 / 制服 / 道着）
-            svg += this._renderUniform(face.uniformType);
+            svg += this._renderUniform(effectiveUniform);
 
             // 6. 耳
             svg += `
@@ -231,10 +247,10 @@
             // 7. 顔の輪郭（ベース）
             svg += this._renderFaceShape(face.faceShape, skin.base, skin.shadow);
 
-            // 8. 頬のチーク（ほんのり血色）
+            // 8. 頬のチーク（ほんのり血色・男子高校生向けに自然な透明度）
             svg += `
-                <circle cx="46" cy="85" r="7" fill="${skin.blush}" opacity="0.32" />
-                <circle cx="74" cy="85" r="7" fill="${skin.blush}" opacity="0.32" />
+                <circle cx="46" cy="85" r="7" fill="${skin.blush}" opacity="0.18" />
+                <circle cx="74" cy="85" r="7" fill="${skin.blush}" opacity="0.18" />
             `;
 
             // 9. 鼻
@@ -253,7 +269,7 @@
             svg += this._renderAccessory(face.accessory);
 
             // 14. 前髪・メインヘア
-            svg += this._renderFrontHair(hairStyle, `url(#${hairGradId})`, hair.highlight);
+            svg += this._renderFrontHair(effectiveHairStyle, `url(#${hairGradId})`, hair.highlight);
 
             // 15. 生徒手帳風の割り印 / スタンプ（角印・割印）
             if (withFrame) {
@@ -808,8 +824,12 @@
                 tensho_tsuki: { name: '天翔諸手突き', type: '突き', reqStat: 'tsuki', reqVal: 60 }
             };
 
-            const techInfo = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[member.specialTechnique])
-                ? SPECIAL_TECHNIQUES[member.specialTechnique]
+            const allSpecialTechs = (typeof window !== 'undefined' && window.SPECIAL_TECHNIQUES)
+                ? window.SPECIAL_TECHNIQUES
+                : (typeof SPECIAL_TECHNIQUES !== 'undefined' ? SPECIAL_TECHNIQUES : null);
+
+            const techInfo = (allSpecialTechs && allSpecialTechs[member.specialTechnique])
+                ? allSpecialTechs[member.specialTechnique]
                 : TECH_NAMES[member.specialTechnique];
 
             let specialTechLabel = '基本面';

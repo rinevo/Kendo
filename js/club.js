@@ -12,6 +12,7 @@
     'use strict';
 
     const SAVE_KEY = 'kendo_nationwide_cycle_save_v2';
+    const PERMANENT_PERKS_KEY = 'kendo_club_permanent_perks_v1';
 
     // ───────────────────────────────────────────
     // マスターデータ（47都道府県・ランダム生成用）
@@ -1772,13 +1773,24 @@
         return m;
     }
 
+    // 必殺技・得意技データの安全な取得ヘルパー
+    function getSpecialTechniqueData(techId) {
+        const id = techId || 'hien_men';
+        if (typeof window !== 'undefined' && window.SPECIAL_TECHNIQUES && window.SPECIAL_TECHNIQUES[id]) {
+            return window.SPECIAL_TECHNIQUES[id];
+        }
+        if (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[id]) {
+            return SPECIAL_TECHNIQUES[id];
+        }
+        return null;
+    }
+
     // 部員の得意技バッジHTML生成
     function getMemberSpecialTechBadgeHtml(m) {
         if (!m) return '';
         const techId = m.specialTechnique || 'hien_men';
-        const tech = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[techId])
-            ? SPECIAL_TECHNIQUES[techId]
-            : { name: '飛燕二段面', type: '面', reqStat: 'men', reqVal: 38, desc: '電光石火の二段面' };
+        const tech = getSpecialTechniqueData(techId)
+            || { name: '飛燕二段面', type: '面', reqStat: 'men', reqVal: 38, desc: '電光石火の二段面' };
         const currentVal = (m.skills && m.skills[tech.reqStat]) || 0;
         const isUnlocked = currentVal >= tech.reqVal;
         if (isUnlocked) {
@@ -1872,6 +1884,7 @@
         isRestPosture: false,           // 休養後に納刀状態で待機するフラグ
         specialPracticeAttacks: null,   // マンツーマン特別指導時の主将・指名部員のランダム攻撃情報
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
+        captainAutoUnlocked: false,  // 全国制覇特典：主将の試合自動化解放フラグ（周回引き継ぎ対応）
         captainAutoMode: false,      // 全国制覇特典：主将の試合も自動化（オート観戦・即時判定）フラグ
         eventHistoryByYear: {},      // 年度ごとのイベント発生履歴 { [year]: [eventId, ...] } （1年に同一イベントは最大1回）
         history: [],                 // 歴代年表 [{ year, captainName, districtResult, nationalResult, interhighDistrictResult, interhighNationalResult }]
@@ -1888,6 +1901,9 @@
     // ───────────────────────────────────────────
     function saveClubData() {
         try {
+            if (Array.isArray(ClubState.activityLog) && ClubState.activityLog.length > 50) {
+                ClubState.activityLog.length = 50;
+            }
             const data = {
                 isConfigured: ClubState.isConfigured,
                 schoolName: ClubState.schoolName,
@@ -1920,6 +1936,7 @@
                 selectedPracticeMenu: ClubState.selectedPracticeMenu,
                 memberGridScrollLeft: ClubState.memberGridScrollLeft,
                 isRestPosture: !!ClubState.isRestPosture,
+                captainAutoUnlocked: !!ClubState.captainAutoUnlocked,
                 captainAutoMode: !!ClubState.captainAutoMode,
                 lastRetiredSeniors: ClubState.lastRetiredSeniors,
                 eventHistoryByYear: ClubState.eventHistoryByYear || {},
@@ -1927,6 +1944,9 @@
                 stats: ClubState.stats,
             };
             localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+            if (ClubState.captainAutoUnlocked || hasWonNationalChampionship()) {
+                setPermanentPerk('captainAutoUnlocked', true);
+            }
         } catch (e) {
             console.error('Failed to save club data', e);
         }
@@ -1975,6 +1995,7 @@
                 });
             }
             if (Array.isArray(data.order)) ClubState.order = data.order;
+            sanitizeOrder();
             ClubState.qualifiedForNational = !!data.qualifiedForNational;
             ClubState.qualifiedForInterhigh = !!data.qualifiedForInterhigh;
             ClubState.interhighQualifiedMemberIds = Array.isArray(data.interhighQualifiedMemberIds) ? data.interhighQualifiedMemberIds : [];
@@ -2011,6 +2032,13 @@
                 if (!ClubState.stats.national) ClubState.stats.national = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
                 if (!ClubState.stats.interhighDistrict) ClubState.stats.interhighDistrict = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
                 if (!ClubState.stats.interhighNational) ClubState.stats.interhighNational = { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 };
+            }
+            const permPerks = getPermanentPerks();
+            const isUnlocked = !!(data.captainAutoUnlocked || (permPerks && permPerks.captainAutoUnlocked) || hasWonNationalChampionship());
+            ClubState.captainAutoUnlocked = isUnlocked;
+            ClubState.captainAutoMode = isUnlocked ? !!data.captainAutoMode : false;
+            if (isUnlocked) {
+                setPermanentPerk('captainAutoUnlocked', true);
             }
             return true;
         } catch (e) {
@@ -2269,7 +2297,12 @@
     }
 
     function resetClubData() {
-        localStorage.removeItem(SAVE_KEY);
+        const wasUnlocked = isCaptainAutoUnlocked();
+        try {
+            localStorage.removeItem(SAVE_KEY);
+        } catch (e) {
+            console.warn('Failed to remove localStorage item', e);
+        }
         ClubState.isConfigured = false;
         ClubState.schoolName = `${getRandomItem(SCHOOL_PREFIXES)}高校`;
         ClubState.prefecture = getRandomItem(PREFECTURES);
@@ -2309,6 +2342,8 @@
             interhighDistrict: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
             interhighNational: { win: 0, runnerUp: 0, best4: 0, best8: 0, total: 0 },
         };
+        ClubState.captainAutoUnlocked = wasUnlocked;
+        ClubState.captainAutoMode = wasUnlocked;
         saveClubData();
     }
 
@@ -2473,6 +2508,47 @@
         return false;
     }
 
+    // ───────────────────────────────────────────
+    // 永続特典（周回・リセット引き継ぎメタ実績）
+    // ───────────────────────────────────────────
+    function getPermanentPerks() {
+        try {
+            const raw = localStorage.getItem(PERMANENT_PERKS_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            console.warn('Failed to read permanent perks', e);
+            return {};
+        }
+    }
+
+    function setPermanentPerk(key, value) {
+        try {
+            const perks = getPermanentPerks();
+            perks[key] = value;
+            perks.updatedAt = Date.now();
+            localStorage.setItem(PERMANENT_PERKS_KEY, JSON.stringify(perks));
+        } catch (e) {
+            console.warn('Failed to save permanent perk', e);
+        }
+    }
+
+    // 主将試合自動化モード（オート観戦・即時判定）が解放されているかを判定
+    // （今期の全国制覇、セーブ内解放フラグ、または周回メタ永続実績のいずれかで解放）
+    function isCaptainAutoUnlocked() {
+        if (ClubState.captainAutoUnlocked) return true;
+        if (hasWonNationalChampionship()) {
+            ClubState.captainAutoUnlocked = true;
+            setPermanentPerk('captainAutoUnlocked', true);
+            return true;
+        }
+        const perks = getPermanentPerks();
+        if (perks && perks.captainAutoUnlocked) {
+            ClubState.captainAutoUnlocked = true;
+            return true;
+        }
+        return false;
+    }
+
     // 直近の大会成績に応じた新1年生の入部数レンジ（下限・上限）を算出
     function getFreshmenRecruitRange(districtRank, nationalRank, ihDistrictRank, ihNationalRank) {
         const isWin = (r) => r === '優勝' || r === 'win';
@@ -2557,6 +2633,8 @@
             return;
         }
 
+        const captain = ClubState.members.find((m) => m.isPlayer);
+        const isCaptainRetiring = retiredMembers.some((m) => m.isPlayer);
         const retiredNames = retiredMembers.map((m) => m.name);
         // 主将だった部員をマーク
         retiredMembers.forEach((m) => {
@@ -2574,7 +2652,9 @@
             members: JSON.parse(JSON.stringify(retiredMembers)),
         };
 
-        const logMsg = `🍂【${ClubState.year}年目 9月1週】3年生（${retiredNames.join('・')}）が夏の大会を終えて引退しました。新チーム始動のため、新主将を指名してください。`;
+        const logMsg = isCaptainRetiring
+            ? `🍂【${ClubState.year}年目 9月1週】3年生（${retiredNames.join('・')}）が夏の大会を終えて引退しました。新チーム始動のため、新主将を指名してください。`
+            : `🍂【${ClubState.year}年目 9月1週】3年生の先輩（${retiredNames.join('・')}）が夏の大会を終えて引退しました。${captain ? `${captain.grade}年生主将【${captain.name}】` : '主将'}が志を引き継ぎ、秋の地区予選へ向けて稽古を牽引します！`;
         ClubState.activityLog.unshift(logMsg);
 
         // 3年生引退に伴う欠員発生：既存の部員を副将、中堅、次鋒、先鋒の順で戦力順に割り当て
@@ -2585,6 +2665,7 @@
             year: ClubState.year,
             retiredMembers: retiredMembers,
             retiredNames: retiredNames,
+            isCaptainRetiring: isCaptainRetiring,
         };
         ClubState.viewPhase = 'retire_ceremony';
         saveClubData();
@@ -2868,9 +2949,7 @@
         // 実行前の部員全体ステータス合計および得意技解放状況を計測
         const checkUnlocked = (m) => {
             const techId = m.specialTechnique || 'hien_men';
-            const tech = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[techId])
-                ? SPECIAL_TECHNIQUES[techId]
-                : { reqStat: 'men', reqVal: 38 };
+            const tech = getSpecialTechniqueData(techId) || { reqStat: 'men', reqVal: 38 };
             return ((m.skills && m.skills[tech.reqStat]) || 0) >= tech.reqVal;
         };
         const prevUnlockedMap = new Map();
@@ -2940,9 +3019,7 @@
         ClubState.members.forEach((m) => {
             if (!prevUnlockedMap.get(m.id) && checkUnlocked(m)) {
                 const techId = m.specialTechnique || 'hien_men';
-                const tech = (typeof SPECIAL_TECHNIQUES !== 'undefined' && SPECIAL_TECHNIQUES[techId])
-                    ? SPECIAL_TECHNIQUES[techId]
-                    : { name: '飛燕二段面' };
+                const tech = getSpecialTechniqueData(techId) || { name: '飛燕二段面' };
                 newlyUnlocked.push(`✨【${m.name}】が得意技【${tech.name}】を開眼・覚醒！`);
             }
         });
@@ -2995,7 +3072,7 @@
 
         ClubState.isPracticeExecuting = true;
         ClubState.executingPracticeMotion = menuId;
-        ClubState.practiceExecutionStartTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        ClubState.practiceExecutionStartTime = (typeof window !== 'undefined' && window.performance && window.performance.now) ? window.performance.now() : Date.now();
         ClubState.practiceCompleted1Cycle = false;
 
         // 休養以外の練習が実行されたら納刀待機を解除して得意構えからの稽古へ
@@ -4089,22 +4166,33 @@
         const my = bout.myMember;
         const opp = bout.enemyMember;
 
-        const myCondMod = CONDITION_DATA[my.condition]?.statMod || 1.0;
-        const myPower = (my.str * 1.2 + my.agi * 1.3 + my.spi * 1.1 + (my.skills.men + my.skills.kote + my.skills.do) * 0.4) * myCondMod;
-        const oppPower = opp.str * 1.2 + opp.agi * 1.3 + opp.spi * 1.1 + (opp.skills.men + opp.skills.kote + opp.skills.do) * 0.4;
+        const mySkills = (my && my.skills) || { men: 10, kote: 10, do: 10, tsuki: 8 };
+        const oppSkills = (opp && opp.skills) || { men: 10, kote: 10, do: 10, tsuki: 8 };
+        const myStr = (my && my.str) || 10;
+        const myAgi = (my && my.agi) || 10;
+        const mySpi = (my && my.spi) || 10;
+        const oppStr = (opp && opp.str) || 10;
+        const oppAgi = (opp && opp.agi) || 10;
+        const oppSpi = (opp && opp.spi) || 10;
 
-        const fatiguePenalty = Math.max(0.6, 1.0 - (my.fatigue / 100) * 0.35);
+        const myCondMod = (my && my.condition && CONDITION_DATA[my.condition]?.statMod) || 1.0;
+        const myPower = (myStr * 1.2 + myAgi * 1.3 + mySpi * 1.1 + ((mySkills.men || 10) + (mySkills.kote || 10) + (mySkills.do || 10)) * 0.4) * myCondMod;
+        const oppPower = oppStr * 1.2 + oppAgi * 1.3 + oppSpi * 1.1 + ((oppSkills.men || 10) + (oppSkills.kote || 10) + (oppSkills.do || 10)) * 0.4;
+
+        const fatiguePenalty = Math.max(0.6, 1.0 - (((my && my.fatigue) || 0) / 100) * 0.35);
         const myFinal = myPower * fatiguePenalty;
-        const total = myFinal + oppPower;
-        const myWinRate = myFinal / total;
+        const total = Math.max(1, myFinal + oppPower);
+        const myWinRate = Math.min(0.95, Math.max(0.05, myFinal / total));
 
         bout.played = true;
         bout.log = [];
+        bout.myScore = [];
+        bout.enemyScore = [];
 
         const myTechs = ['メ', 'コ', 'ド'];
-        if (my.skills.tsuki >= 12) myTechs.push('ツ');
+        if ((mySkills.tsuki || 0) >= 12) myTechs.push('ツ');
         const oppTechs = ['メ', 'コ', 'ド'];
-        if (opp.skills.tsuki >= 12) oppTechs.push('ツ');
+        if ((oppSkills.tsuki || 0) >= 12) oppTechs.push('ツ');
 
         const pickTech = (arr) => arr[Math.floor(Math.random() * arr.length)];
         const techFullNames = { 'メ': '面', 'コ': '小手', 'ド': '胴', 'ツ': '突き' };
@@ -4150,7 +4238,7 @@
         } else if (roll < myWinRate * 0.55) {
             const t1 = pickTech(myTechs);
             const t2 = pickTech(myTechs);
-            bout.myScore = [t2];
+            bout.myScore = [t1, t2];
             bout.winner = 'my';
             bout.log.push(`${my.name}が鋭い踏み込みから鮮やかな【${techFullNames[t1]}】を決めて先取！`);
             bout.log.push(`相手の反撃をいなし、電光石火の【${techFullNames[t2]}】で勝負あり！二本勝ち！`);
@@ -4198,7 +4286,7 @@
         } else {
             const t1 = pickTech(oppTechs);
             const t2 = pickTech(oppTechs);
-            bout.enemyScore = [t2];
+            bout.enemyScore = [t1, t2];
             bout.winner = 'enemy';
             bout.log.push(`相手の猛攻を受け、【${techFullNames[t1]}】【${techFullNames[t2]}】を奪われ敗北…`);
             simStats = {
@@ -4303,8 +4391,8 @@
             if (b.winner === 'my') myW++;
             else if (b.winner === 'enemy') oppW++;
             else d++;
-            myPts += b.myScore.length;
-            oppPts += b.enemyScore.length;
+            myPts += (b.myScore && b.myScore.length) || 0;
+            oppPts += (b.enemyScore && b.enemyScore.length) || 0;
         });
 
         boutsData.myWins = myW;
@@ -4382,7 +4470,7 @@
                 const attacksObj = ClubState.specialPracticeAttacks;
                 const atkList = isCaptain ? (attacksObj && attacksObj.captain) : (attacksObj && attacksObj.target);
                 if (atkList && atkList.length) {
-                    const now = (typeof timeNow === 'number') ? timeNow : ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+                    const now = (typeof timeNow === 'number') ? timeNow : ((typeof window !== 'undefined' && window.performance && window.performance.now) ? window.performance.now() : Date.now());
                     const elapsed = Math.max(0, (now - (ClubState.practiceExecutionStartTime || now)) / 1000);
                     // 3秒間の間に前半（< 1.5s）と後半（>= 1.5s）でランダム技を連続して繰り出す
                     const atkIndex = elapsed < 1.5 ? 0 : 1;
@@ -4397,7 +4485,7 @@
 
         // 座禅・休養：1回だけアニメーション（座禅約2.0秒、蹲踞納刀休養約2.4秒）し、その後は得意な構えを表示
         if (menuId === 'zazen' || menuId === 'rest') {
-            const now = (typeof timeNow === 'number') ? timeNow : ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+            const now = (typeof timeNow === 'number') ? timeNow : ((typeof window !== 'undefined' && window.performance && window.performance.now) ? window.performance.now() : Date.now());
             const elapsed = Math.max(0, (now - (ClubState.practiceExecutionStartTime || now)) / 1000);
             const cycleDuration = (menuId === 'rest') ? 2.4 : 2.0;
             if (elapsed >= cycleDuration) {
@@ -4535,7 +4623,7 @@
     }
 
     function drawAllMemberMiniCanvases() {
-        renderMiniCharaFrame(typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+        renderMiniCharaFrame(typeof window !== 'undefined' && window.performance && window.performance.now ? window.performance.now() : Date.now());
     }
 
     function clearMobilePortal() {
@@ -4707,13 +4795,30 @@
 
     // 新主将指名画面（9月1週）
     function renderCaptainSelectScreen(container) {
-        const candidates = ClubState.members.filter((m) => m.grade === 2);
-        const candidateCards = candidates.map((m) => {
+        const curCaptain = ClubState.members.find((m) => m.isPlayer);
+        if (curCaptain && curCaptain.grade < 3) {
+            // 主将が2年生以下の場合は主将選択を行わずダッシュボードへ復帰
+            ClubState.viewPhase = 'dashboard';
+            saveClubData();
+            renderClubUI();
+            return;
+        }
+
+        let candidates = ClubState.members.filter((m) => m.grade === 2);
+        if (candidates.length === 0) {
+            candidates = ClubState.members.filter((m) => m.grade === 1);
+        }
+        if (candidates.length === 0) {
+            candidates = [...ClubState.members];
+        }
+
+        const candidateCards = candidates.length > 0 ? candidates.map((m) => {
+            const gradeLabel = m.grade ? `新${m.grade}年生` : '部員';
             return `
                 <div class="captain-candidate-card" onclick="window.KendoClub.selectNewCaptain('${m.id}')">
                     <div class="candidate-header">
                         <strong>${escapeHtml(m.name)}</strong>
-                        <span class="cand-grade">新2年生</span>
+                        <span class="cand-grade">${gradeLabel}</span>
                     </div>
                     <div class="member-radar-wrap">
                         ${generateRadarChartSvg(m, 220, 200)}
@@ -4732,14 +4837,14 @@
                     </button>
                 </div>
             `;
-        }).join('');
+        }).join('') : '<p class="empty-candidate-notice" style="color:#94a3b8; text-align:center; padding:2rem; width:100%;">在籍部員が不在のため、新主将を指名できません。</p>';
 
         container.innerHTML = `
             <div class="captain-select-view">
                 <div class="captain-select-header">
                     <span class="cs-icon">👑</span>
                     <h2>新主将の指名（世代交代）</h2>
-                    <p>3年生の引退に伴い、2年生の中から次の主将を指名してください。<br>指名された部員が新たなあなたの分身（プレイヤー）となります。</p>
+                    <p>3年生の引退に伴い、次期主将を指名してください。<br>指名された部員が新たなあなたの分身（プレイヤー）となります。</p>
                 </div>
                 <div class="candidate-grid">
                     ${candidateCards}
@@ -4940,7 +5045,7 @@
                 <div class="club-member-card ${m.isPlayer ? 'is-player' : ''} ${isIHQual ? 'is-ih-qualified' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
                     <div class="member-card-top">
                         <div class="member-header-top-row">
-                            <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${m.id}'))" title="クリックで生徒手帳（身分証明書）を開く">
+                            <div class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${m.id}');" title="クリックで生徒手帳（身分証明書）を開く">
                                 ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 52, 69, { withFrame: true }) : ''}
                             </div>
                             <div class="member-header-info">
@@ -4999,7 +5104,7 @@
                 <div class="club-member-card is-bench ${m.isPlayer ? 'is-player' : ''} ${isIHQual ? 'is-ih-qualified' : ''} ${m.isClubDual ? 'is-dual-club' : ''}">
                     <div class="member-card-top">
                         <div class="member-header-top-row">
-                            <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${m.id}'))" title="クリックで生徒手帳（身分証明書）を開く">
+                            <div class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${m.id}');" title="クリックで生徒手帳（身分証明書）を開く">
                                 ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 52, 69, { withFrame: true }) : ''}
                             </div>
                             <div class="member-header-info">
@@ -5436,7 +5541,7 @@
                 <div class="order-slot-card ${m.isPlayer ? 'is-player' : ''} ${isSlotIH ? 'is-ih-qualified' : ''} ${m.isClubDual ? 'is-dual-slot' : ''}">
                     <span class="order-pos-name">${pos}</span>
                     <div class="order-slot-photo-box">
-                        <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${m.id}'))" title="生徒手帳を見る">
+                        <div class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${m.id}');" title="生徒手帳を見る">
                             ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 44, 58, { withFrame: true }) : ''}
                         </div>
                     </div>
@@ -5478,7 +5583,7 @@
                     <div class="bench-card-left">
                         <span class="order-pos-name bench">控え</span>
                         <div class="order-slot-photo-box">
-                            <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${b.id}'))" title="生徒手帳を見る">
+                            <div class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${b.id}');" title="生徒手帳を見る">
                                 ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(b, 44, 58, { withFrame: true }) : ''}
                             </div>
                         </div>
@@ -5676,7 +5781,7 @@
         const boutsData = match.activeBouts;
         const curBout = boutsData.bouts[boutsData.currentBoutIndex];
 
-        const canAutoCaptain = hasWonNationalChampionship() && ClubState.captainAutoMode;
+        const canAutoCaptain = isCaptainAutoUnlocked() && ClubState.captainAutoMode;
         if (!ClubState.isAutoSpectating || !curBout || curBout.played || (curBout.isPlayerBout && !canAutoCaptain)) {
             ClubState.isAutoSpectating = false;
             return;
@@ -5729,7 +5834,7 @@
 
         if (!boutsData.isFinished && curBout) {
             if (curBout.isPlayerBout && !curBout.played) {
-                const isChampion = hasWonNationalChampionship();
+                const isChampion = isCaptainAutoUnlocked();
                 if (isChampion) {
                     if (ClubState.isAutoSpectating && ClubState.captainAutoMode) {
                         actionControlHtml = `
@@ -5752,10 +5857,11 @@
                             </div>
                         `;
                     } else {
+                        const badgeLabel = hasWonNationalChampionship() ? '🏆 全国制覇特典' : '🏆 全国制覇特典（引継）';
                         actionControlHtml = `
                             <div class="bout-control-box highlight champion-box">
                                 <div class="champion-badge-row">
-                                    <span class="champion-badge">🏆 全国制覇特典</span>
+                                    <span class="champion-badge">${badgeLabel}</span>
                                     <span class="bout-prompt">【${curBout.posName}】主将の出番です！立ち合い方法を選択してください</span>
                                     <button type="button" class="btn-toggle-auto ${ClubState.captainAutoMode ? 'active' : ''}" onclick="window.KendoClub.toggleCaptainAutoMode()">
                                         ${ClubState.captainAutoMode ? '⚙️ 主将自動化: ON' : '⚙️ 主将自動化: OFF'}
@@ -5868,7 +5974,7 @@
                                 <div class="fighter-school">${ClubState.schoolName} (${ClubState.prefecture})</div>
                                 <div class="fighter-main-name">${escapeHtml(curBout.myMember.name)}</div>
                                 <div class="indiv-fighter-photo-wrap">
-                                    <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${curBout.myMember.id}'))" title="生徒手帳を見る">
+                                    <div class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${curBout.myMember.id}');" title="生徒手帳を見る">
                                         ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(curBout.myMember, 68, 90, { withFrame: true }) : ''}
                                     </div>
                                 </div>
@@ -5911,8 +6017,8 @@
                     statusBadge = '<span class="status-fighting pulse">⚔️ 試合中</span>';
                 }
 
-                const myPts = bout.myScore.length ? bout.myScore.join('・') : '-';
-                const oppPts = bout.enemyScore.length ? bout.enemyScore.join('・') : '-';
+                const myPts = (bout.myScore && bout.myScore.length) ? bout.myScore.join('・') : '-';
+                const oppPts = (bout.enemyScore && bout.enemyScore.length) ? bout.enemyScore.join('・') : '-';
 
                 return `
                     <div class="match-row ${isCurrent ? 'current-bout' : ''} ${bout.played ? 'played' : ''}">
@@ -5920,7 +6026,7 @@
                         <div class="col-fighter red">
                             <span class="fighter-tag red-tag">赤</span>
                             <span class="match-row-photo">
-                                <span class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.id === '${bout.myMember.id}'))" title="生徒手帳を見る">
+                                <span class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${bout.myMember.id}');" title="生徒手帳を見る">
                                     ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(bout.myMember, 28, 37, { withFrame: false }) : ''}
                                 </span>
                             </span>
@@ -6683,6 +6789,13 @@
         const data = ClubState.retireCeremonyData;
         const retiredMembers = (data && data.retiredMembers) || [];
         const year = (data && data.year) || ClubState.year;
+        const isCaptainRetiring = data && data.isCaptainRetiring !== undefined
+            ? data.isCaptainRetiring
+            : (retiredMembers.some((m) => m.isPlayer || m.wasPlayer) || !ClubState.members.some((m) => m.isPlayer && m.grade < 3));
+
+        const seasonPillText = isCaptainRetiring
+            ? `🍂 第${year}期 9月1週（世代交代）`
+            : `🍂 第${year}期 9月1週（3年生勇退・主将続投）`;
 
         const cardsHtml = retiredMembers.map((m) => {
             return `
@@ -6701,10 +6814,34 @@
             `;
         }).join('');
 
+        let actionsHtml = '';
+        if (isCaptainRetiring) {
+            actionsHtml = `
+                <div class="ceremony-actions retire-actions-split">
+                    <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromRetireCeremonyToCaptainSelect()">
+                        👑 次期主将を指名してゲームを続ける（次世代へ）
+                    </button>
+                    <button type="button" class="btn-ceremony-end" onclick="window.KendoClub.showClubEnding()">
+                        🎓 主将引退・ゲーム終了（集大成の記録を見る）
+                    </button>
+                </div>
+            `;
+        } else {
+            const captain = ClubState.members.find((m) => m.isPlayer);
+            const capGrade = captain ? `${captain.grade}年` : '2年';
+            actionsHtml = `
+                <div class="ceremony-actions">
+                    <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromRetireCeremonyToDashboard()">
+                        🥋 先輩の想いを受け継ぎ、稽古を再開する（主将続投・${capGrade}）
+                    </button>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             <div class="ceremony-container ceremony-retire-view">
                 <div class="ceremony-closing-banner ceremony-autumn-banner">
-                    <span class="ceremony-season-pill">🍂 第${year}期 9月1週（世代交代）</span>
+                    <span class="ceremony-season-pill">${seasonPillText}</span>
                     <h1 class="ceremony-main-title">🍂 3年生引退式・感謝の集い</h1>
                     <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 剣道場 ｜ 3年生 ${retiredMembers.length}名 勇退</div>
                 </div>
@@ -6725,7 +6862,7 @@
                             <p class="speech-content">
                                 これまで厳しい稽古を共に耐え抜いてくれて、本当にありがとう。<br>
                                 夏の大会を全力で戦い終え、悔いなく竹刀を置くことができます。<br>
-                                私たちの悲願であった全国制覇の夢は、頼もしい後輩である君たちに託します。新主将を中心に、胸を張って前へ進んでください！
+                                私たちの悲願であった全国制覇の夢は、頼もしい後輩である君たちに託します。胸を張って前へ進んでください！
                             </p>
                         </div>
 
@@ -6736,21 +6873,27 @@
                             </div>
                         </div>
 
-                        <div class="ceremony-actions retire-actions-split">
-                            <button type="button" class="btn-ceremony-launch pulse-gold" onclick="window.KendoClub.proceedFromRetireCeremonyToCaptainSelect()">
-                                👑 次期主将を指名してゲームを続ける（次世代へ）
-                            </button>
-                            <button type="button" class="btn-ceremony-end" onclick="window.KendoClub.showClubEnding()">
-                                🎓 主将引退・ゲーム終了（集大成の記録を見る）
-                            </button>
-                        </div>
+                        ${actionsHtml}
                     </div>
                 </div>
             </div>
         `;
     }
 
+    function proceedFromRetireCeremonyToDashboard() {
+        ClubState.retireCeremonyData = null;
+        ClubState.viewPhase = 'dashboard';
+        saveClubData();
+        renderClubUI();
+    }
+
     function proceedFromRetireCeremonyToCaptainSelect() {
+        const captain = ClubState.members.find((m) => m.isPlayer);
+        if (captain && captain.grade < 3) {
+            // 主将が2年生以下の場合は主将選択・新体制セレモニーをスキップして直接ダッシュボードへ復帰
+            proceedFromRetireCeremonyToDashboard();
+            return;
+        }
         ClubState.retireCeremonyData = null;
         ClubState.viewPhase = 'captain_select';
         saveClubData();
@@ -6883,7 +7026,7 @@
             return `
                 <div class="ending-member-card">
                     <div class="ending-member-photo-wrap">
-                        <div class="student-photo-frame" onclick="window.FaceGenerator && window.FaceGenerator.showHandbookModal(ClubState.members.find(x => x.name === '${escapeHtml(m.name)}'))" title="生徒手帳を見る">
+                        <div class="student-photo-frame" onclick="if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${m.id}');" title="生徒手帳を見る">
                             ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(m, 56, 74, { withFrame: true }) : ''}
                         </div>
                     </div>
@@ -7404,6 +7547,7 @@
                     id: playerMember.id,
                     face: playerMember.face,
                     name: playerMember.name,
+                    grade: playerMember.grade || (ClubState.captain ? ClubState.captain.grade : 1),
                     schoolName: ClubState.schoolName,
                     prefecture: ClubState.prefecture,
                     roleTitle: '主将',
@@ -7425,6 +7569,7 @@
                     schoolName: ClubState.schoolName,
                     prefecture: ClubState.prefecture,
                     shortName: targetMember.name,
+                    grade: targetMember.grade || 1,
                     role: targetMember.grade ? `${targetMember.grade}年` : '部員',
                     rank: '',
                     styleTag: `${stance === 'jodan' ? '上段' : stance === 'waki' ? '下段の構え' : '中段'}の気迫`,
@@ -7602,7 +7747,8 @@
         startNewGame: function (skipConfirm = false) {
             const summary = getSaveSummary();
             if (summary && !skipConfirm) {
-                const ok = confirm(`【確認】保存されているデータ（${summary.schoolName} ${summary.year}年目 ${summary.month}月${summary.week}週）を消去して、最初から始めますか？\n※現在のセーブデータは失われます。`);
+                const perkNotice = isCaptainAutoUnlocked() ? '\n※獲得済みの「主将試合オート機能」は引き継がれます。' : '';
+                const ok = confirm(`【確認】保存されているデータ（${summary.schoolName} ${summary.year}年目 ${summary.month}月${summary.week}週）を消去して、最初から始めますか？\n※現在のセーブデータは失われます。${perkNotice}`);
                 if (!ok) return false;
             }
             resetClubData();
@@ -7631,6 +7777,9 @@
             ClubState.members = initTeam.members;
             ClubState.order = initTeam.order;
             ClubState.activityLog = [`${ClubState.schoolName}剣道部（${ClubState.prefecture}）再建！1年生主将【${cName}】が埃をかぶった道場を復活させ、全国制覇への第一歩を踏み出しました！`];
+            if (ClubState.captainAutoUnlocked) {
+                ClubState.activityLog.unshift('🏆【周回特典】歴代制覇の栄誉により、主将の試合自動化（オート観戦・即時判定）が最初から解放されています！');
+            }
             ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
             ClubState.viewPhase = 'prologue_story';
 
@@ -7945,7 +8094,7 @@
             const curBout = boutsData.bouts[boutsData.currentBoutIndex];
             if (curBout && !curBout.played) {
                 if (curBout.isPlayerBout) {
-                    if (hasWonNationalChampionship() && ClubState.captainAutoMode) {
+                    if (isCaptainAutoUnlocked() && ClubState.captainAutoMode) {
                         simulateAIBout(curBout);
                         boutsData.currentBoutIndex++;
                         if (boutsData.currentBoutIndex >= boutsData.bouts.length) {
@@ -8002,7 +8151,7 @@
         },
 
         toggleCaptainAutoMode: function () {
-            if (!hasWonNationalChampionship()) return;
+            if (!isCaptainAutoUnlocked()) return;
             ClubState.captainAutoMode = !ClubState.captainAutoMode;
             saveClubData();
             renderClubUI();
@@ -8015,7 +8164,7 @@
 
             const boutsData = match.activeBouts;
             const totalBouts = boutsData.bouts.length;
-            const canAutoCaptain = hasWonNationalChampionship() && ClubState.captainAutoMode;
+            const canAutoCaptain = isCaptainAutoUnlocked() && ClubState.captainAutoMode;
 
             while (boutsData.currentBoutIndex < totalBouts) {
                 const curBout = boutsData.bouts[boutsData.currentBoutIndex];
@@ -8095,10 +8244,6 @@
             renderClubUI();
         },
 
-        startSpecialPracticeBout: function (targetMemberId) {
-            startSpecialPracticeBout(targetMemberId);
-        },
-
         launchMatchBout: function (isSpectating = false) {
             const match = ClubState.currentMatchData;
             if (!match || !match.activeBouts) return;
@@ -8169,6 +8314,7 @@
                         id: playerMember.id,
                         face: playerMember.face,
                         name: playerMember.name,
+                        grade: playerMember.grade || (playerMember.isPlayer && ClubState.captain ? ClubState.captain.grade : (ClubState.year || 1)),
                         schoolName: ClubState.schoolName,
                         prefecture: ClubState.prefecture,
                         roleTitle: isIndividual
@@ -8192,6 +8338,7 @@
                         schoolName: enemySchool,
                         prefecture: enemyPref,
                         shortName: enemyMember.name,
+                        grade: enemyMember.grade || (enemyMember.role && enemyMember.role.match(/([1-3])年/)?.[1]) || (isIndividual ? 3 : 2),
                         role: isIndividual
                             ? (isIntraClub ? (enemyMember.isPlayer ? '主将' : (enemyMember.grade ? `${enemyMember.grade}年` : '')) : (enemyMember.role || (enemyMember.grade ? `${enemyMember.grade}年 個人代表` : '3年 個人代表')))
                             : sanitizePosName(enemyMember.role || curBout.posName),
@@ -8325,7 +8472,7 @@
 
                         // リアルタイム観戦が有効で、次の試合が存在し、かつ次の試合が手動操作を要求しない場合（主将自動化有効を含む）
                         const nextBout = boutsData.bouts[boutsData.currentBoutIndex];
-                        const canAutoCaptain = hasWonNationalChampionship() && ClubState.captainAutoMode;
+                        const canAutoCaptain = isCaptainAutoUnlocked() && ClubState.captainAutoMode;
                         const isNextAllowed = nextBout && !nextBout.played && (!nextBout.isPlayerBout || canAutoCaptain);
                         const shouldContinueSpectating = ClubState.isAutoSpectating && isNextAllowed;
 
@@ -8348,10 +8495,6 @@
                 window.KendoBGM.stop();
             }
             renderClubUI();
-        },
-
-        startSpecialPracticeBout: function (targetMemberId) {
-            startSpecialPracticeBout(targetMemberId);
         },
 
         advanceTournamentRound: function () {
@@ -8424,7 +8567,9 @@
 
                 if (isWin && (ClubState.stats.interhighNational.win + ClubState.stats.national.win) <= 1) {
                     ClubState.activityLog.unshift(`🏆【全国制覇・覇者特典】主将の試合自動化（オート観戦・即時判定）が解放されました！`);
+                    ClubState.captainAutoUnlocked = true;
                     ClubState.captainAutoMode = true;
+                    setPermanentPerk('captainAutoUnlocked', true);
                 }
 
             } else if (match.type === 'district') {
@@ -8452,7 +8597,9 @@
                 ClubState.activityLog.unshift(`👑【${ClubState.year}年目 3月4週】全国高校選抜大会 終了。成績：${rankLabel}！`);
                 if (isWin && (ClubState.stats.interhighNational.win + ClubState.stats.national.win) <= 1) {
                     ClubState.activityLog.unshift(`🏆【全国制覇・覇者特典】主将の試合自動化（オート観戦・即時判定）が解放されました！`);
+                    ClubState.captainAutoUnlocked = true;
                     ClubState.captainAutoMode = true;
+                    setPermanentPerk('captainAutoUnlocked', true);
                 }
             }
 
@@ -8541,6 +8688,10 @@
             proceedFromRetireCeremonyToCaptainSelect();
         },
 
+        proceedFromRetireCeremonyToDashboard: function () {
+            proceedFromRetireCeremonyToDashboard();
+        },
+
         proceedFromNewTeamCeremonyToDashboard: function () {
             proceedFromNewTeamCeremonyToDashboard();
         },
@@ -8590,6 +8741,10 @@
             return ClubState;
         },
 
+        isCaptainAutoUnlocked: function () {
+            return isCaptainAutoUnlocked();
+        },
+
         reconcileBracketData: function (bracket) {
             reconcileBracketData(bracket);
         },
@@ -8616,10 +8771,6 @@
 
         getIndividualRankLabel: function (roundIdx, totalRounds) {
             return getIndividualRankLabel(roundIdx, totalRounds);
-        },
-
-        renderClubUI: function () {
-            renderClubUI();
         },
 
         getRealClubMember: function (target) {
