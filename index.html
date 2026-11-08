@@ -17,10 +17,14 @@
             <!-- 音響コントロール（BGM・効果音・ボイス連動） -->
             <div class="bgm-control-bar" id="bgmControlBar">
                 <button type="button" class="btn-bgm-mute" id="bgmMuteBtn" onclick="window.KendoBGM && window.KendoBGM.toggleMute()" title="ミュート切り替え">🔊</button>
-                <div class="bgm-volume-slider-wrap">
+                <div class="bgm-volume-slider-wrap" id="bgmVolumeSliderWrap">
                     <span class="bgm-label">音量</span>
                     <input type="range" id="bgmVolumeSlider" min="0" max="100" value="65" oninput="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" onchange="window.KendoBGM && window.KendoBGM.setVolume(this.value / 100)" title="音量調節">
                     <span class="bgm-vol-text" id="bgmVolumeText">65%</span>
+                </div>
+                <!-- 🎵 音量設定の位置に表示されるガイダンスバッジ -->
+                <div class="bgm-prompt-inline" id="bgmPromptBadge" onclick="window.KendoBGM && (window.KendoBGM.isMuted() ? window.KendoBGM.setMute(false) : window.KendoBGM.play('title', 400, true))" title="クリックでBGMを再生" style="display: none;">
+                    🎵 <span class="bgm-badge-text pulse">画面をクリックしてBGMを再生</span>
                 </div>
             </div>
 
@@ -34,7 +38,10 @@
 
             <div class="stage-bar-wrap" id="classicStageBarWrap" style="display: none;">
                 <div class="stage-bar-header">
-                    <span class="stage-bar-title">🏆 勝ち抜き五人掛け</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="stage-bar-title">🏆 勝ち抜き五人掛け</span>
+                        <button type="button" class="btn-rewatch-op" onclick="window.KendoGameEngine.playTrialOpeningVideo()" title="開幕オープニングアニメを再鑑賞">🎬 OP</button>
+                    </div>
                     <span class="stage-bar-progress" id="stageProgressText">制覇: 0 / 5人（クリックで相手を指名可）</span>
                 </div>
                 <div class="stage-bar" id="stageBar" role="tablist" aria-label="対戦相手の選択">
@@ -66,8 +73,18 @@
         <div id="modeSelectScreen" class="mode-select-screen">
             <div class="mode-select-hero">
                 <p class="mode-select-lead">読み合いと間合いの駆け引き — プレイするモードを選択してください</p>
-                <div class="bgm-prompt-badge" id="bgmPromptBadge" onclick="window.KendoBGM && (window.KendoBGM.isMuted() ? window.KendoBGM.setMute(false) : window.KendoBGM.play('title', 400, true))" title="クリックでBGMを再生">
-                    🎵 <span class="bgm-badge-text pulse">画面をクリックしてBGMを再生</span>
+                <div class="mode-select-top-controls">
+                    <div class="op-anime-global-control" onclick="event.stopPropagation()">
+                        <label class="op-global-toggle-label" for="globalOpAnimeToggle" title="五人掛け＆全国制覇のオープニングアニメ再生を一括でON/OFF切り替えします">
+                            <span class="op-toggle-icon">🎬</span>
+                            <span class="op-toggle-title">オープニングアニメ再生</span>
+                            <div class="op-switch-wrap">
+                                <input type="checkbox" id="globalOpAnimeToggle" class="op-toggle-input" checked onchange="window.KendoGameEngine && window.KendoGameEngine.setOpeningAnimeEnabled(this.checked)">
+                                <span class="op-toggle-slider"></span>
+                            </div>
+                            <span class="op-status-badge" id="globalOpAnimeBadge">ON</span>
+                        </label>
+                    </div>
                 </div>
             </div>
             <div class="mode-cards-grid">
@@ -82,6 +99,7 @@
                         <span>⚔️ 構え切替</span>
                         <span>💥 鍔迫り合い</span>
                         <span>⚡ 必殺の突き</span>
+                        <span class="op-card-feature-pill" id="classicOpCardPill" onclick="event.stopPropagation(); window.KendoGameEngine && window.KendoGameEngine.toggleOpeningAnime();" title="クリックでアニメ再生ON/OFF切替">🎬 開幕アニメ: ON</span>
                     </div>
                     <button type="button" class="btn-mode-start btn-classic-start">
                         ⚔️ 五人掛けを開始する
@@ -99,6 +117,7 @@
                         <span>⚔️ 個人戦 ＆ 👥 団体戦</span>
                         <span>👑 世代交代・新主将指名</span>
                         <span>🏆 インターハイ・全国選抜制覇</span>
+                        <span class="op-card-feature-pill" id="clubOpCardPill" onclick="event.stopPropagation(); window.KendoGameEngine && window.KendoGameEngine.toggleOpeningAnime();" title="クリックでアニメ再生ON/OFF切替">🎬 創部アニメ: ON</span>
                     </div>
                     <div class="mode-card-actions" id="clubCardActions">
                         <div class="mode-btn-group">
@@ -113,6 +132,36 @@
 
         <!-- 🥋 全国制覇モード (Club / Career Mode) コンテナ -->
         <div id="clubModeView" class="club-mode-container" style="display: none;"></div>
+
+        <!-- 🎬 勝ち抜き五人掛け オープニング動画ビュー -->
+        <div id="trialOpeningView" class="trial-opening-view" style="display: none;">
+            <div class="ceremony-container ceremony-trial-video-view">
+                <div class="ceremony-opening-banner ceremony-gold-banner">
+                    <div class="ceremony-banner-top-row">
+                        <span class="ceremony-season-pill">🎬 勝ち抜き五人掛け・開幕シネマ</span>
+                        <button type="button" class="btn-video-skip" onclick="window.KendoGameEngine.skipTrialOpeningVideo()">
+                            ⏩ スキップして試合へ
+                        </button>
+                    </div>
+                    <h1 class="ceremony-main-title">🏆 孤高の挑戦者 — 己の剣の限界を求めて</h1>
+                    <div class="ceremony-venue-tag">📍 名門・龍神館道場 ｜ 挑戦者：あなた ｜ 第一の試練：門下生・健太</div>
+                </div>
+
+                <div class="ceremony-card ceremony-video-card trial-video-card">
+                    <div class="ceremony-video-wrap trial-video-wrap">
+                        <video id="trialOpeningVideoPlayer" class="ceremony-video-player" src="img/story/trial_op_anime.mp4" playsinline controls preload="auto"></video>
+                    </div>
+                    <div class="ceremony-video-footer">
+                        <div class="video-footer-tip">
+                            <span>💡 再生が終了すると自動的に先鋒・健太戦へ進みます（Space / Enter で一時停止・再生、Esc でスキップ）</span>
+                        </div>
+                        <button type="button" class="btn-video-skip-inline" onclick="window.KendoGameEngine.skipTrialOpeningVideo()">
+                            ⏩ スキップして健太と対峙する
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ⚔️ 共通実戦戦闘エリア (五人掛け ＆ 団体戦プレイヤー出番時に表示) -->
         <div id="combatAreaWrap" class="combat-area-wrap" style="display: none;">

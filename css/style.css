@@ -218,35 +218,29 @@ body.bg-dojo {
     user-select: none;
 }
 
-/* タイトル画面の BGM ガイダンスバッジ */
-.bgm-prompt-badge {
+/* 音響コントロールバー内の BGM ガイダンスバッジ（音量設定と切り替え表示） */
+.bgm-prompt-inline {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin: 8px auto 0;
-    padding: 6px 16px;
-    background: rgba(30, 41, 59, 0.85);
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    border-radius: 9999px;
-    font-size: 0.82rem;
-    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #e0f2fe;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    padding: 2px 10px;
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
     transition: all 0.2s ease;
     user-select: none;
 }
 
-.bgm-prompt-badge:hover {
-    background: rgba(30, 41, 59, 0.95);
+.bgm-prompt-inline:hover {
+    background: rgba(56, 189, 248, 0.3);
     border-color: #38bdf8;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
-}
-
-.bgm-prompt-badge.playing {
-    border-color: rgba(34, 197, 94, 0.4);
-    background: rgba(20, 83, 45, 0.3);
-    color: #86efac;
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
 }
 
 .bgm-badge-text.pulse {
@@ -254,8 +248,157 @@ body.bg-dojo {
 }
 
 @keyframes bgmPulse {
-    0%, 100% { opacity: 0.8; }
+    0%, 100% { opacity: 0.85; }
     50% { opacity: 1; color: #38bdf8; }
+}
+
+/* 起動画面 コントロール群 (BGM + オープニングアニメ設定) */
+.mode-select-top-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 12px auto 0;
+}
+
+.op-anime-global-control {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    border-radius: 9999px;
+    padding: 5px 14px;
+    font-size: 0.82rem;
+    color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.op-anime-global-control:hover {
+    border-color: #fde047;
+    background: rgba(30, 41, 59, 0.95);
+    box-shadow: 0 4px 16px rgba(234, 179, 8, 0.25);
+    transform: translateY(-1px);
+}
+
+.op-global-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.op-toggle-icon {
+    font-size: 1rem;
+}
+
+.op-toggle-title {
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.02em;
+}
+
+/* スイッチスライダー */
+.op-switch-wrap {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 20px;
+    vertical-align: middle;
+}
+
+.op-toggle-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.op-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #334155;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    transition: all 0.25s ease;
+    border-radius: 20px;
+}
+
+.op-toggle-slider::before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #94a3b8;
+    transition: all 0.25s ease;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.op-toggle-input:checked + .op-toggle-slider {
+    background: linear-gradient(135deg, #ca8a04, #eab308);
+    border-color: #fef08a;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+}
+
+.op-toggle-input:checked + .op-toggle-slider::before {
+    transform: translateX(18px);
+    background-color: #ffffff;
+}
+
+.op-status-badge {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    min-width: 28px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.op-status-badge.on {
+    background: rgba(234, 179, 8, 0.22);
+    border: 1px solid rgba(234, 179, 8, 0.6);
+    color: #fde047;
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+}
+
+.op-status-badge.off {
+    background: rgba(71, 85, 105, 0.3);
+    border: 1px solid rgba(100, 116, 139, 0.45);
+    color: #94a3b8;
+}
+
+/* カード内のアニメ設定ピル */
+.op-card-feature-pill {
+    background: rgba(234, 179, 8, 0.12) !important;
+    border: 1px solid rgba(234, 179, 8, 0.45) !important;
+    color: #fde047 !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.op-card-feature-pill:hover {
+    background: rgba(234, 179, 8, 0.28) !important;
+    border-color: #fef08a !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+}
+
+.op-card-feature-pill.off {
+    background: rgba(71, 85, 105, 0.2) !important;
+    border: 1px solid rgba(100, 116, 139, 0.35) !important;
+    color: #94a3b8 !important;
 }
 
 .header h1 {
@@ -5679,6 +5822,55 @@ button.reset-btn:hover:not(:disabled) {
     background: rgba(51, 65, 85, 0.9);
     border-color: #cbd5e1;
     color: #ffffff;
+}
+
+/* 🎬 勝ち抜き五人掛け オープニング動画ビュー */
+.trial-opening-view {
+    width: 100%;
+    animation: fadeInCeremony 0.4s ease-out forwards;
+}
+
+.ceremony-trial-video-view {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px 12px 36px;
+}
+
+.trial-video-card {
+    background: radial-gradient(circle at 50% 20%, rgba(26, 21, 14, 0.98), rgba(9, 9, 11, 0.98));
+    border: 1px solid rgba(234, 179, 8, 0.55);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(234, 179, 8, 0.18);
+}
+
+.trial-video-wrap {
+    aspect-ratio: 16 / 9;
+    max-height: 540px;
+    background: #000000;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9), 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+.btn-rewatch-op {
+    background: rgba(234, 179, 8, 0.15);
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    color: #fde047;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.btn-rewatch-op:hover {
+    background: rgba(234, 179, 8, 0.35);
+    border-color: #fef08a;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.4);
+    transform: translateY(-1px);
 }
 
 .ceremony-art-fallback {

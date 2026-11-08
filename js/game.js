@@ -2530,6 +2530,26 @@ function closeMenkyoModal() {
 
 // キーボードによる軽快なダイアログ送り（Space / Enter / Escape）
 window.addEventListener('keydown', (e) => {
+    const trialView = document.getElementById('trialOpeningView');
+    const trialVideo = document.getElementById('trialOpeningVideoPlayer');
+    if (trialView && trialView.style.display !== 'none' && trialVideo) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            if (window.KendoGameEngine && window.KendoGameEngine.skipTrialOpeningVideo) {
+                window.KendoGameEngine.skipTrialOpeningVideo();
+            }
+            return;
+        } else if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            if (trialVideo.paused) {
+                trialVideo.play();
+            } else {
+                trialVideo.pause();
+            }
+            return;
+        }
+    }
+
     if (e.key === ' ' || e.key === 'Enter') {
         if (storyDialogueModal && storyDialogueModal.style.display !== 'none') {
             e.preventDefault();
@@ -9088,6 +9108,7 @@ window.KendoGameEngine = {
         const classicStageWrap = document.getElementById('classicStageBarWrap');
         const clubView = document.getElementById('clubModeView');
         const combatArea = document.getElementById('combatAreaWrap');
+        const trialOpeningView = document.getElementById('trialOpeningView');
         const arenaElem = document.getElementById('battleArena');
 
         if (arenaElem) {
@@ -9095,6 +9116,15 @@ window.KendoGameEngine = {
         }
         if (document.body) {
             document.body.classList.remove('bg-national', 'bg-district', 'bg-dojo');
+        }
+
+        if (trialOpeningView) {
+            trialOpeningView.style.display = 'none';
+            const vid = document.getElementById('trialOpeningVideoPlayer');
+            if (vid) {
+                vid.pause();
+                vid.currentTime = 0;
+            }
         }
 
         if (modeSelectScreen) modeSelectScreen.style.display = 'block';
@@ -9118,6 +9148,147 @@ window.KendoGameEngine = {
         if (window.KendoClub && window.KendoClub.updateModeCardUI) {
             window.KendoClub.updateModeCardUI();
         }
+
+        if (window.KendoGameEngine && window.KendoGameEngine.updateOpeningAnimeToggleUI) {
+            window.KendoGameEngine.updateOpeningAnimeToggleUI();
+        }
+    },
+
+    // 🎬 オープニングアニメ設定（両モード共通）の取得・更新
+    isOpeningAnimeEnabled: function () {
+        if (typeof localStorage === 'undefined') return true;
+        const val = localStorage.getItem('kendo_opening_anime_enabled');
+        return val === null ? true : val === 'true';
+    },
+
+    setOpeningAnimeEnabled: function (enabled) {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('kendo_opening_anime_enabled', enabled ? 'true' : 'false');
+        }
+        window.KendoGameEngine.updateOpeningAnimeToggleUI();
+    },
+
+    toggleOpeningAnime: function () {
+        const current = window.KendoGameEngine.isOpeningAnimeEnabled();
+        window.KendoGameEngine.setOpeningAnimeEnabled(!current);
+    },
+
+    updateOpeningAnimeToggleUI: function () {
+        const enabled = window.KendoGameEngine.isOpeningAnimeEnabled();
+        const toggleInput = document.getElementById('globalOpAnimeToggle');
+        const badge = document.getElementById('globalOpAnimeBadge');
+        const classicPill = document.getElementById('classicOpCardPill');
+        const clubPill = document.getElementById('clubOpCardPill');
+
+        if (toggleInput) {
+            toggleInput.checked = enabled;
+        }
+        if (badge) {
+            badge.textContent = enabled ? 'ON' : 'OFF';
+            badge.className = `op-status-badge ${enabled ? 'on' : 'off'}`;
+        }
+        if (classicPill) {
+            classicPill.textContent = `🎬 開幕アニメ: ${enabled ? 'ON' : 'OFF'}`;
+            classicPill.classList.toggle('off', !enabled);
+        }
+        if (clubPill) {
+            clubPill.textContent = `🎬 創部アニメ: ${enabled ? 'ON' : 'OFF'}`;
+            clubPill.classList.toggle('off', !enabled);
+        }
+    },
+
+    // 🎬 勝ち抜き五人掛け開幕アニメーション動画（trial_op_anime.mp4）を再生
+    playTrialOpeningVideo: function () {
+        clearPendingRoundTimers();
+        hideRefereeCallout();
+        hideClashMeter();
+        hideSpecialCutin();
+        hideSpeechBubbles();
+        closeStoryDialogue();
+
+        const modeSelectScreen = document.getElementById('modeSelectScreen');
+        const headerModeBar = document.getElementById('headerModeBar');
+        const currentModeBadge = document.getElementById('currentModeBadge');
+        const classicStageWrap = document.getElementById('classicStageBarWrap');
+        const clubView = document.getElementById('clubModeView');
+        const combatArea = document.getElementById('combatAreaWrap');
+        const trialOpeningView = document.getElementById('trialOpeningView');
+        const video = document.getElementById('trialOpeningVideoPlayer');
+
+        if (modeSelectScreen) modeSelectScreen.style.display = 'none';
+        if (headerModeBar) headerModeBar.style.display = 'flex';
+        if (currentModeBadge) currentModeBadge.textContent = '🏆 勝ち抜き五人掛け';
+        if (classicStageWrap) classicStageWrap.style.display = 'none';
+        if (clubView) clubView.style.display = 'none';
+        if (combatArea) combatArea.style.display = 'none';
+
+        if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
+            window.KendoClub.stopClubMiniCharaLoop();
+        }
+        if (window.KendoClub && window.KendoClub.clearMobilePortal) {
+            window.KendoClub.clearMobilePortal();
+        }
+
+        // 動画音声をしっかり聴かせるため、再生中はゲームBGMを停止
+        if (window.KendoBGM && window.KendoBGM.stop) {
+            window.KendoBGM.stop();
+        }
+
+        if (trialOpeningView) {
+            trialOpeningView.style.display = 'block';
+        }
+
+        if (video) {
+            if (window.KendoBGM) {
+                video.volume = typeof window.KendoBGM.getSoundVolume === 'function' ? window.KendoBGM.getSoundVolume() : 0.65;
+                video.muted = typeof window.KendoBGM.isMuted === 'function' ? window.KendoBGM.isMuted() : false;
+            }
+
+            video.currentTime = 0;
+
+            video.onended = () => {
+                window.KendoGameEngine.skipTrialOpeningVideo();
+            };
+
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.catch((err) => {
+                    console.log('[TrialOpeningVideo] Autoplay blocked, waiting for user play/skip:', err.message);
+                });
+            }
+        } else {
+            window.KendoGameEngine.skipTrialOpeningVideo();
+        }
+    },
+
+    // ⏩ 開幕アニメーション動画をスキップ（または終了）して先鋒・健太戦を表示
+    skipTrialOpeningVideo: function () {
+        const trialOpeningView = document.getElementById('trialOpeningView');
+        const video = document.getElementById('trialOpeningVideoPlayer');
+        if (video) {
+            video.pause();
+            video.onended = null;
+        }
+        if (trialOpeningView) {
+            trialOpeningView.style.display = 'none';
+        }
+
+        const classicStageWrap = document.getElementById('classicStageBarWrap');
+        const combatArea = document.getElementById('combatAreaWrap');
+        const headerModeBar = document.getElementById('headerModeBar');
+
+        if (headerModeBar) headerModeBar.style.display = 'flex';
+        if (classicStageWrap) classicStageWrap.style.display = '';
+        if (combatArea) combatArea.style.display = '';
+
+        state.customMatch = null;
+        state.stageIndex = 0;
+        resetGame();
+
+        // 試合開始前（待機状態）はBGMを停止（審判の「始め！」で再生開始）
+        if (window.KendoBGM && window.KendoBGM.stop) {
+            window.KendoBGM.stop();
+        }
     },
 
     // モード切り替え（五人掛け ⇄ 団体戦 ⇄ メニュー）
@@ -9138,25 +9309,14 @@ window.KendoGameEngine = {
         if (headerModeBar) headerModeBar.style.display = 'flex';
 
         if (mode === 'classic') {
-            if (currentModeBadge) currentModeBadge.textContent = '🏆 勝ち抜き五人掛け';
-            if (classicStageWrap) classicStageWrap.style.display = '';
-            if (clubView) clubView.style.display = 'none';
-            if (combatArea) combatArea.style.display = '';
-
-            if (window.KendoClub && window.KendoClub.stopClubMiniCharaLoop) {
-                window.KendoClub.stopClubMiniCharaLoop();
-            }
-
-            if (window.KendoClub && window.KendoClub.clearMobilePortal) {
-                window.KendoClub.clearMobilePortal();
-            }
-
             state.customMatch = null;
-            resetGame();
-
-            // 試合開始前（待機状態）はBGMを停止（審判の「始め！」で再生開始）
-            if (window.KendoBGM && window.KendoBGM.stop) {
-                window.KendoBGM.stop();
+            state.stageIndex = 0;
+            state.clearedStages.clear();
+            // 🎬 設定がONなら開幕アニメを再生、OFFなら直接健太戦へ
+            if (window.KendoGameEngine && typeof window.KendoGameEngine.isOpeningAnimeEnabled === 'function' && window.KendoGameEngine.isOpeningAnimeEnabled()) {
+                window.KendoGameEngine.playTrialOpeningVideo();
+            } else {
+                window.KendoGameEngine.skipTrialOpeningVideo();
             }
         } else if (mode === 'club') {
             if (currentModeBadge) currentModeBadge.textContent = '🥋 全国制覇モード';

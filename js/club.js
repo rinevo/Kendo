@@ -4698,6 +4698,13 @@
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
             renderTournamentCeremony(container);
         } else if (ClubState.viewPhase === 'prologue_video') {
+            const animeEnabled = (window.KendoGameEngine && typeof window.KendoGameEngine.isOpeningAnimeEnabled === 'function')
+                ? window.KendoGameEngine.isOpeningAnimeEnabled()
+                : true;
+            if (!animeEnabled) {
+                proceedFromPrologueVideoToStory();
+                return;
+            }
             stopClubMiniCharaLoop();
             if (window.KendoBGM && window.KendoBGM.stop) window.KendoBGM.stop();
             renderPrologueVideo(container);
@@ -7871,7 +7878,10 @@
                 ClubState.activityLog.unshift('🏆【周回特典】歴代制覇の栄誉により、主将の試合自動化（オート観戦・即時判定）が最初から解放されています！');
             }
             ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
-            ClubState.viewPhase = 'prologue_video';
+            const animeEnabled = (window.KendoGameEngine && typeof window.KendoGameEngine.isOpeningAnimeEnabled === 'function')
+                ? window.KendoGameEngine.isOpeningAnimeEnabled()
+                : true;
+            ClubState.viewPhase = animeEnabled ? 'prologue_video' : 'prologue_story';
 
             saveClubData();
             renderClubUI();

@@ -373,25 +373,25 @@
                 volText.textContent = isMuted ? '0%' : `${Math.round(masterVolume * 100)}%`;
             }
 
-            // タイトル画面のガイダンスバッジの更新
-            if (promptBadge) {
-                if (isAudioPlaying && !isMuted) {
-                    promptBadge.classList.add('playing');
-                    promptBadge.innerHTML = '🎵 <span class="bgm-badge-text">BGM再生中（1回再生）</span>';
-                    promptBadge.title = 'BGM再生中';
-                } else if (bgmAudio.ended) {
-                    promptBadge.classList.remove('playing');
-                    promptBadge.innerHTML = '🎵 <span class="bgm-badge-text">BGM再生終了（クリックで再再生）</span>';
-                    promptBadge.title = 'クリックでもう一度BGMを再生';
-                } else if (isMuted) {
-                    promptBadge.classList.remove('playing');
-                    promptBadge.innerHTML = '🔇 <span class="bgm-badge-text">BGMミュート中（クリックで再生）</span>';
-                    promptBadge.title = 'クリックでミュート解除';
-                } else {
+            // 音量設定ラッパーとBGM再生ガイダンスの切り替え表示
+            const sliderWrap = document.getElementById('bgmVolumeSliderWrap');
+
+            // ガイダンスを表示すべき条件: 未再生 かつ ミュートOFF かつ 再生終了前 かつ 音量>0
+            const shouldShowPrompt = !isAudioPlaying && !isMuted && !bgmAudio.ended && masterVolume > 0;
+
+            if (shouldShowPrompt) {
+                // 未再生時は音量設定を消し、その位置にガイダンスを表示
+                if (sliderWrap) sliderWrap.style.display = 'none';
+                if (promptBadge) {
+                    promptBadge.style.display = 'inline-flex';
                     promptBadge.classList.remove('playing');
                     promptBadge.innerHTML = '🎵 <span class="bgm-badge-text pulse">画面をクリックしてBGMを再生</span>';
-                    promptBadge.title = 'クリックで和風BGMを再生';
+                    promptBadge.title = 'クリックでBGMを再生';
                 }
+            } else {
+                // 再生開始後、またはミュート時、再生終了後は音量設定を表示し、ガイダンスは非表示
+                if (sliderWrap) sliderWrap.style.display = 'inline-flex';
+                if (promptBadge) promptBadge.style.display = 'none';
             }
         },
 
