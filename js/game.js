@@ -2521,6 +2521,11 @@ function closeMenkyoModal() {
     state.stageIndex = 0;
     state.clearedStages.clear();
     resetGame();
+
+    // 起動時の画面（モード選択画面 / タイトル画面）へ戻る
+    if (window.KendoGameEngine && typeof window.KendoGameEngine.showModeSelect === 'function') {
+        window.KendoGameEngine.showModeSelect();
+    }
 }
 
 // キーボードによる軽快なダイアログ送り（Space / Enter / Escape）
@@ -6310,7 +6315,7 @@ function updateUI() {
         btnDo.disabled = false;
         btnDo.textContent = inTsuba
             ? '⚡ 引き胴 (2ダメ)'
-            : (isWaki ? '🌊 抜き胴 (対崩2ダメ)' : '⚔️ 胴');
+            : (isWaki ? '🌊 抜き胴 (2ダメ迎撃)' : '⚔️ 胴');
         btnDo.classList.toggle('hiki-mode', inTsuba);
     }
     if (btnBreak) {
@@ -6323,9 +6328,9 @@ function updateUI() {
     } else if (isJodan) {
         btnDefend.textContent = '🛡️ 防御・気合 (上段不可)';
     } else if (inTsuba) {
-        btnDefend.textContent = isWaki ? '🌊 密着受け (HP+1)' : '🛡️ 密着受け (HP+1)';
+        btnDefend.textContent = isWaki ? '🌊 密着受け (HP+1)' : '🛡️ 密着受け (見切り)';
     } else {
-        btnDefend.textContent = isWaki ? '🌊 後の先防御 (HP+1)' : '🛡️ 防御・気合 (HP+1)';
+        btnDefend.textContent = isWaki ? '🌊 後の先防御 (HP+1)' : '🛡️ 防御・気合 (見切り)';
     }
 
     if (btnTsuki) {
@@ -6467,6 +6472,30 @@ function getCounterAlertWeights(enemyData) {
     }
 }
 
+// プレイヤーの気合が3以上（秘技・奥義発動可能）の時に敵が取る警戒行動の重み
+function getSpecialAlertWeights(enemyData) {
+    const id = enemyData ? enemyData.id : '';
+    if (id === 'sasaki') {
+        // 佐々木（三段）：下段「後の先防御」で奥義の渾身受け止めを最優先。隙あらば出端小手
+        return { 防御: 50, 小手: 35, 胴: 15, 面: 0, 突き: 0, 崩し: 0 };
+    } else if (id === 'onizuka') {
+        // 鬼塚（四段）：剛腕上段。「退いてたまるか！」と豪快な上段面・剛力突きで真っ向勝負（崩し封印）
+        return { 面: 55, 胴: 25, 突き: 20, 防御: 0, 小手: 0, 崩し: 0 };
+    } else if (id === 'kasumi') {
+        // 霞（五段）：下段「後の先防御」で受け流すか、軌道を躱しての意表を突く「抜き胴」
+        return { 防御: 45, 胴: 30, 小手: 20, 突き: 5, 面: 0, 崩し: 0 };
+    } else if (id === 'ryuzen') {
+        // 龍禅（八段）：不動心。下段で構えて「渾身の受け止め」を待ち構えつつ、電光石火の諸手突きで出端を挫く
+        return { 防御: 50, 突き: 28, 面: 14, 胴: 8, 小手: 0, 崩し: 0 };
+    } else if (id === 'kenta') {
+        // 健太（初段）：初心者のため気迫に気圧され、必死にガードするか、焦って真っ直ぐ面で飛び込む
+        return { 面: 40, 防御: 35, 小手: 20, 崩し: 5, 胴: 0, 突き: 0 };
+    } else {
+        // 一般部員（全国制覇モード等）：慎重にガードを固めつつ出端を警戒
+        return { 防御: 45, 小手: 30, 面: 15, 胴: 10, 崩し: 0, 突き: 0 };
+    }
+}
+
 // プレイヤーの行動履歴からワンパターンな戦術を解析し、見切り対策を算出
 function analyzePlayerPattern(history, enemyData) {
     if (!history || history.length < 2) return null;
@@ -6514,9 +6543,45 @@ function analyzePlayerPattern(history, enemyData) {
         }
     }
 
+    // 0-B. プレイヤーが気合3以上（秘技・覚醒奥義スタンバイ）の時の警戒
+    // ※ 相手が一撃必殺級の奥義を撃てる危険状態！無防備な崩しを完全封印し、受け止め防御か出端打ちを狙う
+    if (state.playerKiai >= 3) {
+        if (Math.random() < learnChance) {
+            const id = enemyData ? enemyData.id : '';
+            const eShort = enemyData ? enemyData.shortName : '相手';
+            const useWaki = id === 'sasaki' || id === 'kasumi' || id === 'ryuzen';
+            const useJodan = id === 'onizuka';
+            const targetStance = useWaki ? 'waki' : (useJodan ? 'jodan' : 'chudan');
+            let alertHint = '';
+            if (id === 'sasaki') {
+                alertHint = `🌊【下段・秘技警戒】${eShort}は下段に構えてあなたの秘技を厳重警戒！「後の先防御」で渾身の受け止めを狙っている…！（打突で崩すか、意表を突け！）`;
+            } else if (id === 'onizuka') {
+                alertHint = `🔥【上段・剛剣勝負】${eShort}はあなたの秘技に臆さず、上段から渾身の「面」で力押し勝負を挑んできた！（「胴」で面を抜くか、奥義で押し切るか！）`;
+            } else if (id === 'kasumi') {
+                alertHint = `🌊【下段・幻影警戒】${eShort}は低く構えてあなたの秘技を冷静に見据えている…。「後の先防御」か、躱しての「抜き胴」を狙っているぞ！`;
+            } else if (id === 'ryuzen') {
+                alertHint = `🌊【下段・奥義受け止め警戒】${eShort}は泰然自若の構え。あなたの奥義を「渾身の防御」で受け止めんと全身全霊を研ぎ澄ましている…！（不用意な奥義は受け止められるぞ！）`;
+            } else if (id === 'kenta') {
+                alertHint = `🛡️【中段・気迫に圧迫】${eShort}はあなたの凄まじい気迫に圧倒され、必死に「防御」を固めつつ、出端の「面」を狙っている…！`;
+            } else {
+                alertHint = `🛡️【中段・秘技警戒】${eShort}はあなたの気合MAXを警戒し、慎重に「防御」を固めつつ出端を窺っている…！`;
+            }
+
+            return {
+                type: 'special_alert',
+                counterMove: '防御',
+                stance: targetStance,
+                hint: alertHint,
+                isDanger: useJodan,
+                weights: getSpecialAlertWeights(enemyData),
+            };
+        }
+    }
+
     // 1. 下段・連続防御パターン（「防御」の乱用・下段待ち）
     // 崩しを出すのは「見切りがあるのに攻撃せず、2手連続で防御を重ねてきた守り癖」のみ！
-    if (last1.action === '防御' && last2.action === '防御') {
+    // ※ プレイヤー気合3以上の時は奥義の餌食になるため崩しは出さない
+    if (state.playerKiai < 3 && last1.action === '防御' && last2.action === '防御') {
         if (Math.random() < learnChance) {
             const enemyShort = enemyData ? enemyData.shortName : '相手';
             return {
@@ -6578,22 +6643,6 @@ function analyzePlayerPattern(history, enemyData) {
         }
     }
 
-    // 5. 気合高揚時の必殺突き一点読み
-    if (state.playerKiai >= 3) {
-        const pastTsuki = history.some((h) => h.action === '突き');
-        if (pastTsuki && Math.random() < learnChance) {
-            const enemyShort = enemyData ? enemyData.shortName : '相手';
-            return {
-                type: 'tsuki_spam',
-                counterMove: '突き',
-                stance: 'chudan',
-                hint: `⚡【先手警戒】${enemyShort}は必殺の突きを警戒し、出端の「突き」や「小手」で先手を狙っている！`,
-                isDanger: true,
-                weights: { 突き: 50, 小手: 30, 崩し: 20, 面: 0, 胴: 0, 防御: 0 },
-            };
-        }
-    }
-
     return null;
 }
 
@@ -6619,12 +6668,26 @@ function decideEnemyIntent() {
 
     let intent;
     if (state.tsubazeriai) {
-        if (state.enemyKiai >= 3) {
+        if (state.enemyKiai >= 3 && state.playerKiai >= 3) {
+            intent = {
+                stance: 'chudan',
+                hint: `💥【鍔迫り合い・気迫激突】⚠️ 互いの気合が最高潮！離れ際の奥義激突か、「密着ガード」での受け止めか…！（離れ技は3ダメ！）`,
+                isDanger: true,
+                weights: { 突き: 45, 防御: 35, 面: 12, 胴: 8, 小手: 0, 崩し: 0 },
+            };
+        } else if (state.enemyKiai >= 3) {
             intent = {
                 stance: 'chudan',
                 hint: `💥【鍔迫り合い】⚠️ ${enemyData.shortName}の気合が充実！離れ際の「離れ突き(3ダメ)」か「引き面」が来るぞ！`,
                 isDanger: true,
                 weights: { 突き: 52, 面: 22, 小手: 14, 崩し: 12, 胴: 0, 防御: 0 },
+            };
+        } else if (state.playerKiai >= 3) {
+            intent = {
+                stance: 'chudan',
+                hint: `💥【鍔迫り合い・秘技警戒】⚠️ ${enemyData.shortName}はあなたの気合充実に気圧され、「密着ガード」で離れ際の奥義を防ごうとしている…！（「突き放し」でガードを崩せ！）`,
+                isDanger: false,
+                weights: { 防御: 55, 胴: 25, 小手: 15, 面: 5, 崩し: 0, 突き: 0 },
             };
         } else {
             const r = Math.random();
@@ -6655,12 +6718,28 @@ function decideEnemyIntent() {
         const eTechInfo = getFighterSpecialTech('enemy');
         const eTech = eTechInfo.tech;
         const eUnlocked = eTechInfo.isUnlocked;
-        intent = {
-            stance: 'chudan',
-            hint: `⚠️ ${enemyData.shortName}の気合が最高潮！${eUnlocked ? `奥義「${eTech.name}」` : '「気合一閃」'}か強烈な「崩し」が来るぞ！（打突で先手を取るか、見極めよ！）`,
-            isDanger: true,
-            weights: { 必殺: 65, 崩し: 15, 面: 8, 小手: 6, 胴: 4, 突き: 2, 防御: 0 },
-        };
+        if (state.playerKiai >= 3) {
+            // ⚡ 双方が気合3以上の極限クライマックス！
+            const isRyuzen = enemyData.id === 'ryuzen';
+            const isOnizuka = enemyData.id === 'onizuka';
+            const useWaki = enemyData.id === 'sasaki' || enemyData.id === 'kasumi' || isRyuzen;
+            const mutualStance = isOnizuka ? 'jodan' : (useWaki ? 'waki' : 'chudan');
+            intent = {
+                stance: mutualStance,
+                hint: `⚡【気迫激突】互いの気合が最高潮！${enemyData.shortName}は${eUnlocked ? `奥義「${eTech.name}」` : '気合一閃'}の構えを取りつつ、あなたの秘技をも油断なく警戒している…！（奥義激突か、紙一重の受け止めか！）`,
+                isDanger: true,
+                weights: isOnizuka
+                    ? { 必殺: 70, 面: 30, 胴: 0, 突き: 0, 小手: 0, 防御: 0, 崩し: 0 }
+                    : { 必殺: 60, 防御: 25, 突き: 10, 面: 5, 小手: 0, 胴: 0, 崩し: 0 },
+            };
+        } else {
+            intent = {
+                stance: 'chudan',
+                hint: `⚠️ ${enemyData.shortName}の気合が最高潮！${eUnlocked ? `奥義「${eTech.name}」` : '「気合一閃」'}か強烈な「崩し」が来るぞ！（打突で先手を取るか、見極めよ！）`,
+                isDanger: true,
+                weights: { 必殺: 65, 崩し: 15, 面: 8, 小手: 6, 胴: 4, 突き: 2, 防御: 0 },
+            };
+        }
     } else if (state.enemyCounterReady) {
         const keepStance = state.enemyStanceStyle || 'chudan';
         const isRyuzen = enemyData && enemyData.id === 'ryuzen';
@@ -6710,25 +6789,33 @@ function decideEnemyIntent() {
                     weights: getCounterAlertWeights(enemyData),
                 };
             } else if (state.playerKiai >= 3 && !state.enemyGuardBroken) {
-                // プレイヤーが気合MAX（必殺技警戒）の時
-                if (Math.random() < 0.65) {
-                    const useWaki = enemyData.id === 'sasaki' || enemyData.id === 'kasumi' || enemyData.id === 'ryuzen';
-                    intent = {
-                        stance: useWaki ? 'waki' : 'chudan',
-                        hint: useWaki
-                            ? `🌊【下段の構え】${enemyData.shortName}は必殺技を警戒し、間合いを測っている…`
-                            : `🛡️【中段の構え】${enemyData.shortName}はあなたの気迫を警戒し、出端の「小手」を狙っている…`,
-                        isDanger: false,
-                        weights: { 小手: 40, 面: 30, 胴: 20, 突き: 10, 防御: 0, 崩し: 0 },
-                    };
+                // プレイヤーが気合MAX（秘技・奥義警戒）の時
+                const id = enemyData ? enemyData.id : '';
+                const useWaki = id === 'sasaki' || id === 'kasumi' || id === 'ryuzen';
+                const useJodan = id === 'onizuka';
+                const alertStance = useWaki ? 'waki' : (useJodan ? 'jodan' : 'chudan');
+                let alertHint = '';
+
+                if (id === 'sasaki') {
+                    alertHint = `🌊【下段・秘技警戒】${eShort}は下段に構えてあなたの秘技を厳重警戒！「後の先防御」で渾身の受け止めを狙っている…！（打突で崩すか、意表を突け！）`;
+                } else if (id === 'onizuka') {
+                    alertHint = `🔥【上段・剛剣勝負】${eShort}はあなたの秘技に臆さず、上段から渾身の「面」で力押し勝負を挑んできた！（「胴」で面を抜くか、奥義で押し切るか！）`;
+                } else if (id === 'kasumi') {
+                    alertHint = `🌊【下段・幻影警戒】${eShort}は低く構えてあなたの秘技を冷静に見据えている…。「後の先防御」か、躱しての「抜き胴」を狙っているぞ！`;
+                } else if (id === 'ryuzen') {
+                    alertHint = `🌊【下段・奥義受け止め警戒】${eShort}は泰然自若の構え。あなたの奥義を「渾身の防御」で受け止めんと全身全霊を研ぎ澄ましている…！（不用意な奥義は受け止められるぞ！）`;
+                } else if (id === 'kenta') {
+                    alertHint = `🛡️【中段・気迫に圧迫】${eShort}はあなたの凄まじい気迫に圧倒され、必死に「防御」を固めつつ、出端の「面」を狙っている…！`;
                 } else {
-                    intent = {
-                        stance: 'chudan',
-                        hint: `👁️【中段の構え】${enemyData.shortName}は先手を取ろうと、出端の「小手」や「面」を狙っている…`,
-                        isDanger: false,
-                        weights: { 小手: 45, 面: 30, 胴: 15, 突き: 10, 防御: 0, 崩し: 0 },
-                    };
+                    alertHint = `🛡️【中段・秘技警戒】${eShort}はあなたの気合MAXを警戒し、慎重に「防御」を固めつつ出端を窺っている…！`;
                 }
+
+                intent = {
+                    stance: alertStance,
+                    hint: alertHint,
+                    isDanger: useJodan,
+                    weights: getSpecialAlertWeights(enemyData),
+                };
             } else {
                 const patterns = (enemyData && Array.isArray(enemyData.patterns) && enemyData.patterns.length > 0)
                     ? enemyData.patterns
@@ -7546,15 +7633,23 @@ function playRound(playerAction) {
         let didHit = true;
         let dmg = (inTsuba ? 3 : (isUnlocked ? (pTechInfo.tech.power || 2) : 2)) + (eJodan ? 1 : 0);
 
-        if (!isUnlocked && enemyAction === '防御') {
-            // 未解放の気合一閃 vs 防御：50%で貫通、50%で受け止められるが相手を体勢崩壊
-            if (Math.random() < 0.5) {
+        if (enemyAction === '防御') {
+            if (isUnlocked) {
+                // 覚醒奥義 vs 防御: 渾身の受け止めで被ダメ1に軽減されるが、相手を体勢崩壊させる
                 dmg = 1;
-            } else {
-                didHit = false;
                 roundEnemyBlocked = true;
                 state.enemyGuardBroken = true;
                 state.enemyStunned = true;
+            } else {
+                // 未解放の気合一閃 vs 防御：50%で貫通1ダメ、50%で受け止められ相手を体勢崩壊
+                if (Math.random() < 0.5) {
+                    dmg = 1;
+                } else {
+                    didHit = false;
+                    roundEnemyBlocked = true;
+                    state.enemyGuardBroken = true;
+                    state.enemyStunned = true;
+                }
             }
         }
 
@@ -7568,11 +7663,14 @@ function playRound(playerAction) {
             zoomTargets.push(playerSpriteBox);
             shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
             doArenaFlash = true;
-            popups.push({ who: 'enemy', text: `-${dmg} ${isUnlocked ? '必殺一閃！' : '気合一閃！'}`, styleClass: 'popup-crit' });
+            popups.push(
+                { who: 'enemy', text: `-${dmg} ${isUnlocked ? '必殺一閃！' : '気合一閃！'}`, styleClass: 'popup-crit' },
+                ...(enemyAction === '防御' ? [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }] : [])
+            );
             calloutData = {
                 winner: 'player',
-                mainText: `${pMoveName}あり！`,
-                subText: `⚡ 会心の奥義 (${dmg}点)`,
+                mainText: enemyAction === '防御' ? '奥義受け止められるも突破！' : `${pMoveName}あり！`,
+                subText: enemyAction === '防御' ? `💥 相手は次ターン体勢崩壊！ (${dmg}点)` : `⚡ 会心の奥義 (${dmg}点)`,
                 reasonBadge: isUnlocked ? '⚡ 秘技覚醒' : '🔥 気合一閃',
                 isCritical: true,
             };
@@ -7599,18 +7697,70 @@ function playRound(playerAction) {
         let rawDmg = (inTsuba ? 3 : (isUnlocked ? (eTechInfo.tech.power || 2) : 2)) + (isJodan ? 1 : 0);
         let dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
 
-        if (!isUnlocked && playerAction === '防御') {
-            if (Math.random() < 0.5) {
-                dmg = 1;
-            } else {
-                didHit = false;
-                roundPlayerBlocked = true;
-                state.playerGuardBroken = true;
-                state.playerStunned = true;
+        if (playerAction === '防御') {
+            // 🛡️ プレイヤーの防御による奥義受け止め（即死貫通の解消・被ダメ1＆相手体勢崩壊）
+            roundPlayerBlocked = true;
+            let healed = 0;
+            const pMaxHealth = getPlayerMaxHealth();
+            if (isWaki && state.playerHealth < pMaxHealth) {
+                state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
+                healed = 1;
             }
-        }
 
-        if (didHit) {
+            if (isUnlocked) {
+                // 覚醒奥義（天翔諸手突き等）：3ダメージを渾身の防御で【1ダメージ】に抑え込み、相手を体勢崩壊させる！
+                dmg = 1;
+                state.playerHealth -= dmg;
+                state.enemyGuardBroken = true;
+                state.enemyStunned = true; // 次ターン相手操作スキップ（大反撃のチャンス！）
+                playerAnim = 'block';
+                playerOutcome = 'block_success';
+                impactWeight = 'heavy';
+                statusType = 'victory';
+                impactSound = 'block';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+                doArenaFlash = true;
+                popups.push(
+                    { who: 'player', text: '-1 奥義ガード！', styleClass: 'popup-crit' },
+                    ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
+                    { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                );
+                calloutData = {
+                    winner: null,
+                    mainText: '渾身の奥義受け止め！',
+                    subText: '💥 衝撃で相手は体勢崩壊！大反撃の好機！',
+                    reasonBadge: '🛡️ 奥義防御',
+                    isGuard: true,
+                };
+            } else {
+                // 未解放気合一閃：50%で1ダメ、50%で完全無傷ガード＆相手体勢崩壊
+                state.enemyGuardBroken = true;
+                state.enemyStunned = true;
+                if (Math.random() < 0.5) {
+                    dmg = 1;
+                    state.playerHealth -= dmg;
+                    popups.push(
+                        { who: 'player', text: '-1 ガード！', styleClass: 'popup-crit' },
+                        { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                    );
+                } else {
+                    didHit = false;
+                    popups.push(
+                        { who: 'player', text: '🛡️ 完全ガード！', styleClass: 'popup-block' },
+                        { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                    );
+                }
+                calloutData = {
+                    winner: null,
+                    mainText: '気合一閃を受け止めた！',
+                    subText: '💥 相手は次ターン体勢崩壊！',
+                    reasonBadge: '🛡️ 鉄壁防御',
+                    isGuard: true,
+                };
+            }
+        } else {
+            // 防御していない場合は痛恨直撃（3ダメージ）！
             state.playerHealth -= dmg;
             playerAnim = 'hit';
             playerOutcome = 'hit';
@@ -7627,21 +7777,6 @@ function playRound(playerAction) {
                 subText: `⚡ 必殺の${eMoveName} (${dmg}点)`,
                 reasonBadge: isUnlocked ? '⚠️ 相手奥義' : '⚠️ 相手気合一閃',
                 isCritical: true,
-            };
-        } else {
-            statusType = 'neutral';
-            impactSound = 'hurt';
-            playerOutcome = 'hit';
-            zoomTargets.push(playerSpriteBox);
-            popups.push(
-                { who: 'player', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
-                { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
-            );
-            calloutData = {
-                winner: null,
-                mainText: '受け止めた！',
-                subText: '💥 衝撃で体勢崩壊！',
-                reasonBadge: '🛡️ 鉄壁防御',
             };
         }
     }
@@ -7755,7 +7890,7 @@ function playRound(playerAction) {
         state.playerCounterStacks = newStacks;
         state.playerCounterReady = true;
 
-        // 攻撃側（敵）に気合+1を付与
+        // 攻撃側（敵）に気合+1を付与（防御側の気合は不変）
         gainKiai('enemy', 1);
 
         playerOutcome = 'block_success';
@@ -7787,7 +7922,7 @@ function playRound(playerAction) {
         state.enemyCounterStacks = newEStacks;
         state.enemyCounterReady = true;
 
-        // 攻撃側（プレイヤー）に気合+1を付与
+        // 攻撃側（プレイヤー）に気合+1を付与（防御側の気合は不変）
         gainKiai('player', 1);
 
         enemyOutcome = 'block_success';
@@ -8034,9 +8169,9 @@ function playRound(playerAction) {
             if (['面', '小手', '胴', '突き'].includes(enemyAction)) eStanceMod = 3;
         }
 
-        // 応じ技基礎バフ（前ターン防御成功時、見切りスタック数に応じてスケール: Lv1=18, Lv2=32, Lv3=48）
-        const pBaseBonus = pCounterStacks >= 3 ? 48 : (pCounterStacks === 2 ? 32 : 18);
-        const eBaseBonus = eCounterStacks >= 3 ? 48 : (eCounterStacks === 2 ? 32 : 18);
+        // 応じ技基礎バフ（前ターン防御成功時、見切りスタック数に応じてスケール: Lv1=28, Lv2=42, Lv3=56）
+        const pBaseBonus = pCounterStacks >= 3 ? 56 : (pCounterStacks === 2 ? 42 : 28);
+        const eBaseBonus = eCounterStacks >= 3 ? 56 : (eCounterStacks === 2 ? 42 : 28);
         const pCounterBonus = pCounter ? pBaseBonus : 0;
         const eCounterBonus = eCounter ? eBaseBonus : 0;
 
