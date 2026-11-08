@@ -2224,7 +2224,7 @@
                 }
             } else if (axis.val >= STAT_HARD_MAX) {
                 valColor = '#ff2222';
-                valSuffix = ' MAX🔥';
+                valSuffix = '🔥';
             } else if (pt.isOver) {
                 valColor = '#ff4d4f'; // 50超えはクリムゾン炎カラーで強調
                 valSuffix = '🔥';
@@ -4697,6 +4697,10 @@
             const ceremonyScene = isWinner ? 'victory' : 'ceremony';
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
             renderTournamentCeremony(container);
+        } else if (ClubState.viewPhase === 'prologue_video') {
+            stopClubMiniCharaLoop();
+            if (window.KendoBGM && window.KendoBGM.stop) window.KendoBGM.stop();
+            renderPrologueVideo(container);
         } else if (ClubState.viewPhase === 'prologue_story') {
             stopClubMiniCharaLoop();
             if (window.KendoBGM && window.KendoBGM.play) window.KendoBGM.play('ceremony');
@@ -7182,6 +7186,89 @@
     }
 
     // ───────────────────────────────────────────
+    // 🎬 創部プロローグ・アニメーション動画画面描画
+    // ───────────────────────────────────────────
+    function renderPrologueVideo(container) {
+        const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+
+        container.innerHTML = `
+            <div class="ceremony-container ceremony-prologue-video-view">
+                <div class="ceremony-opening-banner ceremony-gold-banner">
+                    <div class="ceremony-banner-top-row">
+                        <span class="ceremony-season-pill">🎬 創部プロローグ・ショートアニメ</span>
+                        <button type="button" class="btn-video-skip" onclick="window.KendoClub.skipPrologueVideo()">
+                            ⏩ スキップして物語へ
+                        </button>
+                    </div>
+                    <h1 class="ceremony-main-title">🌸 埃を払った道場 — 甦る名門剣道部</h1>
+                    <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 武道場 ｜ 創設主将：${escapeHtml(captain ? captain.name : 'あなた')}（1年）</div>
+                </div>
+
+                <div class="ceremony-card ceremony-video-card">
+                    <div class="ceremony-video-wrap">
+                        <video id="prologueVideoPlayer" class="ceremony-video-player" src="img/story/prologue_revival_anime.mp4" playsinline controls preload="auto"></video>
+                    </div>
+                    <div class="ceremony-video-footer">
+                        <div class="video-footer-tip">
+                            <span>💡 再生が終了すると自動的に創部イベント画面へ進みます</span>
+                        </div>
+                        <button type="button" class="btn-video-skip-inline" onclick="window.KendoClub.skipPrologueVideo()">
+                            ⏩ スキップして物語を読む
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const video = document.getElementById('prologueVideoPlayer');
+        if (video) {
+            syncPrologueVideoAudio(video);
+
+            // 再生終了時に自動で物語画面へ遷移
+            video.addEventListener('ended', () => {
+                proceedFromPrologueVideoToStory();
+            });
+
+            // 自動再生の試行（ブラウザのautoplayポリシー対応）
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.catch((err) => {
+                    console.log('[PrologueVideo] Autoplay blocked, waiting for user play:', err.message);
+                });
+            }
+        }
+    }
+
+    function syncPrologueVideoAudio(video) {
+        const target = video || document.getElementById('prologueVideoPlayer');
+        if (!target) return;
+        if (window.KendoBGM) {
+            target.volume = typeof window.KendoBGM.getSoundVolume === 'function' ? window.KendoBGM.getSoundVolume() : 0.65;
+            target.muted = typeof window.KendoBGM.isMuted === 'function' ? window.KendoBGM.isMuted() : false;
+        }
+    }
+
+    function proceedFromPrologueVideoToStory() {
+        const video = document.getElementById('prologueVideoPlayer');
+        if (video) {
+            try { video.pause(); } catch (e) {}
+        }
+        ClubState.viewPhase = 'prologue_story';
+        saveClubData();
+        renderClubUI();
+    }
+
+    function skipPrologueVideo() {
+        proceedFromPrologueVideoToStory();
+    }
+
+    function replayPrologueVideo() {
+        ClubState.viewPhase = 'prologue_video';
+        saveClubData();
+        renderClubUI();
+    }
+
+    // ───────────────────────────────────────────
     // 🌸 創部プロローグ・廃部復活ストーリー画面描画
     // ───────────────────────────────────────────
     function renderPrologueStory(container) {
@@ -7227,6 +7314,9 @@
                             <span class="art-fallback-title">廃部からの再興</span>
                         </div>
                         <div class="ceremony-tagline-overlay">〜閉ざされていた扉が今、開かれる。先輩なき道場から始まる、俺たちの全国制覇〜</div>
+                        <button type="button" class="btn-replay-prologue-anime" onclick="window.KendoClub.replayPrologueVideo()" title="創部オープニングアニメをもう一度再生する">
+                            🎬 アニメをもう一度観る
+                        </button>
                     </div>
 
                     <div class="ceremony-scroll-body">
@@ -7781,7 +7871,7 @@
                 ClubState.activityLog.unshift('🏆【周回特典】歴代制覇の栄誉により、主将の試合自動化（オート観戦・即時判定）が最初から解放されています！');
             }
             ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
-            ClubState.viewPhase = 'prologue_story';
+            ClubState.viewPhase = 'prologue_video';
 
             saveClubData();
             renderClubUI();
@@ -8698,6 +8788,22 @@
 
         proceedFromPrologueToDashboard: function () {
             proceedFromPrologueToDashboard();
+        },
+
+        skipPrologueVideo: function () {
+            skipPrologueVideo();
+        },
+
+        proceedFromPrologueVideoToStory: function () {
+            proceedFromPrologueVideoToStory();
+        },
+
+        replayPrologueVideo: function () {
+            replayPrologueVideo();
+        },
+
+        syncPrologueVideoAudio: function () {
+            syncPrologueVideoAudio();
         },
 
         showClubEnding: function () {

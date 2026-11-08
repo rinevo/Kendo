@@ -5036,10 +5036,10 @@ function showClashMeter(data) {
     } = data;
 
     if (clashPlayerLabel) {
-        clashPlayerLabel.innerHTML = `${pMoveName} ${pSkillVal} <span class="clash-total-pill player" title="判定総合パワー">計 ${pScore}</span>`;
+        clashPlayerLabel.textContent = `${pMoveName} ${pSkillVal}`;
     }
     if (clashEnemyLabel) {
-        clashEnemyLabel.innerHTML = `<span class="clash-total-pill enemy" title="判定総合パワー">計 ${eScore}</span> ${eMoveName} ${eSkillVal}`;
+        clashEnemyLabel.textContent = `${eMoveName} ${eSkillVal}`;
     }
     if (clashVsTag) {
         if (winner === 'player') clashVsTag.textContent = '優勢！';
@@ -5082,14 +5082,30 @@ function showClashMeter(data) {
             eBadges.push(`<span class="clash-badge kiai-buff">${eKiaiLabel} +${eKiaiBonus}</span>`);
         }
 
-        // 4. 基礎能力ボーナス（剛腕・見切り・気力）
+        // 4. 基礎能力ボーナス（剛腕・見切り・気力・構え）
         const {
             pStrBonus = 0, eStrBonus = 0,
             pAgiBonus = 0, eAgiBonus = 0,
             pSpiBonus = 0, eSpiBonus = 0,
             pCounterBonus = 0, eCounterBonus = 0,
             pCounterStacks = 0, eCounterStacks = 0,
+            pStanceMod = 0, eStanceMod = 0,
+            pStanceStyle = 'chudan', eStanceStyle = 'chudan',
         } = data;
+
+        // 構え補正バッジ
+        if (pStanceMod > 0) {
+            const label = pStanceStyle === 'jodan' ? '🔥 上段面' : (pStanceStyle === 'waki' ? '🌊 下段胴' : '⚖️ 中段正統');
+            pBadges.push(`<span class="clash-badge skill-player">${label} +${pStanceMod}</span>`);
+        } else if (pStanceMod < 0) {
+            pBadges.push(`<span class="clash-badge skill-enemy">🌊 下段隙 ${pStanceMod}</span>`);
+        }
+        if (eStanceMod > 0) {
+            const label = eStanceStyle === 'jodan' ? '🔥 上段面' : (eStanceStyle === 'waki' ? '🌊 下段胴' : '⚖️ 中段正統');
+            eBadges.push(`<span class="clash-badge skill-enemy">${label} +${eStanceMod}</span>`);
+        } else if (eStanceMod < 0) {
+            eBadges.push(`<span class="clash-badge skill-player">🌊 下段隙 ${eStanceMod}</span>`);
+        }
 
         // 見切り応じ技（スタック数に応じた明示表示）
         if (pCounterStacks > 0) {
@@ -5788,11 +5804,11 @@ function updateStanceBarUI() {
     }
     if (stanceDescText) {
         if (style === 'jodan') {
-            stanceDescText.textContent = '🔥 上段の構え：「面」の威力+1（通常2ダメ・相面も一方的に制覇）！※「防御」不可＆相手の小手・突き被弾時+1ダメ';
+            stanceDescText.textContent = '🔥 上段の構え：「面」の威力+1（通常2ダメ・相面も判定+6で制覇）！※「防御」不可＆相手の小手・突き被弾時+1ダメ';
         } else if (style === 'waki') {
-            stanceDescText.textContent = '🌊 下段の構え：「防御」成功で体力+1回復！相手の「崩し」を「胴（抜き胴）」で迎撃時2ダメ！※通常の面は気合+0';
+            stanceDescText.textContent = '🌊 下段の構え：「防御」成功でHP+1回復！「面」や「崩し」に「胴」で迎撃勝負時「抜き胴(2ダメ)」！※面/突き判定-3・面気合+0';
         } else {
-            stanceDescText.textContent = '⚖️ 中段の構え：攻守バランスの取れた王道の構え（全コマンド使用可・「防御」成功で体力+1回復）';
+            stanceDescText.textContent = '⚖️ 中段の構え：全基本打突の判定+3＆全技で気合最速蓄積！攻守の隙がない王道（「防御」で見切り獲得）';
         }
     }
 }
@@ -7318,7 +7334,7 @@ function playRound(playerAction) {
             return act;
         }
         if (sideJodan && act === '面') return '上段面';
-        if (sideWaki && act === '胴' && otherAct === '崩し') return '抜き胴';
+        if (sideWaki && act === '胴' && (otherAct === '崩し' || otherAct === '面')) return '抜き胴';
         if (sideWaki && act === '防御') return '後の先防御';
         if (act === '防御') return '防御・気合';
         return act;
@@ -7726,12 +7742,12 @@ function playRound(playerAction) {
             subText: didResist ? '⚡ 不動心で体勢を維持した' : (actualBreakDmg >= 2 ? '💥 相手の剛腕体当たり！次ターン操作不能！' : '💥 体勢を崩された！次ターン操作スキップ！')
         };
     }
-    // 4. 防御 vs 基本打突（応じ技準備！ 防御側は気合不変、見切りスタック蓄積で次打成功率UP！ 攻撃側は気合+1！ 中段・下段ともに防御成功でHP+1回復）
+    // 4. 防御 vs 基本打突（応じ技準備！ 防御側は気合不変、見切りスタック蓄積で次打成功率UP！ 攻撃側は気合+1！ 下段の構えのみ防御成功でHP+1回復）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
         roundPlayerBlocked = true;
         let healed = 0;
         const pMaxHealth = getPlayerMaxHealth();
-        if (state.playerHealth < pMaxHealth) {
+        if (isWaki && state.playerHealth < pMaxHealth) {
             state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
             healed = 1;
         }
@@ -7747,7 +7763,7 @@ function playRound(playerAction) {
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
         popups.push(
-            { who: 'player', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
+            { who: 'player', text: isWaki ? '🌊 後の先ガード！' : '🛡️ ガード成功！', styleClass: 'popup-block' },
             ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'player', text: newStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newStacks}！`, styleClass: 'popup-counter' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
@@ -7763,7 +7779,7 @@ function playRound(playerAction) {
         roundEnemyBlocked = true;
         let eHealed = 0;
         const eMax = state.enemyMaxHealth || getCurrentEnemy().maxHealth;
-        if (state.enemyHealth < eMax) {
+        if (eWaki && state.enemyHealth < eMax) {
             state.enemyHealth = Math.min(eMax, state.enemyHealth + 1);
             eHealed = 1;
         }
@@ -7779,7 +7795,7 @@ function playRound(playerAction) {
         impactSound = 'block';
         zoomTargets.push(enemySpriteBox);
         popups.push(
-            { who: 'enemy', text: '🛡️ ガード成功！', styleClass: 'popup-block' },
+            { who: 'enemy', text: eWaki ? '🌊 相手の後の先！' : '🛡️ ガード成功！', styleClass: 'popup-block' },
             ...(eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'enemy', text: newEStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newEStacks}！`, styleClass: 'popup-counter' },
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
@@ -7995,8 +8011,28 @@ function playRound(playerAction) {
         const eSpiBonus = (eSpi >= 14) ? Math.round((eSpi - 10) * 0.25) : 0;
 
         // 構えボーナス
-        const pStanceMod = (isJodan && playerAction === '面') ? 6 : 0;
-        const eStanceMod = (eJodan && enemyAction === '面') ? 6 : 0;
+        // 🔥 上段: 「面」の判定値 +6
+        // 🌊 下段: 「胴」の判定値 +4、剣先が低いため「面」「突き」は -3
+        // ⚖️ 中段: 攻防隙なしの正統ボーナス 全技（面・小手・胴・突き）+3
+        let pStanceMod = 0;
+        if (isJodan) {
+            if (playerAction === '面') pStanceMod = 6;
+        } else if (isWaki) {
+            if (playerAction === '胴') pStanceMod = 4;
+            else if (playerAction === '面' || playerAction === '突き') pStanceMod = -3;
+        } else {
+            if (['面', '小手', '胴', '突き'].includes(playerAction)) pStanceMod = 3;
+        }
+
+        let eStanceMod = 0;
+        if (eJodan) {
+            if (enemyAction === '面') eStanceMod = 6;
+        } else if (eWaki) {
+            if (enemyAction === '胴') eStanceMod = 4;
+            else if (enemyAction === '面' || enemyAction === '突き') eStanceMod = -3;
+        } else {
+            if (['面', '小手', '胴', '突き'].includes(enemyAction)) eStanceMod = 3;
+        }
 
         // 応じ技基礎バフ（前ターン防御成功時、見切りスタック数に応じてスケール: Lv1=18, Lv2=32, Lv3=48）
         const pBaseBonus = pCounterStacks >= 3 ? 48 : (pCounterStacks === 2 ? 32 : 18);
@@ -8037,6 +8073,10 @@ function playRound(playerAction) {
             eCounterBonus,
             pCounterStacks,
             eCounterStacks,
+            pStanceMod,
+            eStanceMod,
+            pStanceStyle: state.playerStanceStyle || 'chudan',
+            eStanceStyle: state.enemyStanceStyle || 'chudan',
             winner: winnerSide,
         };
         lastClashData = currentClashData;
@@ -8103,6 +8143,7 @@ function playRound(playerAction) {
                     reasonBadge: '⚠️ 技術未熟（不発）',
                 };
             } else {
+                const isNukiDo = isWaki && playerAction === '胴' && enemyAction === '面' && !inTsuba;
                 const jodanBonus = (isJodan && playerAction === '面') ? 1 : 0;
                 const eJodanKoteBonus = (eJodan && (playerAction === '小手' || playerAction === '突き')) ? 1 : 0;
                 const isCrit = Math.random() < pBuff.critRate;
@@ -8115,7 +8156,7 @@ function playRound(playerAction) {
                 const agiDiff = eAgi - pAgi;
                 const isAgiDodge = agiDiff > 0 && Math.random() < Math.min(0.40, agiDiff * 0.01);
 
-                const baseDmg = ((pCounter || inTsuba) ? 2 : 1) + pBuff.dmgBonus + (isCrit ? 1 : 0);
+                const baseDmg = ((pCounter || inTsuba || isNukiDo) ? 2 : 1) + pBuff.dmgBonus + (isCrit ? 1 : 0);
                 const rawDmg = baseDmg + jodanBonus + eJodanKoteBonus + (isStrCrit ? 1 : 0);
                 let dmg = Math.max(1, rawDmg - eBuff.dmgReduction);
                 if (isAgiDodge) {
@@ -8137,7 +8178,8 @@ function playRound(playerAction) {
                 impactWeight = isBoosted ? 'heavy' : 'normal';
 
                 let pReasonBadge = '⚔️ 技量突破';
-                if (isStrCrit) pReasonBadge = `💥 剛腕会心 (${pStr} vs ${eStr})`;
+                if (isNukiDo) pReasonBadge = '🌊 下段の構え・抜き胴 (2点)';
+                else if (isStrCrit) pReasonBadge = `💥 剛腕会心 (${pStr} vs ${eStr})`;
                 else if (pCounter) {
                     const lvText = pCounterStacks >= 2 ? `Lv${pCounterStacks}` : '応じ技';
                     pReasonBadge = `⚡ 見切り${lvText} (+${pCounterBonus + pAgiBonus})`;
@@ -8169,11 +8211,13 @@ function playRound(playerAction) {
                 calloutData = (dmg > 0) ? {
                     winner: 'player',
                     mainText: `${pMoveName}あり！`,
-                    subText: isStrCrit
-                        ? `💥 剛腕の一閃 (${dmg}点)`
-                        : (isCrit
-                            ? `⚡ 会心の一閃 (${dmg}点)`
-                            : (pAdv > 0 ? `⚔️ 相性制覇 (${dmg}点)` : `🚩 技術制覇 (${dmg}点)`)),
+                    subText: isNukiDo
+                        ? `🌊 下段の構え・抜き胴 (${dmg}点)`
+                        : (isStrCrit
+                            ? `💥 剛腕の一閃 (${dmg}点)`
+                            : (isCrit
+                                ? `⚡ 会心の一閃 (${dmg}点)`
+                                : (pAdv > 0 ? `⚔️ 相性制覇 (${dmg}点)` : `🚩 技術制覇 (${dmg}点)`))),
                     reasonBadge: pReasonBadge,
                     isCritical: isBoosted,
                 } : {
@@ -8199,6 +8243,7 @@ function playRound(playerAction) {
                     reasonBadge: '⚠️ 相手の技術未熟（不発）',
                 };
             } else {
+                const eNukiDo = eWaki && enemyAction === '胴' && playerAction === '面' && !inTsuba;
                 const eJodanBonus = (eJodan && enemyAction === '面') ? 1 : 0;
                 const jodanKotePenalty = (isJodan && (enemyAction === '小手' || enemyAction === '突き')) ? 1 : 0;
                 const isCrit = Math.random() < eBuff.critRate;
@@ -8211,7 +8256,7 @@ function playRound(playerAction) {
                 const agiDiff = pAgi - eAgi;
                 const isAgiDodge = agiDiff > 0 && Math.random() < Math.min(0.40, agiDiff * 0.01);
 
-                const baseDmg = ((eCounter || inTsuba) ? 2 : 1) + eBuff.dmgBonus + (isCrit ? 1 : 0);
+                const baseDmg = ((eCounter || inTsuba || eNukiDo) ? 2 : 1) + eBuff.dmgBonus + (isCrit ? 1 : 0);
                 const rawDmg = baseDmg + eJodanBonus + jodanKotePenalty + (isStrCrit ? 1 : 0);
                 let dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
                 if (isAgiDodge) {
@@ -8233,7 +8278,8 @@ function playRound(playerAction) {
                 impactWeight = isBoosted ? 'heavy' : 'normal';
 
                 let eReasonBadge = '⚠️ 競り負け';
-                if (isStrCrit) eReasonBadge = `💥 相手の剛腕会心 (${eStr} vs ${pStr})`;
+                if (eNukiDo) eReasonBadge = '🌊 相手の下段・抜き胴 (2点)';
+                else if (isStrCrit) eReasonBadge = `💥 相手の剛腕会心 (${eStr} vs ${pStr})`;
                 else if (eCounter) {
                     const lvText = eCounterStacks >= 2 ? `Lv${eCounterStacks}` : '応じ技';
                     eReasonBadge = `⚡ 相手見切り${lvText} (+${eCounterBonus + eAgiBonus})`;
@@ -8265,11 +8311,13 @@ function playRound(playerAction) {
                 calloutData = (dmg > 0) ? {
                     winner: 'enemy',
                     mainText: `${eMoveName}あり！`,
-                    subText: isStrCrit
-                        ? `💥 相手の剛腕の一閃 (${dmg}点)`
-                        : (isCrit
-                            ? `⚠️ 相手の会心の一閃 (${dmg}点)`
-                            : (eAdv > 0 ? `⚠️ 相手の相性制覇 (${dmg}点)` : `🏳️ 相手の技術制覇 (${dmg}点)`)),
+                    subText: eNukiDo
+                        ? `🌊 相手の下段の構え・抜き胴 (${dmg}点)`
+                        : (isStrCrit
+                            ? `💥 相手の剛腕の一閃 (${dmg}点)`
+                            : (isCrit
+                                ? `⚠️ 相手の会心の一閃 (${dmg}点)`
+                                : (eAdv > 0 ? `⚠️ 相手の相性制覇 (${dmg}点)` : `🏳️ 相手の技術制覇 (${dmg}点)`))),
                     reasonBadge: eReasonBadge,
                     isCritical: isBoosted,
                 } : {
@@ -9024,7 +9072,7 @@ window.KendoGameEngine = {
                     const isWinner = cs.ceremonyResultData && (cs.ceremonyResultData.rankKey === 'win' || cs.ceremonyResultData.rankLabel === '優勝');
                     const ceremonyScene = isWinner ? 'victory' : 'ceremony';
                     if (window.KendoBGM.play) window.KendoBGM.play(ceremonyScene);
-                } else if (cs && ['tournament_opening', 'match_sim', 'match_result'].includes(cs.viewPhase)) {
+                } else if (cs && ['tournament_opening', 'match_sim', 'match_result', 'prologue_video'].includes(cs.viewPhase)) {
                     if (window.KendoBGM.stop) window.KendoBGM.stop();
                 } else if (cs && cs.viewPhase === 'event_scene') {
                     // イベント画面：再生中のBGMは停止させずそのまま継続
@@ -9135,9 +9183,12 @@ window.KendoGameEngine = {
         ctx.restore();
     },
 
-    // BGM・システム音量と連動して効果音・ボイスのマスター音量を更新
+    // BGM・システム音量と連動して効果音・ボイス・動画のマスター音量を更新
     updateAudioVolume: function () {
         updateSoundMasterGain();
+        if (window.KendoClub && typeof window.KendoClub.syncPrologueVideoAudio === 'function') {
+            window.KendoClub.syncPrologueVideoAudio();
+        }
     },
 
     getFighterMaxKiai: function (who) {

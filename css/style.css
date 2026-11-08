@@ -1427,30 +1427,6 @@ body.bg-dojo {
     border-color: #c084fc;
 }
 
-.clash-total-pill {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 900;
-    padding: 1px 6px;
-    border-radius: 4px;
-    vertical-align: middle;
-    margin: 0 4px;
-    line-height: 1.2;
-}
-
-.clash-total-pill.player {
-    background: rgba(220, 38, 38, 0.35);
-    color: #fee2e2;
-    border: 1px solid #ef4444;
-    text-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
-}
-
-.clash-total-pill.enemy {
-    background: rgba(14, 165, 233, 0.35);
-    color: #e0f2fe;
-    border: 1px solid #38bdf8;
-    text-shadow: 0 0 4px rgba(56, 189, 248, 0.4);
-}
 
 .clash-summary-row {
     display: flex;
@@ -5579,6 +5555,130 @@ button.reset-btn:hover:not(:disabled) {
 
 .ceremony-art-wrap:hover .ceremony-art-img {
     transform: scale(1.02);
+}
+
+.btn-replay-prologue-anime {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(234, 179, 8, 0.7);
+    color: #fde047;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    transition: all 0.2s ease;
+}
+
+.btn-replay-prologue-anime:hover {
+    background: rgba(234, 179, 8, 0.25);
+    border-color: #fde047;
+    color: #ffffff;
+    transform: scale(1.04);
+}
+
+/* ─────────────────────────────────────────── */
+/* 創部プロローグ動画シアター スタイル */
+/* ─────────────────────────────────────────── */
+.ceremony-banner-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-video-skip {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.22) 0%, rgba(202, 138, 4, 0.35) 100%);
+    border: 1px solid rgba(234, 179, 8, 0.7);
+    color: #fef08a;
+    font-size: 0.88rem;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.btn-video-skip:hover {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.4) 0%, rgba(202, 138, 4, 0.55) 100%);
+    border-color: #fde047;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(234, 179, 8, 0.35);
+}
+
+.ceremony-video-card {
+    background: rgba(10, 15, 30, 0.95);
+    border: 1px solid rgba(234, 179, 8, 0.4);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 30px rgba(234, 179, 8, 0.12);
+    backdrop-filter: blur(14px);
+}
+
+.ceremony-video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 520px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000000;
+    border: 2px solid rgba(234, 179, 8, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+.ceremony-video-player {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    background: #000000;
+}
+
+.ceremony-video-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.video-footer-tip {
+    font-size: 0.86rem;
+    color: #94a3b8;
+}
+
+.btn-video-skip-inline {
+    background: rgba(30, 41, 59, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-video-skip-inline:hover {
+    background: rgba(51, 65, 85, 0.9);
+    border-color: #cbd5e1;
+    color: #ffffff;
 }
 
 .ceremony-art-fallback {
