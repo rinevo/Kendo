@@ -7316,6 +7316,82 @@ function startClosingCeremony() {
     }, CLOSING_TOTAL_T + 80);
 }
 
+/**
+ * 必殺技 vs 防御 の攻防判定（ステータス差によるガード粉砕判定）
+ * @param {'player' | 'enemy'} attackerWho 必殺技を放った側
+ * @param {'player' | 'enemy'} defenderWho 防御した側
+ * @param {boolean} inTsuba 鍔迫り合い中フラグ
+ * @returns {{ outcome: 'guard_crush' | 'blocked' | 'parried', dmg: number, powerDiff: number, attackPower: number, defensePower: number, isUnlocked: boolean }}
+ */
+function resolveSpecialVsDefend(attackerWho, defenderWho, inTsuba = false, explicitDefCounterStacks = null) {
+    const isAttackerPlayer = (attackerWho === 'player');
+    const atkStats = getFighterStats(attackerWho);
+    const defStats = getFighterStats(defenderWho);
+    const atkTechInfo = isAttackerPlayer ? getFighterSpecialTech('player') : getFighterSpecialTech('enemy');
+
+    const atkStance = isAttackerPlayer ? state.playerStanceStyle : state.enemyStanceStyle;
+    const defStance = isAttackerPlayer ? state.enemyStanceStyle : state.playerStanceStyle;
+    const defCounterStacks = explicitDefCounterStacks !== null
+        ? explicitDefCounterStacks
+        : (isAttackerPlayer ? state.enemyCounterStacks : state.playerCounterStacks);
+
+    // 攻撃側の奥義破壊力
+    const atkStr = atkStats.str || 10;
+    const atkSpi = atkStats.spi || 10;
+    const techType = (atkTechInfo.tech && atkTechInfo.tech.type) || '面';
+    const atkSkill = (atkStats.skills && atkStats.skills[techType === '面' ? 'men' : (techType === '小手' ? 'kote' : (techType === '胴' ? 'do' : 'tsuki'))]) || 20;
+    const isUnlocked = atkTechInfo.isUnlocked;
+    const techBasePower = inTsuba ? 3 : (isUnlocked ? ((atkTechInfo.tech && atkTechInfo.tech.power) || 2) : 2);
+    const jodanBonus = (atkStance === 'jodan' && techType === '面') ? 6 : 0;
+
+    const attackPower = (atkStr * 1.0) + (atkSpi * 0.6) + (atkSkill * 0.4)
+        + (techBasePower >= 3 ? 16 : 0) + (isUnlocked ? 10 : 0) + jodanBonus;
+
+    // 防御側のガード力（構え・見切りLvによる補正）
+    const defStr = defStats.str || 10;
+    const defAgi = defStats.agi || 10;
+    const defSpi = defStats.spi || 10;
+    const stanceBonus = (defStance === 'waki') ? 18 : 0; // 下段の構え（後の先防御特化）
+    const counterStackBonus = [0, 18, 32, 48][Math.min(3, defCounterStacks || 0)]; // 見切りスタックによる受け止め強化
+
+    const defensePower = (defStr * 1.0) + (defAgi * 0.5) + (defSpi * 0.5) + stanceBonus + counterStackBonus;
+
+    const powerDiff = attackPower - defensePower;
+
+    if (powerDiff >= 20) {
+        // 💥 【ガード粉砕】防御側が耐えきれずガード破壊！防御側が体勢崩壊（次ターン操作不能）
+        const rawDmg = techBasePower + (atkStance === 'jodan' && techType === '面' ? 1 : 0);
+        return {
+            outcome: 'guard_crush',
+            dmg: Math.max(2, rawDmg),
+            powerDiff,
+            attackPower,
+            defensePower,
+            isUnlocked,
+        };
+    } else if (powerDiff <= -25) {
+        // 🌊 【完全見切り】防御側が圧倒し、完全に受け流して無傷（0ダメージ）！
+        return {
+            outcome: 'parried',
+            dmg: 0,
+            powerDiff,
+            attackPower,
+            defensePower,
+            isUnlocked,
+        };
+    } else {
+        // 🛡️ 【通常受け止め】被ダメ1に抑え込み、大技を読まれた攻撃側が体勢崩壊
+        return {
+            outcome: 'blocked',
+            dmg: 1,
+            powerDiff,
+            attackPower,
+            defensePower,
+            isUnlocked,
+        };
+    }
+}
+
 function playRound(playerAction) {
     if (playerAction === '防御・気合') playerAction = '防御';
     if (state.matchPhase === 'pre_match') {
@@ -7655,64 +7731,106 @@ function playRound(playerAction) {
 
         if (enemyAction === '防御') {
             roundEnemyBlocked = true;
-            // 🛡️ 敵の渾身の防御により、大技を読まれたプレイヤー側が体勢崩壊！
-            state.playerGuardBroken = true;
-            state.playerStunned = true; // 次ターンプレイヤー操作スキップ（相手の反撃を受ける）
+            const clash = resolveSpecialVsDefend('player', 'enemy', inTsuba, eCounterStacks);
 
-            if (isUnlocked) {
-                // 覚醒奥義 vs 防御: 渾身の受け止めで被ダメ1に抑え込まれ、技を読まれたプレイヤーが体勢崩壊
+            if (clash.outcome === 'guard_crush') {
+                // 💥 ガード粉砕！敵が耐えきれずガード破壊・敵が体勢崩壊
+                state.enemyGuardBroken = true;
+                state.enemyStunned = true;
+                dmg = clash.dmg;
+                didHit = true;
+
+                state.enemyHealth -= dmg;
+                enemyAnim = 'hit';
+                enemyOutcome = 'hit';
+                impactWeight = 'heavy';
+                statusType = 'victory';
+                impactSound = 'special';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+                doArenaFlash = true;
+                popups.push(
+                    { who: 'enemy', text: `-${dmg} ガード粉砕！`, styleClass: 'popup-crit' },
+                    { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' },
+                    { who: 'player', text: '💥 守り粉砕！', styleClass: 'popup-counter' }
+                );
+                calloutData = {
+                    winner: 'player',
+                    mainText: 'ガード粉砕！',
+                    subText: `💥 圧倒的気迫と重撃！相手は体勢崩壊！ (${dmg}点)`,
+                    reasonBadge: '💥 ガード粉砕',
+                    isCritical: true,
+                };
+            } else if (clash.outcome === 'blocked') {
+                // 🛡️ 通常受け止め：敵が渾身の防御で被ダメ1に抑え、大技を読まれたプレイヤーが体勢崩壊
+                state.playerGuardBroken = true;
+                state.playerStunned = true;
                 dmg = 1;
-            } else {
-                // 未解放の気合一閃 vs 防御：50%で貫通1ダメ、50%で完全ガード＆プレイヤー体勢崩壊
-                if (Math.random() < 0.5) {
-                    dmg = 1;
-                } else {
-                    didHit = false;
-                }
-            }
-        }
+                didHit = true;
 
-        if (didHit) {
-            state.enemyHealth -= dmg;
-            enemyAnim = 'hit';
-            enemyOutcome = 'hit';
-            impactWeight = 'heavy';
-            statusType = enemyAction === '防御' ? 'neutral' : 'victory';
-            impactSound = 'special';
-            zoomTargets.push(playerSpriteBox);
-            shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
-            if (enemyAction === '防御') {
+                state.enemyHealth -= dmg;
+                enemyAnim = 'hit';
+                enemyOutcome = 'hit';
+                impactWeight = 'heavy';
+                statusType = 'neutral';
+                impactSound = 'special';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true }, { el: playerSpriteBox, isHeavy: true });
+                doArenaFlash = true;
+                popups.push(
+                    { who: 'enemy', text: `-${dmg} 奥義受け止め！`, styleClass: 'popup-dmg' },
+                    { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                );
+                calloutData = {
+                    winner: null,
+                    mainText: '奥義を受け止められた！',
+                    subText: `💥 衝撃で体勢崩壊！反撃に警戒！ (${dmg}点)`,
+                    reasonBadge: '🛡️ 相手防御',
+                    isCritical: true,
+                };
+            } else {
+                // 🌊 完全見切り：敵が完全無傷（0ダメ）で受け流し、プレイヤーが体勢崩壊
+                state.playerGuardBroken = true;
+                state.playerStunned = true;
+                didHit = false;
+
+                statusType = 'defeat';
+                impactSound = 'special';
+                enemyOutcome = 'block_success';
+                playerOutcome = 'hit';
+                zoomTargets.push(enemySpriteBox);
                 shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+                popups.push(
+                    { who: 'enemy', text: '🛡️ 完全ガード！', styleClass: 'popup-block' },
+                    { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                );
+                calloutData = {
+                    winner: null,
+                    mainText: '完全に受け止められた！',
+                    subText: '💥 衝撃で体勢崩壊！相手の反撃の好機！',
+                    reasonBadge: '🛡️ 相手防御',
+                };
             }
-            doArenaFlash = true;
-            popups.push(
-                { who: 'enemy', text: `-${dmg} ${isUnlocked ? '必殺一閃！' : '気合一閃！'}`, styleClass: 'popup-crit' },
-                ...(enemyAction === '防御' ? [{ who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }] : [])
-            );
-            calloutData = {
-                winner: enemyAction === '防御' ? null : 'player',
-                mainText: enemyAction === '防御' ? '奥義を受け止められた！' : `${pMoveName}あり！`,
-                subText: enemyAction === '防御' ? `💥 衝撃で体勢崩壊！反撃に警戒！ (${dmg}点)` : `⚡ 会心の奥義 (${dmg}点)`,
-                reasonBadge: enemyAction === '防御' ? '🛡️ 相手防御' : (isUnlocked ? '⚡ 秘技覚醒' : '🔥 気合一閃'),
-                isCritical: true,
-            };
         } else {
-            statusType = 'defeat';
-            impactSound = 'special';
-            enemyOutcome = 'block_success';
-            playerOutcome = 'hit';
-            zoomTargets.push(enemySpriteBox);
-            shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
-            popups.push(
-                { who: 'enemy', text: '🛡️ 完全ガード！', styleClass: 'popup-block' },
-                { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
-            );
-            calloutData = {
-                winner: null,
-                mainText: '完全に受け止められた！',
-                subText: '💥 衝撃で体勢崩壊！相手の反撃の好機！',
-                reasonBadge: '🛡️ 相手防御',
-            };
+            if (didHit) {
+                state.enemyHealth -= dmg;
+                enemyAnim = 'hit';
+                enemyOutcome = 'hit';
+                impactWeight = 'heavy';
+                statusType = 'victory';
+                impactSound = 'special';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+                doArenaFlash = true;
+                popups.push({ who: 'enemy', text: `-${dmg} ${isUnlocked ? '必殺一閃！' : '気合一閃！'}`, styleClass: 'popup-crit' });
+                calloutData = {
+                    winner: 'player',
+                    mainText: `${pMoveName}あり！`,
+                    subText: `⚡ 会心の奥義 (${dmg}点)`,
+                    reasonBadge: isUnlocked ? '⚡ 秘技覚醒' : '🔥 気合一閃',
+                    isCritical: true,
+                };
+            }
         }
     } else if (enemyAction === '必殺') {
         triggerSpecialCutin('enemy', eMoveName, eTechInfo.isUnlocked, false);
@@ -7722,7 +7840,6 @@ function playRound(playerAction) {
         let dmg = Math.max(1, rawDmg - pBuff.dmgReduction);
 
         if (playerAction === '防御') {
-            // 🛡️ プレイヤーの防御による奥義受け止め（即死貫通の解消・被ダメ1＆相手体勢崩壊）
             roundPlayerBlocked = true;
             let healed = 0;
             const pMaxHealth = getPlayerMaxHealth();
@@ -7731,12 +7848,41 @@ function playRound(playerAction) {
                 healed = 1;
             }
 
-            if (isUnlocked) {
-                // 覚醒奥義（天翔諸手突き等）：3ダメージを渾身の防御で【1ダメージ】に抑え込み、相手を体勢崩壊させる！
+            const clash = resolveSpecialVsDefend('enemy', 'player', inTsuba, pCounterStacks);
+
+            if (clash.outcome === 'guard_crush') {
+                // 💥 ガード粉砕！プレイヤーのガードが破られ、プレイヤーが体勢崩壊＆大ダメージ
+                state.playerGuardBroken = true;
+                state.playerStunned = true;
+                dmg = clash.dmg;
+
+                state.playerHealth -= dmg;
+                playerAnim = 'hit';
+                playerOutcome = 'hit';
+                impactWeight = 'heavy';
+                statusType = 'defeat';
+                impactSound = 'hurt';
+                zoomTargets.push(enemySpriteBox);
+                shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
+                doArenaFlash = true;
+                popups.push(
+                    { who: 'player', text: `-${dmg} ガード粉砕！`, styleClass: 'popup-crit' },
+                    { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' },
+                    { who: 'enemy', text: '💥 守り粉砕！', styleClass: 'popup-counter' }
+                );
+                calloutData = {
+                    winner: 'enemy',
+                    mainText: 'ガードを粉砕された！',
+                    subText: `💥 圧倒的気迫と重撃！体勢崩壊！ (${dmg}点)`,
+                    reasonBadge: '💥 ガード粉砕',
+                    isCritical: true,
+                };
+            } else if (clash.outcome === 'blocked') {
+                // 🛡️ 通常受け止め：渾身の防御で被ダメ1に抑え込み、相手が体勢崩壊
                 dmg = 1;
                 state.playerHealth -= dmg;
                 state.enemyGuardBroken = true;
-                state.enemyStunned = true; // 次ターン相手操作スキップ（大反撃のチャンス！）
+                state.enemyStunned = true; // 次ターン相手操作スキップ（反撃の好機！）
                 playerAnim = 'block';
                 playerOutcome = 'block_success';
                 impactWeight = 'heavy';
@@ -7758,28 +7904,28 @@ function playRound(playerAction) {
                     isGuard: true,
                 };
             } else {
-                // 未解放気合一閃：50%で1ダメ、50%で完全無傷ガード＆相手体勢崩壊
+                // 🌊 完全見切り：完全無傷（0ダメ）で受け流し、相手が体勢崩壊
+                dmg = 0;
+                didHit = false;
                 state.enemyGuardBroken = true;
                 state.enemyStunned = true;
-                if (Math.random() < 0.5) {
-                    dmg = 1;
-                    state.playerHealth -= dmg;
-                    popups.push(
-                        { who: 'player', text: '-1 ガード！', styleClass: 'popup-crit' },
-                        { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
-                    );
-                } else {
-                    didHit = false;
-                    popups.push(
-                        { who: 'player', text: '🛡️ 完全ガード！', styleClass: 'popup-block' },
-                        { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
-                    );
-                }
+                playerAnim = 'block';
+                playerOutcome = 'block_success';
+                impactWeight = 'heavy';
+                statusType = 'victory';
+                impactSound = 'block';
+                zoomTargets.push(playerSpriteBox);
+                shakeTargets.push({ el: enemySpriteBox, isHeavy: true });
+                popups.push(
+                    { who: 'player', text: '🛡️ 完全見切り！(0ダメ)', styleClass: 'popup-block' },
+                    ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
+                    { who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
+                );
                 calloutData = {
                     winner: null,
-                    mainText: '気合一閃を受け止めた！',
-                    subText: '💥 相手は次ターン体勢崩壊！',
-                    reasonBadge: '🛡️ 鉄壁防御',
+                    mainText: '神業の受け流し！',
+                    subText: '💥 完全に奥義を受け流し、相手は体勢崩壊！',
+                    reasonBadge: '🌊 完全見切り',
                     isGuard: true,
                 };
             }
