@@ -5831,9 +5831,9 @@ function updateStanceBarUI() {
         if (style === 'jodan') {
             stanceDescText.textContent = '🔥 上段の構え：「面」の威力+1（通常2ダメ・相面も判定+6で制覇）！※「防御」不可＆相手の小手・突き被弾時+1ダメ';
         } else if (style === 'waki') {
-            stanceDescText.textContent = '🌊 下段の構え：「防御」成功でHP+1回復！「面」や「崩し」に「胴」で迎撃勝負時「抜き胴(2ダメ)」！※面/突き判定-3・面気合+0';
+            stanceDescText.textContent = '🌊 下段の構え：相手の「小手・胴」（奥義含む）防御成功でHP+1回復＆奥義受け流し特化！対面・崩しに「抜き胴(2ダメ)」';
         } else {
-            stanceDescText.textContent = '⚖️ 中段の構え：全基本打突の判定+3＆全技で気合最速蓄積！攻守の隙がない王道（「防御」で見切り獲得）';
+            stanceDescText.textContent = '⚖️ 中段の構え：全打突+3＆気合最速！相手の「面・突き」（奥義含む）防御成功でHP+1回復＆奥義受け止め特化！';
         }
     }
 }
@@ -7351,7 +7351,12 @@ function resolveSpecialVsDefend(attackerWho, defenderWho, inTsuba = false, expli
     const defStr = defStats.str || 10;
     const defAgi = defStats.agi || 10;
     const defSpi = defStats.spi || 10;
-    const stanceBonus = (defStance === 'waki') ? 18 : 0; // 下段の構え（後の先防御特化）
+
+    // 理合一致判定（中段 vs 面/突き、下段 vs 小手/胴）
+    const isStanceMatched = (defStance === 'chudan' && (techType === '面' || techType === '突き'))
+                         || (defStance === 'waki' && (techType === '小手' || techType === '胴'));
+    // 理合一致なら +30 の受け止め補正（見切り1と合わせると龍禅の秘技をギリギリ防御成功可能）、不一致時は 0
+    const stanceBonus = isStanceMatched ? 30 : 0;
     const counterStackBonus = [0, 18, 32, 48][Math.min(3, defCounterStacks || 0)]; // 見切りスタックによる受け止め強化
 
     const defensePower = (defStr * 1.0) + (defAgi * 0.5) + (defSpi * 0.5) + stanceBonus + counterStackBonus;
@@ -7368,6 +7373,7 @@ function resolveSpecialVsDefend(attackerWho, defenderWho, inTsuba = false, expli
             attackPower,
             defensePower,
             isUnlocked,
+            isStanceMatched,
         };
     } else if (powerDiff <= -25) {
         // 🌊 【完全見切り】防御側が圧倒し、完全に受け流して無傷（0ダメージ）！
@@ -7378,6 +7384,7 @@ function resolveSpecialVsDefend(attackerWho, defenderWho, inTsuba = false, expli
             attackPower,
             defensePower,
             isUnlocked,
+            isStanceMatched,
         };
     } else {
         // 🛡️ 【通常受け止め】被ダメ1に抑え込み、大技を読まれた攻撃側が体勢崩壊
@@ -7388,6 +7395,7 @@ function resolveSpecialVsDefend(attackerWho, defenderWho, inTsuba = false, expli
             attackPower,
             defensePower,
             isUnlocked,
+            isStanceMatched,
         };
     }
 }
@@ -7732,6 +7740,12 @@ function playRound(playerAction) {
         if (enemyAction === '防御') {
             roundEnemyBlocked = true;
             const clash = resolveSpecialVsDefend('player', 'enemy', inTsuba, eCounterStacks);
+            let eHealed = 0;
+            const eMax = state.enemyMaxHealth || getCurrentEnemy().maxHealth;
+            if (clash.outcome !== 'guard_crush' && clash.isStanceMatched && state.enemyHealth < eMax) {
+                state.enemyHealth = Math.min(eMax, state.enemyHealth + 1);
+                eHealed = 1;
+            }
 
             if (clash.outcome === 'guard_crush') {
                 // 💥 ガード粉砕！敵が耐えきれずガード破壊・敵が体勢崩壊
@@ -7779,6 +7793,7 @@ function playRound(playerAction) {
                 doArenaFlash = true;
                 popups.push(
                     { who: 'enemy', text: `-${dmg} 奥義受け止め！`, styleClass: 'popup-dmg' },
+                    ...(eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
                     { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
                 );
                 calloutData = {
@@ -7802,6 +7817,7 @@ function playRound(playerAction) {
                 shakeTargets.push({ el: playerSpriteBox, isHeavy: true });
                 popups.push(
                     { who: 'enemy', text: '🛡️ 完全ガード！', styleClass: 'popup-block' },
+                    ...(eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
                     { who: 'player', text: '💫 体勢崩壊！', styleClass: 'popup-break' }
                 );
                 calloutData = {
@@ -7841,14 +7857,14 @@ function playRound(playerAction) {
 
         if (playerAction === '防御') {
             roundPlayerBlocked = true;
+            const clash = resolveSpecialVsDefend('enemy', 'player', inTsuba, pCounterStacks);
             let healed = 0;
             const pMaxHealth = getPlayerMaxHealth();
-            if (isWaki && state.playerHealth < pMaxHealth) {
+            // ガード粉砕時は回復せず、受け止め・見切り成功時かつ理合一致構えならHP+1回復！
+            if (clash.outcome !== 'guard_crush' && clash.isStanceMatched && state.playerHealth < pMaxHealth) {
                 state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
                 healed = 1;
             }
-
-            const clash = resolveSpecialVsDefend('enemy', 'player', inTsuba, pCounterStacks);
 
             if (clash.outcome === 'guard_crush') {
                 // 💥 ガード粉砕！プレイヤーのガードが破られ、プレイヤーが体勢崩壊＆大ダメージ
@@ -8047,12 +8063,15 @@ function playRound(playerAction) {
             subText: didResist ? '⚡ 不動心で体勢を維持した' : (actualBreakDmg >= 2 ? '💥 相手の剛腕体当たり！次ターン操作不能！' : '💥 体勢を崩された！次ターン操作スキップ！')
         };
     }
-    // 4. 防御 vs 基本打突（応じ技準備！ 防御側は気合不変、見切りスタック蓄積で次打成功率UP！ 攻撃側は気合+1！ 下段の構えのみ防御成功でHP+1回復）
+    // 4. 防御 vs 基本打突（応じ技準備！ 防御側は気合不変、見切りスタック蓄積で次打成功率UP！ 攻撃側は気合+1！ 理合一致防御でHP+1回復）
     else if (playerAction === '防御' && isBasic(enemyAction)) {
         roundPlayerBlocked = true;
         let healed = 0;
         const pMaxHealth = getPlayerMaxHealth();
-        if (isWaki && state.playerHealth < pMaxHealth) {
+        const isChudan = (state.playerStanceStyle === 'chudan');
+        const isStanceMatched = (isChudan && (enemyAction === '面' || enemyAction === '突き'))
+                             || (isWaki && (enemyAction === '小手' || enemyAction === '胴'));
+        if (isStanceMatched && state.playerHealth < pMaxHealth) {
             state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
             healed = 1;
         }
@@ -8067,8 +8086,9 @@ function playRound(playerAction) {
         statusType = 'victory';
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
+        const guardTitle = isStanceMatched ? (isChudan ? '🛡️ 正中線防御！' : '🌊 後の先防御！') : '🛡️ ガード成功！';
         popups.push(
-            { who: 'player', text: isWaki ? '🌊 後の先ガード！' : '🛡️ ガード成功！', styleClass: 'popup-block' },
+            { who: 'player', text: guardTitle, styleClass: 'popup-block' },
             ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'player', text: newStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newStacks}！`, styleClass: 'popup-counter' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
@@ -8076,7 +8096,7 @@ function playRound(playerAction) {
         const stackLabel = newStacks >= 3 ? '⚡ 見切り極致 (2倍)' : `⚡ 見切りLv${newStacks} (2倍)`;
         calloutData = {
             winner: null,
-            mainText: isWaki ? '🌊 後の先！' : '見事な受け！',
+            mainText: isStanceMatched ? (isChudan ? '🛡️ 正中線防御！' : '🌊 後の先！') : '見事な受け！',
             subText: healed ? `💚 HP+1 ＆ ${stackLabel}` : stackLabel,
             isGuard: true,
         };
@@ -8084,7 +8104,10 @@ function playRound(playerAction) {
         roundEnemyBlocked = true;
         let eHealed = 0;
         const eMax = state.enemyMaxHealth || getCurrentEnemy().maxHealth;
-        if (eWaki && state.enemyHealth < eMax) {
+        const eChudan = (state.enemyStanceStyle === 'chudan');
+        const isEStanceMatched = (eChudan && (playerAction === '面' || playerAction === '突き'))
+                              || (eWaki && (playerAction === '小手' || playerAction === '胴'));
+        if (isEStanceMatched && state.enemyHealth < eMax) {
             state.enemyHealth = Math.min(eMax, state.enemyHealth + 1);
             eHealed = 1;
         }
@@ -8099,8 +8122,9 @@ function playRound(playerAction) {
         statusType = 'neutral';
         impactSound = 'block';
         zoomTargets.push(enemySpriteBox);
+        const eGuardTitle = isEStanceMatched ? (eChudan ? '🛡️ 相手の正中線防御！' : '🌊 相手の後の先！') : '🛡️ ガード成功！';
         popups.push(
-            { who: 'enemy', text: eWaki ? '🌊 相手の後の先！' : '🛡️ ガード成功！', styleClass: 'popup-block' },
+            { who: 'enemy', text: eGuardTitle, styleClass: 'popup-block' },
             ...(eHealed ? [{ who: 'enemy', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
             { who: 'enemy', text: newEStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newEStacks}！`, styleClass: 'popup-counter' },
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
@@ -8108,7 +8132,7 @@ function playRound(playerAction) {
         const eStackLabel = newEStacks >= 3 ? '⚠️ 相手が見切り極致' : `⚠️ 相手見切りLv${newEStacks}`;
         calloutData = {
             winner: null,
-            mainText: eWaki ? '🌊 受け流された！' : '受け止められた！',
+            mainText: isEStanceMatched ? (eChudan ? '🛡️ 正中線で受け止められた！' : '🌊 受け流された！') : '受け止められた！',
             subText: eHealed ? `⚠️ 相手 HP+1＆${eStackLabel}` : eStackLabel,
             isGuard: true,
         };
