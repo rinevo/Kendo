@@ -3589,7 +3589,82 @@ button.reset-btn:hover:not(:disabled) {
     font-weight: 800;
     padding: 8px 18px;
     border-radius: 8px;
+    border: none;
+    cursor: pointer;
     box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-special-practice:active {
+    transform: scale(0.96);
+}
+
+.special-btn-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.btn-special-spectate {
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
+    color: #020617;
+    font-weight: 800;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-special-spectate:active {
+    transform: scale(0.96);
+}
+
+.btn-special-instant {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: #020617;
+    font-weight: 800;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(52, 211, 153, 0.4);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-special-instant:active {
+    transform: scale(0.96);
+}
+
+.q-popup-mode-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.btn-q-mode-pill {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 4px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-q-mode-pill.active {
+    background: rgba(245, 158, 11, 0.25);
+    color: #fde047;
+    border: 1px solid rgba(245, 158, 11, 0.5);
 }
 
 /* 部活動日誌 */

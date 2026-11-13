@@ -1952,6 +1952,7 @@
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
         captainAutoUnlocked: false,  // 全国制覇特典：主将の試合自動化解放フラグ（周回引き継ぎ対応）
         captainAutoMode: false,      // 全国制覇特典：主将の試合も自動化（オート観戦・即時判定）フラグ
+        quickSpecialMode: 'manual',  // クイック特訓モード（'manual' | 'spectate' | 'instant'）
         eventHistoryByYear: {},      // 年度ごとのイベント発生履歴 { [year]: [eventId, ...] } （1年に同一イベントは最大1回）
         history: [],                 // 歴代年表 [{ year, captainName, districtResult, nationalResult, interhighDistrictResult, interhighNationalResult }]
         stats: {
@@ -5567,17 +5568,41 @@
                             <div class="special-header">
                                 <span class="special-icon">🤝</span>
                                 <strong>主将によるマンツーマン特別指導</strong>
+                                ${isCaptainAutoUnlocked() ? '<span class="champion-badge" style="margin-left: auto; font-size: 0.72rem; padding: 2px 8px;">👑 主将自動化対応</span>' : ''}
                             </div>
                             <p class="special-desc">あなたが直接仲間を指名して重点指導。対象部員の全能力と技が大幅に伸びます。</p>
                             <div class="special-actions">
                                 <select id="selSpecialTarget" class="sel-target-member" onchange="window.KendoClub.onChangeSpecialTarget(this.value)">
                                     ${teammateOptions || '<option value="">指導対象の部員がいません</option>'}
                                 </select>
-                                <button type="button" 
-                                        class="btn-special-practice" 
-                                        onclick="window.KendoClub.onSpecialPractice()">
-                                    🥋 指名して特訓開始！
-                                </button>
+                                ${isCaptainAutoUnlocked() ? `
+                                    <div class="special-btn-group">
+                                        <button type="button" 
+                                                class="btn-special-practice" 
+                                                onclick="window.KendoClub.onSpecialPractice('manual')"
+                                                title="手動操作で実戦稽古（立ち合い）を行います">
+                                            ⚔️ 立ち合う
+                                        </button>
+                                        <button type="button" 
+                                                class="btn-special-spectate pulse-btn" 
+                                                onclick="window.KendoClub.onSpecialPractice('spectate')"
+                                                title="主将もAIが操作し、リアルタイム試合画面で立ち合いを観戦します">
+                                            👀 自動観戦
+                                        </button>
+                                        <button type="button" 
+                                                class="btn-special-instant" 
+                                                onclick="window.KendoClub.onSpecialPractice('instant')"
+                                                title="試合画面をスキップし、即座にシミュレート判定して結果を反映します">
+                                            ⚡ 即時判定
+                                        </button>
+                                    </div>
+                                ` : `
+                                    <button type="button" 
+                                            class="btn-special-practice" 
+                                            onclick="window.KendoClub.onSpecialPractice('manual')">
+                                        🥋 指名して特訓開始！
+                                    </button>
+                                `}
                             </div>
                         </div>
                     </div>
@@ -5635,13 +5660,22 @@
                         <!-- 特訓部員選択ポップアップ -->
                         <div id="quickSpecialPopup" class="quick-special-popup" style="display: none;">
                             <div class="q-popup-header">
-                                <span class="q-popup-title">🤝 指名して特訓試合に出陣</span>
+                                <span class="q-popup-title">🤝 指名してマンツーマン特訓</span>
                                 <button type="button" class="btn-q-popup-close" onclick="window.KendoClub.toggleQuickSpecialPopup(false)">✕</button>
                             </div>
-                            <p class="q-popup-desc">実戦試合（立ち合い）を行う部員を選択してください：</p>
+                            ${isCaptainAutoUnlocked() ? `
+                                <div class="q-popup-mode-bar" id="qSpecialModeBar">
+                                    <button type="button" class="btn-q-mode-pill ${(!ClubState.quickSpecialMode || ClubState.quickSpecialMode === 'manual') ? 'active' : ''}" onclick="window.KendoClub.setQuickSpecialMode('manual')">⚔️ 立ち合う</button>
+                                    <button type="button" class="btn-q-mode-pill ${ClubState.quickSpecialMode === 'spectate' ? 'active' : ''}" onclick="window.KendoClub.setQuickSpecialMode('spectate')">👀 自動観戦</button>
+                                    <button type="button" class="btn-q-mode-pill ${ClubState.quickSpecialMode === 'instant' ? 'active' : ''}" onclick="window.KendoClub.setQuickSpecialMode('instant')">⚡ 即時判定</button>
+                                </div>
+                            ` : ''}
+                            <p class="q-popup-desc">指導を行う部員を選択してください：</p>
                             <div class="q-popup-members-list">
                                 ${teammates.length > 0 ? teammates.map((m) => {
                                     const dualStr = m.isClubDual ? ` [${m.originalClub}]` : '';
+                                    const curMode = ClubState.quickSpecialMode || 'manual';
+                                    const btnLabel = curMode === 'spectate' ? '観戦 👀' : curMode === 'instant' ? '即時 ⚡' : '出陣 ⚔️';
                                     return `
                                         <button type="button" class="btn-q-member-select" onclick="window.KendoClub.launchQuickSpecialPractice('${m.id}')">
                                             <div class="q-member-btn-photo">
@@ -5653,7 +5687,7 @@
                                                 <strong class="q-mem-name">${escapeHtml(m.name)}</strong>
                                                 <span class="q-mem-meta">${m.grade}年${dualStr} / 構え:${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'} / 戦力:${Math.round(getMemberCombatPower(m))}</span>
                                             </div>
-                                            <span class="q-mem-btn-label">出陣 ⚔️</span>
+                                            <span class="q-mem-btn-label">${btnLabel}</span>
                                         </button>
                                     `;
                                 }).join('') : '<div class="q-empty-members">特訓可能な部員がいません</div>'}
@@ -7836,15 +7870,21 @@
     }
 
     // ───────────────────────────────────────────
-    // マンツーマン指名特訓：実戦稽古（試合）
+    // マンツーマン指名特訓：実戦稽古（試合・自動観戦・即時判定）
     // ───────────────────────────────────────────
-    function startSpecialPracticeBout(targetMemberId) {
+    function startSpecialPracticeBout(targetMemberId, mode = 'manual') {
         const playerMember = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
         const targetMember = ClubState.members.find((m) => m.id === targetMemberId);
         if (!playerMember || !targetMember) return;
         if (targetMember.id === playerMember.id) return;
 
         ClubState.selectedSpecialTargetId = targetMember.id;
+
+        // 即時判定モードの場合は試合画面へ遷移せず、その場でシミュレートして完了
+        if (mode === 'instant') {
+            executeSpecialPracticeInstant(targetMemberId);
+            return;
+        }
 
         // 試合画面へ遷移する直前に、現在の部員一覧の横スクロール位置および練習メニュー画面の縦スクロール位置を確実に記録
         captureDashboardScroll();
@@ -7887,8 +7927,9 @@
                 isIndividual: false,
                 isIntraClub: true,
                 isSpecialPractice: true,
-                roundName: 'マンツーマン特別指導',
-                boutPosName: '実戦特訓',
+                isSpectating: (mode === 'spectate'),
+                roundName: (mode === 'spectate' ? 'マンツーマン特別指導（自動観戦）' : 'マンツーマン特別指導'),
+                boutPosName: (mode === 'spectate' ? '実戦特訓（観戦）' : '実戦特訓'),
                 tournamentType: 'dojo',
                 playerData: {
                     id: playerMember.id,
@@ -8005,7 +8046,8 @@
                     const tSummary = `【成長】${allTargetGains.length > 0 ? allTargetGains.join(', ') : '維持'} (疲労+${tFatigue}%)`;
                     const dualText = realTarget.isClubDual ? `（${realTarget.originalClub}掛け持ち）` : '';
 
-                    const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${realTarget.name}${dualText}へマンツーマン指名特訓を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
+                    const modeTag = mode === 'spectate' ? '👀【自動観戦】' : '';
+                    const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】${modeTag}主将が${realTarget.name}${dualText}へマンツーマン指名特訓を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
 
                     ClubState.activityLog.unshift(logEntry);
                     playStatUpSound();
@@ -8031,6 +8073,130 @@
                 }
             });
         }
+    }
+
+    // ───────────────────────────────────────────
+    // マンツーマン指名特訓：即時判定シミュレータ
+    // ───────────────────────────────────────────
+    function executeSpecialPracticeInstant(targetMemberId) {
+        const playerMember = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+        const targetMember = ClubState.members.find((m) => m.id === targetMemberId);
+        if (!playerMember || !targetMember) return;
+        if (targetMember.id === playerMember.id) return;
+
+        ClubState.selectedSpecialTargetId = targetMember.id;
+
+        const realPlayer = getRealClubMember(playerMember) || playerMember;
+        const realTarget = getRealClubMember(targetMember) || targetMember;
+
+        const pPower = (typeof getMemberCombatPower === 'function') ? getMemberCombatPower(realPlayer) : 100;
+        const tPower = (typeof getMemberCombatPower === 'function') ? getMemberCombatPower(realTarget) : 100;
+
+        const fatiguePenalty = Math.max(0.6, 1.0 - (((realPlayer.fatigue || 0) / 100) * 0.35));
+        const pFinal = pPower * fatiguePenalty;
+        const total = Math.max(1, pFinal + tPower);
+        const pWinRate = Math.min(0.92, Math.max(0.12, pFinal / total));
+
+        const roll = Math.random();
+        const pTechPool = ['面', '面', '小手', '胴'];
+        if ((realPlayer.skills?.tsuki || 0) >= 12) pTechPool.push('突き');
+        const tTechPool = ['面', '小手', '小手', '胴'];
+        if ((realTarget.skills?.tsuki || 0) >= 12) tTechPool.push('突き');
+
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+        let isPlayerWin = false;
+        let isEnemyWin = false;
+        let winningMove = '面';
+
+        if (roll < pWinRate) {
+            isPlayerWin = true;
+            winningMove = pick(pTechPool);
+        } else if (roll > pWinRate + 0.15) {
+            isEnemyWin = true;
+            winningMove = pick(tTechPool);
+        }
+
+        const pStats = {
+            hits: isPlayerWin ? (Math.random() < 0.35 ? 2 : 1) : 0,
+            blocks: Math.random() < 0.6 ? 2 : 1,
+            rounds: 4,
+            winningMove: isPlayerWin ? winningMove : null,
+            pushWins: Math.random() < 0.5 ? 1 : 0,
+        };
+
+        const eStats = {
+            hits: isEnemyWin ? (Math.random() < 0.35 ? 2 : 1) : 0,
+            blocks: Math.random() < 0.6 ? 2 : 1,
+            rounds: 4,
+            winningMove: isEnemyWin ? winningMove : null,
+            pushWins: 0,
+        };
+
+        const pGrowth = applyBoutGrowth(realPlayer, pStats);
+        const tGrowth = applyBoutGrowth(realTarget, eStats);
+
+        // 主将直伝 特別指導ボーナス（主将のほうが高いパラメータなら、勝敗に関係なく確実にランダムUP +1〜+2）
+        const STAT_COMPARE_LIST = [
+            { category: 'base', key: 'str', label: '腕力' },
+            { category: 'base', key: 'agi', label: '敏捷' },
+            { category: 'base', key: 'spi', label: '気魄' },
+            { category: 'skill', key: 'men', label: '面' },
+            { category: 'skill', key: 'kote', label: '小手' },
+            { category: 'skill', key: 'do', label: '胴' },
+            { category: 'skill', key: 'tsuki', label: '突き' },
+        ];
+
+        const mentorGains = [];
+        STAT_COMPARE_LIST.forEach((item) => {
+            const pVal = item.category === 'base' ? (realPlayer[item.key] || 0) : (realPlayer.skills ? realPlayer.skills[item.key] || 0 : 0);
+            const tVal = item.category === 'base' ? (realTarget[item.key] || 0) : (realTarget.skills ? realTarget.skills[item.key] || 0 : 0);
+
+            if (pVal > tVal) {
+                const gainAmount = Math.random() < 0.4 ? 2 : 1;
+                const curVal = item.category === 'base' ? (realTarget[item.key] || 0) : (realTarget.skills ? realTarget.skills[item.key] || 0 : 0);
+                const finalVal = Math.min(STAT_HARD_MAX, curVal + gainAmount);
+                const actual = finalVal - curVal;
+                if (actual > 0) {
+                    if (item.category === 'base') {
+                        realTarget[item.key] = finalVal;
+                    } else {
+                        if (!realTarget.skills) realTarget.skills = { men: 8, kote: 8, do: 8, tsuki: 6 };
+                        realTarget.skills[item.key] = finalVal;
+                    }
+                    mentorGains.push(`${item.label}+${actual}`);
+                }
+            }
+        });
+
+        improveCondition(realTarget);
+
+        const outcomeText = isPlayerWin
+            ? `主将の一本勝ち（決まり手: ${winningMove}）`
+            : (isEnemyWin ? `${realTarget.name}の一本勝ち（決まり手: ${winningMove}）` : '互角の引き分け');
+
+        const pSummary = pGrowth ? pGrowth.summary : '維持';
+        const tBaseGains = (tGrowth && tGrowth.gainsText && tGrowth.gainsText !== '成長なし') ? [tGrowth.gainsText] : [];
+        const allTargetGains = [...tBaseGains, ...mentorGains];
+        const tFatigue = (tGrowth && tGrowth.fatigueAdded) || 8;
+        const tSummary = `【成長】${allTargetGains.length > 0 ? allTargetGains.join(', ') : '維持'} (疲労+${tFatigue}%)`;
+        const dualText = realTarget.isClubDual ? `（${realTarget.originalClub}掛け持ち）` : '';
+
+        const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】⚡【即時判定】主将が${realTarget.name}${dualText}へマンツーマン特別指導を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
+
+        ClubState.activityLog.unshift(logEntry);
+        playStatUpSound();
+
+        if (ClubState.pendingEventData) {
+            ClubState.currentEventData = ClubState.pendingEventData;
+            ClubState.pendingEventData = null;
+            ClubState.advanceWeekOnEventComplete = true;
+            ClubState.viewPhase = 'event_scene';
+        } else {
+            advanceCalendarWeek();
+        }
+        saveClubData();
+        renderClubUI();
     }
 
     // ───────────────────────────────────────────
@@ -8208,17 +8374,35 @@
             saveClubData();
         },
 
-        onSpecialPractice: function () {
+        onSpecialPractice: function (mode = 'manual') {
             const sel = document.getElementById('selSpecialTarget');
             const targetId = (sel && sel.value) ? sel.value : ClubState.selectedSpecialTargetId;
             if (targetId) {
                 ClubState.selectedSpecialTargetId = targetId;
-                startSpecialPracticeBout(targetId);
+                startSpecialPracticeBout(targetId, mode);
             }
         },
 
-        startSpecialPracticeBout: function (targetId) {
-            startSpecialPracticeBout(targetId);
+        startSpecialPracticeBout: function (targetId, mode = 'manual') {
+            startSpecialPracticeBout(targetId, mode);
+        },
+
+        setQuickSpecialMode: function (mode) {
+            ClubState.quickSpecialMode = mode;
+            const bar = document.getElementById('qSpecialModeBar');
+            if (bar) {
+                const pills = bar.querySelectorAll('.btn-q-mode-pill');
+                pills.forEach((p, idx) => {
+                    const m = idx === 0 ? 'manual' : idx === 1 ? 'spectate' : 'instant';
+                    p.classList.toggle('active', m === mode);
+                });
+            }
+            const popup = document.getElementById('quickSpecialPopup');
+            if (popup) {
+                const labels = popup.querySelectorAll('.q-mem-btn-label');
+                const btnLabel = mode === 'spectate' ? '観戦 👀' : mode === 'instant' ? '即時 ⚡' : '出陣 ⚔️';
+                labels.forEach((l) => { l.textContent = btnLabel; });
+            }
         },
 
         toggleQuickSpecialPopup: function (forceState) {
@@ -8234,7 +8418,8 @@
             this.toggleQuickSpecialPopup(false);
             if (!memberId) return;
             ClubState.selectedSpecialTargetId = memberId;
-            startSpecialPracticeBout(memberId);
+            const mode = ClubState.quickSpecialMode || 'manual';
+            startSpecialPracticeBout(memberId, mode);
         },
 
         recruitDualClubMember: function (targetSlot = null) {
