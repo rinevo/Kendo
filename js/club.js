@@ -399,12 +399,12 @@
             id: 'suburi',
             name: '素振り・基本打ち込み',
             icon: '⚔️',
-            desc: '竹刀を振り込み、打突の重さと面・小手のキレ、鋭い突きを鍛える。腕力・面・小手・突きが向上。疲労【中】',
+            desc: '竹刀を振り込み、打突の重さと面のキレを鍛える。腕力・面が向上（小手・突きも稀に上昇）。疲労【中】',
             fatigueCost: 15,
             apply: (m) => {
                 growStat(m, 'base', 'str', 1 + (Math.random() < 0.4 ? 1 : 0));
                 growStat(m, 'skill', 'men', 1 + (Math.random() < 0.5 ? 1 : 0));
-                growStat(m, 'skill', 'kote', 1 + (Math.random() < 0.3 ? 1 : 0));
+                if (Math.random() < 0.30) growStat(m, 'skill', 'kote', 1);
                 if (Math.random() < 0.35) growStat(m, 'skill', 'tsuki', 1);
             },
         },
@@ -1946,6 +1946,7 @@
         practiceExecutionStartTime: 0,  // 稽古クリック時の開始時刻（得意構えからの始動用）
         practiceCompleted1Cycle: false, // 座禅・休養の1回アニメーション完了フラグ
         memberGridScrollLeft: -1,       // 部員カード一覧の横スクロール位置保持（初期値-1: ゲーム開始時右端の大将を表示）
+        dashboardScrollY: 0,            // 練習メニュー画面（道場ダッシュボード）の縦スクロール位置保持
         isRestPosture: false,           // 休養後に納刀状態で待機するフラグ
         specialPracticeAttacks: null,   // マンツーマン特別指導時の主将・指名部員のランダム攻撃情報
         isAutoSpectating: false,     // 主将の出番まで連続リアルタイム観戦中フラグ
@@ -2000,6 +2001,7 @@
                 selectedSpecialTargetId: ClubState.selectedSpecialTargetId,
                 selectedPracticeMenu: ClubState.selectedPracticeMenu,
                 memberGridScrollLeft: ClubState.memberGridScrollLeft,
+                dashboardScrollY: ClubState.dashboardScrollY || 0,
                 isRestPosture: !!ClubState.isRestPosture,
                 captainAutoUnlocked: !!ClubState.captainAutoUnlocked,
                 captainAutoMode: !!ClubState.captainAutoMode,
@@ -2092,6 +2094,7 @@
             ClubState.selectedSpecialTargetId = data.selectedSpecialTargetId || null;
             if (data.selectedPracticeMenu) ClubState.selectedPracticeMenu = data.selectedPracticeMenu;
             ClubState.memberGridScrollLeft = typeof data.memberGridScrollLeft === 'number' ? data.memberGridScrollLeft : -1;
+            ClubState.dashboardScrollY = typeof data.dashboardScrollY === 'number' ? data.dashboardScrollY : 0;
             ClubState.isRestPosture = !!data.isRestPosture;
             ClubState.captainAutoMode = !!data.captainAutoMode;
             ClubState.lastRetiredSeniors = data.lastRetiredSeniors || null;
@@ -2403,6 +2406,7 @@
         ClubState.practiceExecutionStartTime = 0;
         ClubState.practiceCompleted1Cycle = false;
         ClubState.memberGridScrollLeft = -1;
+        ClubState.dashboardScrollY = 0;
         ClubState.isRestPosture = false;
         ClubState.specialPracticeAttacks = null;
         ClubState.eventHistoryByYear = {};
@@ -4804,12 +4808,79 @@
         if (portal) portal.innerHTML = '';
     }
 
+    // ───────────────────────────────────────────
+    // 練習メニュー画面（道場ダッシュボード）の縦スクロール位置保持・復元
+    // ───────────────────────────────────────────
+    let isRestoringDashboardScroll = false;
+    let lastRenderedClubPhase = null;
+
+    function captureDashboardScroll() {
+        if (isRestoringDashboardScroll) return;
+        if (ClubState.viewPhase !== 'dashboard') return;
+        const container = document.getElementById('clubModeView');
+        if (!container || container.style.display === 'none') return;
+        const curY = (typeof window !== 'undefined')
+            ? (window.scrollY || document.documentElement.scrollTop || (document.body ? document.body.scrollTop : 0) || 0)
+            : 0;
+        ClubState.dashboardScrollY = curY;
+    }
+
+    function restoreDashboardScroll() {
+        if (ClubState.viewPhase !== 'dashboard') return;
+        const targetY = ClubState.dashboardScrollY || 0;
+        if (targetY <= 0) return;
+
+        isRestoringDashboardScroll = true;
+
+        const applyScroll = () => {
+            if (typeof window === 'undefined') return;
+            const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+            const clampedY = Math.min(targetY, maxScroll > 0 ? maxScroll : targetY);
+            window.scrollTo({ top: clampedY, behavior: 'instant' });
+        };
+
+        // 1. 同期的に即時適用
+        applyScroll();
+
+        // 2. DOMレイアウト・画像サイズ確定後に再適用（2重ガード）
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => {
+                applyScroll();
+                setTimeout(() => {
+                    applyScroll();
+                    isRestoringDashboardScroll = false;
+                }, 60);
+            });
+        } else {
+            setTimeout(() => {
+                applyScroll();
+                isRestoringDashboardScroll = false;
+            }, 60);
+        }
+    }
+
+    if (typeof window !== 'undefined' && !window._kendoDashboardScrollListenerAttached) {
+        window.addEventListener('scroll', () => {
+            captureDashboardScroll();
+        }, { passive: true });
+        window._kendoDashboardScrollListenerAttached = true;
+    }
+
     function renderClubUI() {
         const container = document.getElementById('clubModeView');
         if (!container) return;
 
         if (ClubState.viewPhase !== 'dashboard') {
             clearMobilePortal();
+        }
+
+        // ダッシュボードから他の全画面シーン（イベント画面、大会、式典等）へ遷移する際、
+        // 直前のダッシュボードスクロール位置を確実に保存し、新画面は最上部（Y=0）から閲覧できるようにする
+        if (lastRenderedClubPhase === 'dashboard' && ClubState.viewPhase !== 'dashboard') {
+            captureDashboardScroll();
+            if (typeof window !== 'undefined') {
+                window.scrollTo({ top: 0, behavior: 'instant' });
+            }
         }
 
         // 既存の部員一覧の横スクロール位置があれば退避保存
@@ -4918,6 +4989,8 @@
 
         // ミニキャラCanvasを直ちに1フレーム描画
         drawAllMemberMiniCanvases();
+
+        lastRenderedClubPhase = ClubState.viewPhase;
     }
 
     // 初期設定画面
@@ -5537,7 +5610,7 @@
                                 <span class="q-icon">🏃</span>
                                 <span class="q-text">すり足</span>
                             </button>
-                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：腕力・面・小手・突き＋">
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：腕力・面＋（小手・突き稀に＋）">
                                 <span class="q-icon">⚔️</span>
                                 <span class="q-text">素振り</span>
                             </button>
@@ -5651,6 +5724,9 @@
         const overlay = container.querySelector('#quickSpecialOverlay');
         if (overlay) mobilePortal.appendChild(overlay);
         if (bottomBar) mobilePortal.appendChild(bottomBar);
+
+        // 練習メニュー画面のスクロール位置を復元（非同期レイアウト確定と2重ガード）
+        restoreDashboardScroll();
     }
 
     // オーダー編成画面
@@ -7770,7 +7846,8 @@
 
         ClubState.selectedSpecialTargetId = targetMember.id;
 
-        // 試合画面へ遷移する直前に、現在の部員一覧の横スクロール位置を確実に記録
+        // 試合画面へ遷移する直前に、現在の部員一覧の横スクロール位置および練習メニュー画面の縦スクロール位置を確実に記録
+        captureDashboardScroll();
         const curGrid = document.querySelector('.club-members-grid');
         if (curGrid && curGrid.clientWidth > 0) {
             ClubState.memberGridScrollLeft = curGrid.scrollLeft;
@@ -8051,6 +8128,7 @@
                 ClubState.activityLog.unshift('🏆【周回特典】歴代制覇の栄誉により、主将の試合自動化（オート観戦・即時判定）が最初から解放されています！');
             }
             ClubState.memberGridScrollLeft = -1; // 開始時の初期位置は右端（大将側表示）
+            ClubState.dashboardScrollY = 0;
             const animeEnabled = (window.KendoGameEngine && typeof window.KendoGameEngine.isOpeningAnimeEnabled === 'function')
                 ? window.KendoGameEngine.isOpeningAnimeEnabled()
                 : true;
