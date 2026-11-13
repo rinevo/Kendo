@@ -94,8 +94,13 @@
     function growStat(m, category, key, baseGain) {
         if (!baseGain || baseGain <= 0) return 0;
 
-        // 各部員の隠し成長率（通常部員: 80%〜120%、助っ人部員: 50%）
-        const gRate = (m && typeof m.growthRate === 'number') ? m.growthRate : 1.0;
+        // 各部員のパラメータ毎の隠し成長率（通常部員: 50%〜150%、助っ人部員: 特化80〜120%・他50〜75%）
+        let gRate = 1.0;
+        if (m && m.growthRates && typeof m.growthRates[key] === 'number') {
+            gRate = m.growthRates[key];
+        } else if (m && typeof m.growthRate === 'number') {
+            gRate = m.growthRate;
+        }
         // 疲労度による成長率補正（0%で100%、90%で0%、100%で-10%）
         const fMultiplier = getFatigueGrowthMultiplier(m ? m.fatigue : 0);
         const effectiveRate = gRate * fMultiplier;
@@ -394,12 +399,12 @@
             id: 'suburi',
             name: '素振り・基本打ち込み',
             icon: '⚔️',
-            desc: '竹刀を振り込み、打突の重さと面のキレ・鋭い突きを鍛える。腕力・面・突きが向上。疲労【中】',
+            desc: '竹刀を振り込み、打突の重さと面・小手のキレ、鋭い突きを鍛える。腕力・面・小手・突きが向上。疲労【中】',
             fatigueCost: 15,
             apply: (m) => {
                 growStat(m, 'base', 'str', 1 + (Math.random() < 0.4 ? 1 : 0));
                 growStat(m, 'skill', 'men', 1 + (Math.random() < 0.5 ? 1 : 0));
-                if (Math.random() < 0.3) growStat(m, 'skill', 'kote', 1);
+                growStat(m, 'skill', 'kote', 1 + (Math.random() < 0.3 ? 1 : 0));
                 if (Math.random() < 0.35) growStat(m, 'skill', 'tsuki', 1);
             },
         },
@@ -407,10 +412,10 @@
             id: 'kakari',
             name: '追い込み・掛かり稽古',
             icon: '🔥',
-            desc: '息を極限まで切らして打ち込む猛稽古。気魄・面・胴・突きなど技全般が大幅向上。疲労【大】',
+            desc: '息を極限まで切らして打ち込む猛稽古。腕力・面・胴・突きなど技全般と体力が大幅向上。疲労【大】',
             fatigueCost: 24,
             apply: (m) => {
-                growStat(m, 'base', 'spi', 2 + (Math.random() < 0.3 ? 1 : 0));
+                growStat(m, 'base', 'spi', 1);
                 growStat(m, 'base', 'str', 1);
                 growStat(m, 'skill', 'men', 1);
                 growStat(m, 'skill', 'do', 1);
@@ -1631,22 +1636,73 @@
         };
     }
 
-    // 部員の隠し成長率の生成（助っ人部員以外は80%〜120%の範囲で個性を付与）
-    function generateGrowthRate(archetype, isPlayer = false) {
-        let min = 0.82;
-        let max = 1.18;
-        if (archetype && archetype.id === 'talent') {
-            min = 1.05;
-            max = 1.20;
-        } else if (archetype && archetype.id === 'allround') {
-            min = 0.95;
-            max = 1.12;
-        } else if (isPlayer) {
-            min = 0.98;
-            max = 1.18;
+    // 部員のパラメータ別隠し成長率の生成（各パラメータ50%〜150%の範囲で個性を付与）
+    function generateGrowthRates(archetype, isPlayer = false, isClubDual = false, dualTemplate = null) {
+        const stats = ['str', 'agi', 'spi', 'men', 'kote', 'do', 'tsuki'];
+        const rates = {};
+
+        if (isClubDual) {
+            // 他部助っ人部員：掛け持ちのため全体としては控えめ（0.50〜0.75）だが、部活特性パラメータは0.85〜1.25まで伸びる
+            const club = dualTemplate ? dualTemplate.club : null;
+            stats.forEach((st) => {
+                let base = 0.52 + Math.random() * 0.18; // 0.52〜0.70
+                if (club === '陸上部' && (st === 'agi' || st === 'kote')) base += 0.40;
+                else if (club === '柔道部' && (st === 'str' || st === 'men')) base += 0.40;
+                else if (club === '野球部' && (st === 'str' || st === 'tsuki')) base += 0.35;
+                else if (club === '卓球部' && (st === 'agi' || st === 'kote')) base += 0.35;
+                else if (club === '吹奏楽部' && (st === 'spi' || st === 'do')) base += 0.35;
+                else if (club === '将棋部' && (st === 'spi' || st === 'do')) base += 0.35;
+                rates[st] = Math.round(Math.min(1.50, Math.max(0.50, base)) * 100) / 100;
+            });
+            return rates;
         }
-        const val = min + Math.random() * (max - min);
-        return Math.round(Math.min(1.20, Math.max(0.80, val)) * 100) / 100;
+
+        // 通常部員：中央値 1.00、アーキタイプによる得意・苦手傾斜（50%〜150%）を付与
+        const archId = archetype ? archetype.id : 'allround';
+        stats.forEach((st) => {
+            let base = 0.90 + Math.random() * 0.20; // 0.90〜1.10
+
+            if (archId === 'power') {
+                if (st === 'str' || st === 'men') base += 0.28 + Math.random() * 0.15; // 1.18〜1.50
+                else if (st === 'agi' || st === 'tsuki') base -= 0.25 + Math.random() * 0.15; // 0.50〜0.85
+            } else if (archId === 'speed') {
+                if (st === 'agi' || st === 'kote') base += 0.28 + Math.random() * 0.15; // 1.18〜1.50
+                else if (st === 'str' || st === 'do') base -= 0.25 + Math.random() * 0.15; // 0.50〜0.85
+            } else if (archId === 'spirit') {
+                if (st === 'spi' || st === 'do') base += 0.28 + Math.random() * 0.15; // 1.18〜1.50
+                else if (st === 'agi') base -= 0.20 + Math.random() * 0.15; // 0.55〜0.90
+            } else if (archId === 'tsuki') {
+                if (st === 'tsuki') base += 0.32 + Math.random() * 0.15; // 1.22〜1.50
+                else if (st === 'agi') base += 0.15 + Math.random() * 0.10;
+                else if (st === 'men' || st === 'do') base -= 0.22 + Math.random() * 0.15;
+            } else if (archId === 'counter') {
+                if (st === 'do') base += 0.30 + Math.random() * 0.15; // 1.20〜1.50
+                else if (st === 'spi') base += 0.18 + Math.random() * 0.12;
+                else if (st === 'men') base -= 0.25 + Math.random() * 0.15;
+            } else if (archId === 'allround') {
+                base += (Math.random() - 0.5) * 0.25; // 0.78〜1.22（バランス型）
+            } else if (archId === 'talent') {
+                // 大器晩成・原石型：全体的に高め（1.05〜1.45）
+                base += 0.18 + Math.random() * 0.18;
+            }
+
+            if (isPlayer) {
+                // 主将：安定・高水準（0.98〜1.38）
+                base = Math.max(0.98, base + 0.08);
+            }
+
+            rates[st] = Math.round(Math.min(1.50, Math.max(0.50, base)) * 100) / 100;
+        });
+
+        return rates;
+    }
+
+    // 旧互換用（単一数値の平均値を取得）
+    function generateGrowthRate(archetype, isPlayer = false) {
+        const rates = generateGrowthRates(archetype, isPlayer, false);
+        const vals = Object.values(rates);
+        const avg = vals.reduce((sum, v) => sum + v, 0) / vals.length;
+        return Math.round(avg * 100) / 100;
     }
 
     function createMember(name, grade, isPlayer = false, chosenArchetype = null) {
@@ -1676,6 +1732,10 @@
 
         const talentCaps = generateTalentCaps(archetype, isPlayer, false);
 
+        const growthRates = generateGrowthRates(archetype, isPlayer, false);
+        const gRateVals = Object.values(growthRates);
+        const avgGrowthRate = Math.round((gRateVals.reduce((s, v) => s + v, 0) / gRateVals.length) * 100) / 100;
+
         const m = {
             id: `mem_${Date.now()}_${memberIdCounter++}`,
             name: name,
@@ -1686,7 +1746,8 @@
             talentCaps: talentCaps,
             isClubDual: false,
             originalClub: null,
-            growthRate: generateGrowthRate(archetype, isPlayer), // 助っ人部員以外は80〜120%の隠しパラメータ
+            growthRates: growthRates, // パラメータ毎の隠し成長率（50%〜150%）
+            growthRate: avgGrowthRate, // 旧互換用
             maxHealth: Math.min(8, baseHp),
             str: baseStr,
             agi: baseAgi,
@@ -1735,6 +1796,9 @@
         };
 
         const talentCaps = generateTalentCaps(null, false, true);
+        const growthRates = generateGrowthRates(null, false, true, tpl);
+        const gRateVals = Object.values(growthRates);
+        const avgGrowthRate = Math.round((gRateVals.reduce((s, v) => s + v, 0) / gRateVals.length) * 100) / 100;
 
         const m = {
             id: `mem_dual_${Date.now()}_${memberIdCounter++}`,
@@ -1746,7 +1810,8 @@
             talentCaps: talentCaps,
             isClubDual: true,
             originalClub: tpl.club,
-            growthRate: 0.50, // 助っ人部員は成長率50%（隠しパラメータ）
+            growthRates: growthRates, // パラメータ毎の隠し成長率（特化80〜125%、他50〜75%）
+            growthRate: avgGrowthRate, // 旧互換用
             maxHealth: Math.min(8, baseHp),
             str: baseStr,
             agi: baseAgi,
@@ -1974,13 +2039,19 @@
                         const existingThemes = ClubState.members.filter(other => other !== m && other.armorTheme && other.armorTheme.themeId).map(other => other.armorTheme.themeId);
                         assignMemberArmorTheme(m, existingThemes);
                     }
-                    if (!m.growthRate || (!m.isClubDual && (m.growthRate < 0.80 || m.growthRate > 1.20 || m.growthRate === 1.0))) {
+                    if (!m.growthRates || typeof m.growthRates !== 'object') {
                         if (m.isClubDual) {
+                            const tpl = DUAL_CLUB_TEMPLATES.find(t => t.club === m.originalClub);
+                            m.growthRates = generateGrowthRates(null, false, true, tpl);
                             m.growthRate = 0.50;
                         } else {
                             const arch = MEMBER_ARCHETYPES.find((a) => a.id === m.archetypeId);
-                            m.growthRate = generateGrowthRate(arch, m.isPlayer);
+                            m.growthRates = generateGrowthRates(arch, m.isPlayer, false);
+                            m.growthRate = 1.0;
                         }
+                    } else if (!m.growthRate) {
+                        const vals = Object.values(m.growthRates);
+                        m.growthRate = Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100;
                     }
                     if (!m.face || !m.face.skin) {
                         if (window.FaceGenerator) {
@@ -3129,7 +3200,81 @@
         return getRandomItem(pool);
     }
 
-    // 個人戦用 対戦相手剣士の生成（高校3年間鍛え上げた3年生中心）
+    // 敵選手の個性アーキタイプ（強み・弱みの凹凸と得意技）
+    const OPPONENT_ARCHETYPES = [
+        {
+            id: 'power',
+            typeName: '剛腕パワー型',
+            prefStance: ['jodan', 'jodan', 'chudan'],
+            hpBonus: 1,
+            bias: { str: 14, agi: -10, spi: 2, men: 13, kote: -3, do: 0, tsuki: -8 },
+            specialTech: 'gouriki_men',
+            title: '剛腕の上段'
+        },
+        {
+            id: 'speed',
+            typeName: '韋駄天スピード型',
+            prefStance: ['chudan', 'chudan'],
+            hpBonus: 0,
+            bias: { str: -9, agi: 16, spi: 1, men: 1, kote: 14, do: -3, tsuki: 3 },
+            specialTech: 'dengeki_kote',
+            title: '疾風の小手使い'
+        },
+        {
+            id: 'spirit',
+            typeName: '不動心気魄型',
+            prefStance: ['chudan', 'waki'],
+            hpBonus: 1,
+            bias: { str: 2, agi: -8, spi: 16, men: 0, kote: 1, do: 13, tsuki: 0 },
+            specialTech: 'shiden_tsuki',
+            title: '不抜の守護神'
+        },
+        {
+            id: 'tsuki',
+            typeName: '電光石火・突き技巧型',
+            prefStance: ['chudan', 'chudan'],
+            hpBonus: 0,
+            bias: { str: 1, agi: 8, spi: 3, men: -6, kote: 2, do: -6, tsuki: 16 },
+            specialTech: 'tensho_tsuki',
+            title: '閃光の連撃手'
+        },
+        {
+            id: 'counter',
+            typeName: '後の先カウンター型',
+            prefStance: ['waki', 'waki', 'chudan'],
+            hpBonus: 0,
+            bias: { str: -2, agi: 4, spi: 8, men: -9, kote: 3, do: 15, tsuki: 1 },
+            specialTech: 'hayate_do',
+            title: '後の先を極めし者'
+        },
+        {
+            id: 'allround',
+            typeName: '万能バランス型',
+            prefStance: ['chudan', 'chudan'],
+            hpBonus: 0,
+            bias: { str: 3, agi: 3, spi: 3, men: 3, kote: 3, do: 3, tsuki: 2 },
+            specialTech: 'hien_men',
+            title: '名門の切り札'
+        }
+    ];
+
+    // 学校名から安定した実力ランク（Tier S/A: 名門, B: 標準, C: 新興）を判定
+    function getSchoolPowerTier(schoolName, isNational = false, roundIdx = 0) {
+        let randVal = Math.random();
+        if (roundIdx >= 2) randVal += 0.25; // 準決勝・決勝は強豪率UP
+
+        if (isNational) {
+            if (randVal > 0.70) return { tier: 'S', label: '全国屈指の名門', statOffset: 6, hpOffset: 1 };
+            if (randVal > 0.25) return { tier: 'A', label: '県大会優勝の強豪', statOffset: 0, hpOffset: 0 };
+            return { tier: 'B', label: '全国初出場の新星', statOffset: -6, hpOffset: 0 };
+        } else {
+            if (randVal > 0.78) return { tier: 'A', label: '県下屈指の名門校', statOffset: 7, hpOffset: 1 };
+            if (randVal > 0.32) return { tier: 'B', label: '実力ある中堅校', statOffset: 0, hpOffset: 0 };
+            return { tier: 'C', label: '勢いのある新興校', statOffset: -8, hpOffset: 0 };
+        }
+    }
+
+    // 個人戦用 対戦相手剣士の生成（高校3年間鍛え上げた3年生中心・強弱変化と個性凹凸を導入）
     const FIGHTER_TITLES = [
         '疾風の小手使い', '剛腕の上段', '冷静沈着な間合いの鬼', '名門の切り札',
         '電光石火の飛び込み面', '不抜の守護神', '変幻自在の技巧派', '無心の剣客',
@@ -3143,15 +3288,14 @@
             ? isNationalOrGrade
             : (Number(isNationalOrGrade) >= 3);
 
-        const stances = ['chudan', 'chudan', 'jodan', 'waki'];
-        const stance = getRandomItem(stances);
-
-        // 学年：高校3年間鍛え上げた3年生が中心（90%で3年、10%で天才2年）
-        const grade = (Math.random() < 0.90) ? 3 : 2;
+        // 学年：高校3年間鍛え上げた3年生が中心（85%で3年、15%で天才2年）
+        const grade = (Math.random() < 0.85) ? 3 : 2;
         const gradeLabel = grade === 3 ? '3年' : '2年';
 
-        // 必殺技（得意技）の選定
-        const specialTech = getRandomSpecialTechnique(stance);
+        // 敵選手のアーキタイプ（個性）を選定
+        const arch = getRandomItem(OPPONENT_ARCHETYPES);
+        const stance = getRandomItem(arch.prefStance);
+        const specialTech = arch.specialTech;
         const reqStatMap = {
             hien_men: 'men', gouriki_men: 'men', tenkou_men: 'men',
             dengeki_kote: 'kote', kasumi_kote: 'kote',
@@ -3160,51 +3304,47 @@
         };
         const favTechStat = reqStatMap[specialTech] || 'men';
 
+        // 学校の実力ランク（強弱の変化）
+        const schoolTier = getSchoolPowerTier(schoolName, isNational, Math.min(2, seedTier));
+
         let baseHp = 5;
-        let str = 50;
-        let agi = 50;
-        let spi = 50;
-        let baseSkill = 46;
+        let baseStatVal = 50;
+        let baseSkillVal = 46;
 
         if (!isNational) {
             // ── 都道府県個人予選（高校3年間鍛え上げた3年生） ──
-            // 1年目6月（入部2ヶ月・能力13前後）のプレイヤーにとって1回戦突破は極めて困難
-            // seedTier: 0 = 1回戦標準代表, 1 = ベスト4候補, 2 = 決勝候補（第1/第2シード）
             const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
-            baseHp = 5 + (tierBonus >= 1 ? 1 : 0) + (Math.random() < 0.4 ? 1 : 0);
-
-            // 能力値：初戦で48〜56、シード上位で64〜78
-            const baseStatVal = 48 + tierBonus * 12 + Math.floor(Math.random() * 8);
-            str = Math.min(85, baseStatVal + Math.floor(Math.random() * 5) - 2);
-            agi = Math.min(85, baseStatVal + Math.floor(Math.random() * 5) - 2);
-            spi = Math.min(85, baseStatVal + Math.floor(Math.random() * 5) - 2);
-            baseSkill = 44 + tierBonus * 12 + Math.floor(Math.random() * 6);
+            baseHp = 5 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
+            baseStatVal = 48 + tierBonus * 10 + schoolTier.statOffset + Math.floor(Math.random() * 5);
+            baseSkillVal = 44 + tierBonus * 10 + schoolTier.statOffset + Math.floor(Math.random() * 5);
         } else {
             // ── インターハイ全国総体（全国各県のトップ3年生） ──
             const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
-            baseHp = 7 + (tierBonus >= 1 && Math.random() < 0.6 ? 1 : 0);
-
-            // 能力値：全国1回戦で72〜78、全国決勝クラスで90〜98
-            const baseStatVal = 72 + tierBonus * 10 + Math.floor(Math.random() * 7);
-            str = Math.min(99, baseStatVal + Math.floor(Math.random() * 5) - 2);
-            agi = Math.min(99, baseStatVal + Math.floor(Math.random() * 5) - 2);
-            spi = Math.min(99, baseStatVal + Math.floor(Math.random() * 5) - 2);
-            baseSkill = 68 + tierBonus * 11 + Math.floor(Math.random() * 6);
+            baseHp = 6 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
+            baseStatVal = 72 + tierBonus * 8 + schoolTier.statOffset + Math.floor(Math.random() * 5);
+            baseSkillVal = 68 + tierBonus * 8 + schoolTier.statOffset + Math.floor(Math.random() * 5);
         }
 
-        // 技パラメータ（得意技には +8〜12 の重点ボーナスを付与し、必殺技が確実に解放される）
+        // アーキタイプによる明確なパラメータの凹凸（得意+12〜16、苦手-8〜12）
+        const b = arch.bias;
+        const str = Math.min(99, Math.max(12, baseStatVal + b.str + Math.floor(Math.random() * 4) - 2));
+        const agi = Math.min(99, Math.max(12, baseStatVal + b.agi + Math.floor(Math.random() * 4) - 2));
+        const spi = Math.min(99, Math.max(12, baseStatVal + b.spi + Math.floor(Math.random() * 4) - 2));
+
         const skills = {
-            men: Math.min(99, baseSkill + Math.floor(Math.random() * 4)),
-            kote: Math.min(99, baseSkill + Math.floor(Math.random() * 4)),
-            do: Math.min(99, Math.max(10, baseSkill - 2 + Math.floor(Math.random() * 4))),
-            tsuki: Math.min(99, Math.max(10, baseSkill - 3 + Math.floor(Math.random() * 4))),
+            men: Math.min(99, Math.max(10, baseSkillVal + b.men + Math.floor(Math.random() * 3))),
+            kote: Math.min(99, Math.max(10, baseSkillVal + b.kote + Math.floor(Math.random() * 3))),
+            do: Math.min(99, Math.max(10, baseSkillVal + b.do + Math.floor(Math.random() * 3))),
+            tsuki: Math.min(99, Math.max(10, baseSkillVal + b.tsuki + Math.floor(Math.random() * 3))),
         };
+
+        // 得意技には奥義解放基準を満たすようボーナスを付与
         const favBonus = 8 + Math.floor(Math.random() * 6);
         skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
 
         const surname = getRandomItem(SURNAMES);
-        const title = getRandomItem(FIGHTER_TITLES);
-        const roleLabel = `${gradeLabel} 個人代表`;
+        const title = arch.title || getRandomItem(FIGHTER_TITLES);
+        const roleLabel = `${gradeLabel}・${arch.typeName}`;
 
         return {
             name: surname,
@@ -3621,7 +3761,7 @@
         renderClubUI();
     }
 
-    // 団体戦用 対戦相手校チームの生成（高校2年間鍛え上げた2年生中心の新チーム）
+    // 団体戦用 対戦相手校チームの生成（高校2年間鍛え上げた2年生中心の新チーム・強弱変化とポジション特性を強化）
     function generateOpponentTeam(schoolName, pref, stageIdxOrGrade = 0, isNationalFlag = false) {
         // 後方互換：第4引数がブール値、または第3引数が4以上なら全国扱い
         const isNational = (typeof isNationalFlag === 'boolean')
@@ -3635,26 +3775,61 @@
 
         const members = [];
 
-        // ポジションごとの特性（先鋒: 俊敏, 次鋒: 粘り, 中堅: 主力, 副将: 剛腕実力者, 大将: 新主将エース）
+        // 学校全体の実力ランク（強弱の変化）
+        const schoolTier = getSchoolPowerTier(schoolName, isNational, roundStep);
+
+        // ポジションごとの特性とアーキタイプ候補プール
+        // 先鋒: 俊敏・スピード型中心、次鋒: 粘り・カウンター型中心、中堅: 技術・主力、副将: 剛腕パワー型、大将: 新主将絶対エース
         const posConfigs = [
-            { posName: '先鋒', gradeChance2: 0.80, statBias: { str: 0, agi: 2, spi: -1, hp: 0 }, baseSkillOffset: -2 },
-            { posName: '次鋒', gradeChance2: 0.85, statBias: { str: 0, agi: 0, spi: 1, hp: 1 }, baseSkillOffset: -2 },
-            { posName: '中堅', gradeChance2: 1.00, statBias: { str: 1, agi: 1, spi: 2, hp: 0 }, baseSkillOffset: 1 },
-            { posName: '副将', gradeChance2: 1.00, statBias: { str: 2, agi: 0, spi: 2, hp: 1 }, baseSkillOffset: 2 },
-            { posName: '大将', gradeChance2: 1.00, statBias: { str: 3, agi: 2, spi: 4, hp: 1 }, baseSkillOffset: 5 },
+            {
+                posName: '先鋒',
+                gradeChance2: 0.80,
+                statOffset: -3,
+                hpBase: 4,
+                archPool: ['speed', 'speed', 'tsuki', 'allround']
+            },
+            {
+                posName: '次鋒',
+                gradeChance2: 0.85,
+                statOffset: -2,
+                hpBase: 5,
+                archPool: ['spirit', 'spirit', 'counter', 'allround']
+            },
+            {
+                posName: '中堅',
+                gradeChance2: 1.00,
+                statOffset: 2,
+                hpBase: 4,
+                archPool: ['allround', 'tsuki', 'speed', 'power']
+            },
+            {
+                posName: '副将',
+                gradeChance2: 1.00,
+                statOffset: 5,
+                hpBase: 5,
+                archPool: ['power', 'power', 'spirit', 'allround']
+            },
+            {
+                posName: '大将',
+                gradeChance2: 1.00,
+                statOffset: 9,
+                hpBase: 5,
+                archPool: ['allround', 'power', 'tsuki', 'spirit']
+            },
         ];
 
         for (let i = 0; i < 5; i++) {
             const pConf = posConfigs[i] || posConfigs[0];
-            const stances = ['chudan', 'chudan', 'jodan', 'waki'];
-            const stance = getRandomItem(stances);
+            const chosenArchId = getRandomItem(pConf.archPool);
+            const arch = OPPONENT_ARCHETYPES.find(a => a.id === chosenArchId) || OPPONENT_ARCHETYPES[0];
+            const stance = getRandomItem(arch.prefStance);
 
             // 学年：2年生中心（先鋒・次鋒は稀に有望な1年生）
             const isGrade2 = Math.random() < pConf.gradeChance2;
             const grade = isGrade2 ? 2 : 1;
             const gradeLabel = grade === 2 ? '2年' : '1年';
 
-            const specialTech = getRandomSpecialTechnique(stance);
+            const specialTech = arch.specialTech;
             const reqStatMap = {
                 hien_men: 'men', gouriki_men: 'men', tenkou_men: 'men',
                 dengeki_kote: 'kote', kasumi_kote: 'kote',
@@ -3663,56 +3838,52 @@
             };
             const favTechStat = reqStatMap[specialTech] || 'men';
 
-            let baseHp = 4;
+            let baseHp = pConf.hpBase + arch.hpBonus + schoolTier.hpOffset;
             let baseStat = 38;
             let baseSkill = 35;
 
             if (!isNational) {
                 // ── 地区大会（12月新人戦・選抜地区予選） ──
-                // 1年目冬（プレイ開始約34週・部員能力22〜28）にとって1回戦は極めて困難
-                // roundStep: 0 (準々決勝/1回戦), 1 (準決勝), 2 (決勝)
                 const stepBonus = Math.min(2, roundStep);
-                // 1回戦で先鋒〜次鋒は36〜42、大将は46〜54。決勝では先鋒48〜54、大将62〜70
-                baseStat = 36 + stepBonus * 7 + (i >= 2 ? 4 : 0) + (i === 4 ? 4 : 0) + Math.floor(Math.random() * 5);
-                baseSkill = 33 + stepBonus * 6 + (i >= 2 ? 3 : 0) + (i === 4 ? 4 : 0) + Math.floor(Math.random() * 4);
-                baseHp = 4 + (stepBonus >= 1 || i >= 3 ? 1 : 0) + (i === 4 && Math.random() < 0.5 ? 1 : 0);
+                baseStat = 38 + stepBonus * 7 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkill = 35 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
             } else {
                 // ── 全国選抜大会（3月・全国の強豪2年生チーム） ──
-                // roundStep: 0 (1回戦), 1 (2回戦), 2 (準々決勝), 3 (準決勝), 4 (決勝)
                 const stepBonus = Math.min(4, roundStep);
-                baseStat = 52 + stepBonus * 6 + (i >= 2 ? 4 : 0) + (i === 4 ? 6 : 0) + Math.floor(Math.random() * 5);
-                baseSkill = 48 + stepBonus * 6 + (i >= 2 ? 3 : 0) + (i === 4 ? 5 : 0) + Math.floor(Math.random() * 4);
-                baseHp = 5 + (stepBonus >= 2 || i >= 2 ? 1 : 0) + (i === 4 ? 1 : 0);
+                baseStat = 52 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkill = 48 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
             }
 
-            // ポジション補正と学年補正（1年の場合は少し控えめ）
+            // 学年補正（1年の場合は少し控えめ）
             const gradeMod = grade === 1 ? -3 : 0;
-            const str = Math.min(99, Math.max(10, baseStat + pConf.statBias.str + gradeMod + Math.floor(Math.random() * 3)));
-            const agi = Math.min(99, Math.max(10, baseStat + pConf.statBias.agi + gradeMod + Math.floor(Math.random() * 3)));
-            const spi = Math.min(99, Math.max(10, baseStat + pConf.statBias.spi + gradeMod + Math.floor(Math.random() * 3)));
-            const finalBaseSkill = Math.min(99, Math.max(10, baseSkill + pConf.baseSkillOffset + gradeMod));
+
+            // アーキタイプによるパラメータ凹凸（得意+12〜16、苦手-8〜12）
+            const b = arch.bias;
+            const str = Math.min(99, Math.max(10, baseStat + b.str + gradeMod + Math.floor(Math.random() * 3)));
+            const agi = Math.min(99, Math.max(10, baseStat + b.agi + gradeMod + Math.floor(Math.random() * 3)));
+            const spi = Math.min(99, Math.max(10, baseStat + b.spi + gradeMod + Math.floor(Math.random() * 3)));
 
             const skills = {
-                men: Math.min(99, finalBaseSkill + Math.floor(Math.random() * 3)),
-                kote: Math.min(99, finalBaseSkill + Math.floor(Math.random() * 3)),
-                do: Math.min(99, Math.max(10, finalBaseSkill - 1 + Math.floor(Math.random() * 3))),
-                tsuki: Math.min(99, Math.max(10, finalBaseSkill - 2 + Math.floor(Math.random() * 3))),
+                men: Math.min(99, Math.max(10, baseSkill + b.men + gradeMod + Math.floor(Math.random() * 3))),
+                kote: Math.min(99, Math.max(10, baseSkill + b.kote + gradeMod + Math.floor(Math.random() * 3))),
+                do: Math.min(99, Math.max(10, baseSkill + b.do + gradeMod + Math.floor(Math.random() * 3))),
+                tsuki: Math.min(99, Math.max(10, baseSkill + b.tsuki + gradeMod + Math.floor(Math.random() * 3))),
             };
 
             // 中堅・副将・大将、あるいは上位ラウンドでは得意技にボーナスを付与して必殺技を解放
             if (i >= 2 || roundStep >= 1 || isNational) {
-                const favBonus = 6 + Math.floor(Math.random() * 5);
+                const favBonus = 7 + Math.floor(Math.random() * 5);
                 skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
             }
 
             const memberName = getRandomItem(SURNAMES);
-            const memberRole = `${gradeLabel}・${POS_NAMES[i]}`;
+            const memberRole = `${gradeLabel}・${POS_NAMES[i]} (${arch.typeName})`;
 
             members.push({
                 name: memberName,
                 grade: grade,
                 role: memberRole,
-                hp: Math.min(8, Math.max(3, baseHp + pConf.statBias.hp)),
+                hp: Math.min(8, Math.max(3, baseHp)),
                 str: str,
                 agi: agi,
                 spi: spi,
@@ -3726,12 +3897,14 @@
             });
         }
 
+        const tierDesc = schoolTier.label ? `【${schoolTier.label}】` : '';
         return {
             schoolName: schoolName,
             pref: pref,
+            tier: schoolTier.tier,
             shortDesc: isNational
-                ? `${pref}代表の精鋭高校。高校2年間鍛え抜かれた盤石の新チーム布陣。`
-                : `${pref}の強豪高校。2年間鍛え上げた2年生主力の粘り強い布陣。`,
+                ? `${pref}代表${tierDesc}。高校2年間鍛え抜かれた個性と実力ある新チーム布陣。`
+                : `${pref}の強豪校${tierDesc}。2年間鍛え上げた2年生主力の多彩な布陣。`,
             members: members,
         };
     }
@@ -5364,11 +5537,11 @@
                                 <span class="q-icon">🏃</span>
                                 <span class="q-text">すり足</span>
                             </button>
-                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：筋力・面・突き＋">
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('suburi')" title="素振り・打ち込み：腕力・面・小手・突き＋">
                                 <span class="q-icon">⚔️</span>
                                 <span class="q-text">素振り</span>
                             </button>
-                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('kakari')" title="追い込み・掛かり稽古：気魄・全技＋">
+                            <button type="button" class="btn-quick-practice" onclick="window.KendoClub.onSelectPractice('kakari')" title="追い込み・掛かり稽古：技全般・体力＋">
                                 <span class="q-icon">🔥</span>
                                 <span class="q-text">掛かり</span>
                             </button>
