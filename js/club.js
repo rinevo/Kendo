@@ -399,10 +399,10 @@
             id: 'suburi',
             name: '素振り・基本打ち込み',
             icon: '⚔️',
-            desc: '竹刀を振り込み、打突の重さと面のキレを鍛える。腕力・面が向上（小手・突きも稀に上昇）。疲労【中】',
+            desc: '竹刀を振り込み、面のキレと打突を鍛える。面が大幅向上（腕力・小手・突きも上昇）。疲労【中】',
             fatigueCost: 15,
             apply: (m) => {
-                growStat(m, 'base', 'str', 1 + (Math.random() < 0.4 ? 1 : 0));
+                if (Math.random() < 0.75) growStat(m, 'base', 'str', 1);
                 growStat(m, 'skill', 'men', 1 + (Math.random() < 0.5 ? 1 : 0));
                 if (Math.random() < 0.30) growStat(m, 'skill', 'kote', 1);
                 if (Math.random() < 0.35) growStat(m, 'skill', 'tsuki', 1);
@@ -412,11 +412,10 @@
             id: 'kakari',
             name: '追い込み・掛かり稽古',
             icon: '🔥',
-            desc: '息を極限まで切らして打ち込む猛稽古。腕力・面・胴・突きなど技全般と体力が大幅向上。疲労【大】',
+            desc: '息を極限まで切らして打ち込む猛稽古。面・胴・突きなど技全般と体力が大幅向上。疲労【大】',
             fatigueCost: 24,
             apply: (m) => {
-                growStat(m, 'base', 'spi', 1);
-                growStat(m, 'base', 'str', 1);
+                if (Math.random() < 0.5) growStat(m, 'base', 'str', 1);
                 growStat(m, 'skill', 'men', 1);
                 growStat(m, 'skill', 'do', 1);
                 growStat(m, 'skill', 'tsuki', 1);
@@ -427,10 +426,16 @@
             id: 'zazen',
             name: '座禅・見取り稽古',
             icon: '🧘',
-            desc: '精神を研ぎ澄まし集中力を高める。気魄向上・調子アップ・疲労【微回復】',
-            fatigueCost: -8,
+            desc: '精神を研ぎ澄まし気魄を鍛える。見取り稽古で技の閃き（面・小手・胴・突き）＋調子アップ・疲労回復【-15%】',
+            fatigueCost: -15,
             apply: (m) => {
-                growStat(m, 'base', 'spi', 1 + (Math.random() < 0.4 ? 1 : 0));
+                growStat(m, 'base', 'spi', 1);
+                // 見取り稽古による技の閃き（面・小手・胴・突きからランダムで1つを50%の確率で+1）
+                if (Math.random() < 0.5) {
+                    const skills = ['men', 'kote', 'do', 'tsuki'];
+                    const chosen = skills[Math.floor(Math.random() * skills.length)];
+                    growStat(m, 'skill', chosen, 1);
+                }
                 improveCondition(m);
             },
         },
@@ -1757,6 +1762,7 @@
             favStance: stance,
             condition: getRandomItem(['good', 'normal', 'normal', 'best']),
             fatigue: 0,
+            assignedPractice: 'suburi', // 個別担当稽古（'suburi' | 'basics' | 'kakari' | 'zazen' | 'rest'）
             desc: desc,
             armorTheme: null,
         };
@@ -1821,6 +1827,7 @@
             favStance: tpl.stance || 'chudan',
             condition: getRandomItem(['good', 'normal', 'normal']),
             fatigue: 0,
+            assignedPractice: 'suburi', // 個別担当稽古
             desc: tpl.desc,
             armorTheme: null,
         };
@@ -2055,6 +2062,9 @@
                     } else if (!m.growthRate) {
                         const vals = Object.values(m.growthRates);
                         m.growthRate = Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100;
+                    }
+                    if (!m.assignedPractice) {
+                        m.assignedPractice = 'suburi';
                     }
                     if (!m.face || !m.face.skin) {
                         if (window.FaceGenerator) {
@@ -3016,11 +3026,33 @@
     }
 
     // ───────────────────────────────────────────
+    // 部員各自の個別設定練習を一斉適用
+    // ───────────────────────────────────────────
+    function applyAssignedPracticesForMembers(membersList) {
+        if (!membersList || membersList.length === 0) return { hadExhaustedMember: false };
+        let hadExhaustedMember = false;
+        membersList.forEach((m) => {
+            const pId = m.assignedPractice || 'suburi';
+            const pMenu = PRACTICE_MENUS.find((p) => p.id === pId) || PRACTICE_MENUS[0];
+            if ((m.fatigue || 0) >= 100 && pMenu.fatigueCost > 0) {
+                hadExhaustedMember = true;
+            }
+            pMenu.apply(m);
+            m.fatigue = Math.min(100, Math.max(0, (m.fatigue || 0) + pMenu.fatigueCost));
+            if (m.fatigue >= 80 && Math.random() < 0.6) dropCondition(m);
+            else if (m.fatigue === 0 && Math.random() < 0.3) improveCondition(m);
+        });
+        return { hadExhaustedMember };
+    }
+
+    // ───────────────────────────────────────────
     // 練習実行
     // ───────────────────────────────────────────
     function applyPracticeLogic(menuId, targetMemberId) {
-        const menu = menuId === 'special' ? null : PRACTICE_MENUS.find((m) => m.id === menuId);
-        if (!menu && menuId !== 'special') return;
+        const isSpecial = menuId === 'special';
+        const isIndividual = menuId === 'individual';
+        const menu = (isSpecial || isIndividual) ? null : PRACTICE_MENUS.find((m) => m.id === menuId);
+        if (!menu && !isSpecial && !isIndividual) return;
 
         // 実行前の部員全体ステータス合計および得意技解放状況を計測
         const checkUnlocked = (m) => {
@@ -3046,7 +3078,7 @@
         const prevStatSum = getTeamStatSum();
 
         let logEntry = '';
-        if (menuId === 'special') {
+        if (isSpecial) {
             const target = ClubState.members.find((m) => m.id === targetMemberId);
             const player = ClubState.members.find((m) => m.isPlayer);
             if (target && player) {
@@ -3070,22 +3102,25 @@
                 growStat(player, 'base', 'spi', 2);
                 player.fatigue = Math.min(100, Math.max(0, (player.fatigue || 0) + 16));
 
+                // 特別指導時も、指導対象と主将以外の他部員は各自の個別練習を実行！
+                const otherMembers = ClubState.members.filter((m) => m.id !== target.id && m.id !== player.id);
+                applyAssignedPracticesForMembers(otherMembers);
+
                 const dualText = target.isClubDual ? `（${target.originalClub}掛け持ち）` : '';
                 const exhaustWarn = (isTargetExhausted || isPlayerExhausted) ? ' ⚠️過度の疲労により能力が低下する過酷な稽古となりました！' : '';
-                logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${target.name}へマンツーマン特別指導を実施！${target.name}の全能力を鍛え上げました！${dualText}${exhaustWarn}`;
+                const othersText = otherMembers.length > 0 ? `（他部員${otherMembers.length}名も各自の稽古を実行）` : '';
+                logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】主将が${target.name}へマンツーマン特別指導を実施！${target.name}の全能力を鍛え上げました！${dualText}${othersText}${exhaustWarn}`;
             }
+        } else if (isIndividual) {
+            const { hadExhaustedMember } = applyAssignedPracticesForMembers(ClubState.members);
+            const exhaustWarn = hadExhaustedMember ? ' ⚠️過度の疲労（100%）を抱えた部員の能力が低下しました！' : '';
+            logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】各自の個別稽古を一斉実施！それぞれの課題に取り組み心技体を鍛えました。${exhaustWarn}`;
         } else {
-            let hadExhaustedMember = false;
+            // 全体稽古メニューが選択された場合は、全員の個別稽古設定を同期した上で一斉適用
             ClubState.members.forEach((m) => {
-                if ((m.fatigue || 0) >= 100 && menu.fatigueCost > 0) {
-                    hadExhaustedMember = true;
-                }
-                // 部員ごとの隠し成長率（通常: 80〜120%、助っ人: 50%）および疲労度に従って成長
-                menu.apply(m);
-                m.fatigue = Math.min(100, Math.max(0, (m.fatigue || 0) + menu.fatigueCost));
-                if (m.fatigue >= 80 && Math.random() < 0.6) dropCondition(m);
-                else if (m.fatigue === 0 && Math.random() < 0.3) improveCondition(m);
+                m.assignedPractice = menuId;
             });
+            const { hadExhaustedMember } = applyAssignedPracticesForMembers(ClubState.members);
             const exhaustWarn = hadExhaustedMember ? ' ⚠️過度の疲労（100%）を抱えた部員の能力が低下しました！' : '';
             logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】全体稽古【${menu.name}】を実施！心技体を鍛えました。${exhaustWarn}`;
         }
@@ -4661,6 +4696,20 @@
             return null; // 他の選手は得意な構えで待機
         }
 
+        // 個別稽古一斉実行時：各部員の assignedPractice に応じたモーションを再生
+        if (menuId === 'individual') {
+            const pId = member.assignedPractice || 'suburi';
+            if (pId === 'zazen' || pId === 'rest') {
+                const now = (typeof timeNow === 'number') ? timeNow : ((typeof window !== 'undefined' && window.performance && window.performance.now) ? window.performance.now() : Date.now());
+                const elapsed = Math.max(0, (now - (ClubState.practiceExecutionStartTime || now)) / 1000);
+                const cycleDuration = (pId === 'rest') ? 2.4 : 2.0;
+                if (elapsed >= cycleDuration) {
+                    return null;
+                }
+            }
+            return pId;
+        }
+
         // 座禅・休養：1回だけアニメーション（座禅約2.0秒、蹲踞納刀休養約2.4秒）し、その後は得意な構えを表示
         if (menuId === 'zazen' || menuId === 'rest') {
             const now = (typeof timeNow === 'number') ? timeNow : ((typeof window !== 'undefined' && window.performance && window.performance.now) ? window.performance.now() : Date.now());
@@ -5116,6 +5165,55 @@
         `;
     }
 
+    // ───────────────────────────────────────────
+    // 一括指示ヘルプ案内情報 & ライブ表示コントローラー
+    // ───────────────────────────────────────────
+    const QUICK_ASSIGN_HELP = {
+        suburi: {
+            title: '⚔️ 素振り・基本打ち込み',
+            desc: '竹刀を振り込み、面のキレと打突を鍛える。面が大幅向上（腕力・小手・突きも上昇）。疲労【中】(+15%)'
+        },
+        basics: {
+            title: '🏃 すり足・基礎体力',
+            desc: '足さばきと持久力を強化。敏捷・体力が向上。小手も上昇。疲労【小】(+10%)'
+        },
+        kakari: {
+            title: '🔥 追い込み・掛かり稽古',
+            desc: '息を極限まで切らして打ち込む猛稽古。面・胴・突きなど技全般と体力が大幅向上。疲労【大】(+24%)'
+        },
+        zazen: {
+            title: '🧘 座禅・見取り稽古',
+            desc: '精神を研ぎ澄まし気魄を鍛える。見取り稽古で技の閃き（面・小手・胴・突き）＋調子アップ・疲労回復(-15%)'
+        },
+        fatigued_rest: {
+            title: '🍵 疲労者(60%↑)休養',
+            desc: '疲労度60%以上の部員のみ、疲労を完全に抜く【休養】に一括設定します。'
+        },
+        rest: {
+            title: '🍵 休養・道具手入れ',
+            desc: '疲労を完全に抜き、竹刀と防具を手入れして英気を養う。疲労【大幅回復】(-45%)'
+        }
+    };
+
+    function showQuickAssignHelp(type) {
+        const box = document.getElementById('quickAssignHelpBox');
+        const titleEl = document.getElementById('quickAssignHelpTitle');
+        const descEl = document.getElementById('quickAssignHelpDesc');
+        if (!box || !descEl) return;
+
+        if (!type || !QUICK_ASSIGN_HELP[type]) {
+            box.classList.remove('is-active');
+            if (titleEl) titleEl.textContent = '💡 稽古案内';
+            descEl.textContent = '各ボタンにマウスを合わせると稽古内容・効果が表示されます（クリックで全員に一括設定）';
+            return;
+        }
+
+        const item = QUICK_ASSIGN_HELP[type];
+        box.classList.add('is-active');
+        if (titleEl) titleEl.textContent = item.title;
+        descEl.textContent = item.desc;
+    }
+
     // ダッシュボード画面
     function renderDashboard(container) {
         const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
@@ -5275,6 +5373,24 @@
             `;
         }
 
+        // 各部員の担当稽古セレクトボックスHTML生成ヘルパー
+        const renderMemberPracticeSelectorHtml = (targetMember) => {
+            if (!targetMember) return '';
+            const cur = targetMember.assignedPractice || 'suburi';
+            return `
+                <div class="member-practice-assign-row">
+                    <span class="assign-label">🥋 稽古:</span>
+                    <select class="sel-member-practice" onchange="window.KendoClub.setMemberPractice('${targetMember.id}', this.value)" title="${escapeHtml(targetMember.name)}の個別稽古メニューを変更">
+                        <option value="suburi" ${cur === 'suburi' ? 'selected' : ''}>⚔️ 素振り (面・腕力)</option>
+                        <option value="basics" ${cur === 'basics' ? 'selected' : ''}>🏃 すり足 (敏捷・小手)</option>
+                        <option value="kakari" ${cur === 'kakari' ? 'selected' : ''}>🔥 掛かり (技全般・体)</option>
+                        <option value="zazen" ${cur === 'zazen' ? 'selected' : ''}>🧘 座禅 (気魄・閃き)</option>
+                        <option value="rest" ${cur === 'rest' ? 'selected' : ''}>🍵 休養 (疲労回復)</option>
+                    </select>
+                </div>
+            `;
+        };
+
         // 部員カード一覧（5つのポジション枠に合わせて表示）
         const memberCardsHtml = POS_NAMES.map((pos, idx) => {
             const memberId = ClubState.order[idx];
@@ -5341,6 +5457,7 @@
                                 <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
                             </div>
                         </div>
+                        ${renderMemberPracticeSelectorHtml(m)}
                         <div class="member-mini-chara-wrap">
                             <div class="mini-chara-canvas-box">
                                 <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
@@ -5400,6 +5517,7 @@
                                 <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
                             </div>
                         </div>
+                        ${renderMemberPracticeSelectorHtml(m)}
                         <div class="member-mini-chara-wrap">
                             <div class="mini-chara-canvas-box">
                                 <canvas class="member-mini-canvas" data-member-id="${m.id}" width="91" height="100"></canvas>
@@ -5425,21 +5543,6 @@
                 </div>
             </div>
         `;
-
-        // 練習メニュー（常に未選択表示。クリック時のみ3秒間アニメーションが実行されて未選択状態に戻る）
-        const practiceButtonsHtml = PRACTICE_MENUS.map((menu) => {
-            return `
-                <button type="button" 
-                        class="btn-practice" 
-                        onclick="window.KendoClub.onSelectPractice('${menu.id}')">
-                    <span class="p-icon">${menu.icon}</span>
-                    <div class="p-info">
-                        <strong class="p-name">${menu.name}</strong>
-                        <span class="p-desc">${menu.desc}</span>
-                    </div>
-                </button>
-            `;
-        }).join('');
 
         // 特別指導対象セレクター（自分以外・前回選択者を保持）
         const teammates = ClubState.members.filter((m) => !m.isPlayer);
@@ -5559,9 +5662,53 @@
                     </div>
                 ` : `
                     <div class="training-section-wrap">
-                        <h3>🎋 今週の練習メニューを選択（1週進行）</h3>
-                        <div class="practice-grid">
-                            ${practiceButtonsHtml}
+                        <div class="practice-control-header">
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 4px;">
+                                <h3 style="margin: 0;">🎋 今週の稽古（部員毎の個別設定 ＆ 一括指示）</h3>
+                                <button type="button" class="btn-execute-all-practice pulse-gold" onclick="window.KendoClub.onSelectPractice('individual')" title="部員カードで設定した各自の担当稽古を一斉に開始します">
+                                    🥋 各自の個別稽古を一斉開始！（1週進行）
+                                </button>
+                            </div>
+                            <div class="quick-assign-bar">
+                                <span class="quick-assign-label">⚡ 一括指示:</span>
+                                <button type="button" class="btn-quick-assign" 
+                                        onclick="window.KendoClub.setAllMembersPractice('suburi')" 
+                                        onmouseenter="window.KendoClub.showQuickAssignHelp('suburi')" 
+                                        onmouseleave="window.KendoClub.showQuickAssignHelp(null)"
+                                        title="全部員の担当稽古を【素振り】に一括設定">⚔️ 全員素振り</button>
+                                <button type="button" class="btn-quick-assign" 
+                                        onclick="window.KendoClub.setAllMembersPractice('basics')" 
+                                        onmouseenter="window.KendoClub.showQuickAssignHelp('basics')" 
+                                        onmouseleave="window.KendoClub.showQuickAssignHelp(null)"
+                                        title="全部員の担当稽古を【すり足】に一括設定">🏃 全員すり足</button>
+                                <button type="button" class="btn-quick-assign" 
+                                        onclick="window.KendoClub.setAllMembersPractice('kakari')" 
+                                        onmouseenter="window.KendoClub.showQuickAssignHelp('kakari')" 
+                                        onmouseleave="window.KendoClub.showQuickAssignHelp(null)"
+                                        title="全部員の担当稽古を【掛かり】に一括設定">🔥 全員掛かり</button>
+                                <button type="button" class="btn-quick-assign" 
+                                        onclick="window.KendoClub.setAllMembersPractice('zazen')" 
+                                        onmouseenter="window.KendoClub.showQuickAssignHelp('zazen')" 
+                                        onmouseleave="window.KendoClub.showQuickAssignHelp(null)"
+                                        title="全部員の担当稽古を【座禅】に一括設定">🧘 全員座禅</button>
+                                <button type="button" class="btn-quick-assign is-rest" 
+                                        onclick="window.KendoClub.setFatiguedMembersRest(60)" 
+                                        onmouseenter="window.KendoClub.showQuickAssignHelp('fatigued_rest')" 
+                                        onmouseleave="window.KendoClub.showQuickAssignHelp(null)"
+                                        title="疲労度60%以上の部員を一括で【休養】に設定">🍵 疲労者(60%↑)休養</button>
+                                <button type="button" class="btn-quick-assign is-rest" 
+                                        onclick="window.KendoClub.setAllMembersPractice('rest')" 
+                                        onmouseenter="window.KendoClub.showQuickAssignHelp('rest')" 
+                                        onmouseleave="window.KendoClub.showQuickAssignHelp(null)"
+                                        title="全部員の担当稽古を【休養】に一括設定">🍵 全員休養</button>
+                            </div>
+                            <div id="quickAssignHelpBox" class="quick-assign-help-box">
+                                <span class="help-box-icon">💡</span>
+                                <div class="help-box-body">
+                                    <strong id="quickAssignHelpTitle" class="help-box-title">💡 稽古案内</strong>
+                                    <span id="quickAssignHelpDesc" class="help-box-desc">各ボタンにマウスを合わせると稽古内容・効果が表示されます（クリックで全員に一括設定）</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="special-training-box">
@@ -8046,8 +8193,13 @@
                     const tSummary = `【成長】${allTargetGains.length > 0 ? allTargetGains.join(', ') : '維持'} (疲労+${tFatigue}%)`;
                     const dualText = realTarget.isClubDual ? `（${realTarget.originalClub}掛け持ち）` : '';
 
+                    // 指導対象と主将以外の他部員も各自の個別稽古を実行
+                    const otherMembers = ClubState.members.filter((m) => m.id !== realPlayer.id && m.id !== realTarget.id);
+                    applyAssignedPracticesForMembers(otherMembers);
+
                     const modeTag = mode === 'spectate' ? '👀【自動観戦】' : '';
-                    const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】${modeTag}主将が${realTarget.name}${dualText}へマンツーマン指名特訓を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
+                    const othersText = otherMembers.length > 0 ? `（他部員${otherMembers.length}名も各自の稽古を実行）` : '';
+                    const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】${modeTag}主将が${realTarget.name}${dualText}へマンツーマン指名特訓を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！${othersText}【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
 
                     ClubState.activityLog.unshift(logEntry);
                     playStatUpSound();
@@ -8182,7 +8334,12 @@
         const tSummary = `【成長】${allTargetGains.length > 0 ? allTargetGains.join(', ') : '維持'} (疲労+${tFatigue}%)`;
         const dualText = realTarget.isClubDual ? `（${realTarget.originalClub}掛け持ち）` : '';
 
-        const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】⚡【即時判定】主将が${realTarget.name}${dualText}へマンツーマン特別指導を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
+        // 指導対象と主将以外の他部員も各自の個別稽古を実行
+        const otherMembers = ClubState.members.filter((m) => m.id !== realPlayer.id && m.id !== realTarget.id);
+        applyAssignedPracticesForMembers(otherMembers);
+
+        const othersText = otherMembers.length > 0 ? `（他部員${otherMembers.length}名も各自の稽古を実行）` : '';
+        const logEntry = `【${ClubState.year}年目 ${ClubState.month}月${ClubState.week}週】⚡【即時判定】主将が${realTarget.name}${dualText}へマンツーマン特別指導を実施！実戦稽古（結果: ${outcomeText}）を通じて互いに心技体を鍛え上げました！${othersText}【${realTarget.name}】${tSummary} 【主将】${pSummary}`;
 
         ClubState.activityLog.unshift(logEntry);
         playStatUpSound();
@@ -8363,6 +8520,37 @@
 
         onSelectPractice: function (menuId, instant = false) {
             executePractice(menuId, null, instant);
+        },
+
+        setMemberPractice: function (memberId, practiceId) {
+            const m = ClubState.members.find((item) => item.id === memberId);
+            if (m) {
+                m.assignedPractice = practiceId;
+                saveClubData();
+                renderClubUI();
+            }
+        },
+
+        setAllMembersPractice: function (practiceId) {
+            ClubState.members.forEach((m) => {
+                m.assignedPractice = practiceId;
+            });
+            saveClubData();
+            renderClubUI();
+        },
+
+        setFatiguedMembersRest: function (threshold = 60) {
+            ClubState.members.forEach((m) => {
+                if ((m.fatigue || 0) >= threshold) {
+                    m.assignedPractice = 'rest';
+                }
+            });
+            saveClubData();
+            renderClubUI();
+        },
+
+        showQuickAssignHelp: function (type) {
+            showQuickAssignHelp(type);
         },
 
         onChangeSpecialTarget: function (targetId) {

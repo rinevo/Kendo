@@ -6667,6 +6667,244 @@ function analyzePlayerPattern(history, enemyData) {
 }
 
 // 敵AIの次ターンの気配（剣士ごとの思考傾向）を決定
+// ───────────────────────────────────────────
+// 心眼による敵の弱点・急所アクション判定
+// ───────────────────────────────────────────
+function getEnemyWeaknessActions(targetMove, eStance, isStunned) {
+    if (isStunned) {
+        return {
+            attackMoves: ['面', '小手', '胴', '突き', '必殺'],
+            defenseMoves: [],
+            label: '💫 無防備急所',
+            badge: '🎯 好機直撃'
+        };
+    }
+    const attackMoves = [];
+    const defenseMoves = [];
+    let label = '';
+    let badge = '🎯 急所';
+
+    if (targetMove === '必殺') {
+        defenseMoves.push('防御');
+        label = '🛡️ 奥義見切り';
+        badge = '🛡️ 見切り';
+    } else if (targetMove === '防御') {
+        attackMoves.push('崩し');
+        label = '💥 ガード粉砕';
+        badge = '💥 粉砕';
+    } else if (targetMove === '崩し') {
+        attackMoves.push('面', '小手', '胴', '突き');
+        label = '⚔️ 迎撃打突';
+        badge = '⚡ 迎撃';
+    } else if (targetMove === '面') {
+        attackMoves.push('胴'); // 抜き胴
+        defenseMoves.push('防御'); // 見切り
+        label = '🌊 抜き胴・見切り';
+        badge = '🎯 抜き胴';
+    } else if (targetMove === '小手') {
+        attackMoves.push('面'); // 出ばな面
+        defenseMoves.push('防御');
+        label = '⚔️ 出ばな面・見切り';
+        badge = '🎯 出ばな面';
+    } else if (targetMove === '胴') {
+        attackMoves.push('小手'); // 応じ小手
+        defenseMoves.push('防御');
+        label = '⚡ 応じ小手・見切り';
+        badge = '🎯 応じ小手';
+    } else if (targetMove === '突き') {
+        attackMoves.push('面', '胴'); // 払い面・抜き胴
+        defenseMoves.push('防御');
+        label = '⚔️ 払い面・見切り';
+        badge = '🎯 払い面';
+    }
+
+    // 構え特有の隙
+    if (eStance === 'jodan') {
+        if (!attackMoves.includes('小手')) attackMoves.push('小手');
+        if (!attackMoves.includes('突き')) attackMoves.push('突き');
+        label += (label ? '・' : '') + '上段の隙(小手・突き)';
+    } else if (eStance === 'waki') {
+        if (!attackMoves.includes('面')) attackMoves.push('面');
+        label += (label ? '・' : '') + '下段の隙(面)';
+    }
+
+    return { attackMoves, defenseMoves, label, badge };
+}
+
+// ───────────────────────────────────────────
+// 気力（気魄）の高低差に応じた心眼（敵行動予兆）の真偽判定・看破システム
+// ───────────────────────────────────────────
+function resolveMindEyeHint(intent, enemyData) {
+    if (!intent) return { hint: '', type: 'normal', weakness: null };
+    const eShort = enemyData ? (enemyData.shortName || enemyData.name || '相手') : '相手';
+
+    // 相手が体勢崩れ（スタン・操作不能）中は無防備であることが明白なため、気力差に関わらず常に真実を表示
+    if (state.enemyStunned || state.enemyGuardBroken) {
+        const weakness = getEnemyWeaknessActions('スキップ', state.enemyStanceStyle, true);
+        weakness.isCorrect = true;
+        weakness.isInsight = true;
+        weakness.isConfused = false;
+        return {
+            hint: intent.hint || `💫 【体勢崩壊中】${eShort}は体勢を崩しており無防備！好機、一気に打ち込め！`,
+            type: 'stunned',
+            weakness,
+        };
+    }
+
+    const pStats = getFighterStats('player');
+    const eStats = getFighterStats('enemy');
+    const pSpi = (pStats && typeof pStats.spi === 'number') ? pStats.spi : 10;
+    const eSpi = (eStats && typeof eStats.spi === 'number') ? eStats.spi : 10;
+    const diff = pSpi - eSpi;
+
+    // 気力差に基づく正解率 (0.05 〜 0.95)
+    // diff = 0  => 50%
+    // diff = +5 => 65%, +10 => 80%, +15 => 95%
+    // diff = -5 => 35%, -10 => 20%, -15 => 5%
+    const accuracy = Math.min(0.95, Math.max(0.05, 0.50 + diff * 0.03));
+    const isCorrect = Math.random() < accuracy;
+
+    // 敵が最も出しやすい本命行動（最大ウェイト）を特定
+    const weights = intent.weights || { 面: 50, 小手: 30, 胴: 20 };
+    let primaryMove = '面';
+    let maxW = -1;
+    for (const [move, w] of Object.entries(weights)) {
+        if (w > maxW) {
+            maxW = w;
+            primaryMove = move;
+        }
+    }
+
+    // 誤読用の偽行動（fakeMove）をあらかじめ選定
+    const ALL_MOVES = ['面', '小手', '胴', '突き', '防御', '崩し'];
+    const candidates = ALL_MOVES.filter((m) => m !== primaryMove);
+    const fakeMove = candidates[Math.floor(Math.random() * candidates.length)];
+
+    const viewedMove = isCorrect ? primaryMove : fakeMove;
+    const weakness = getEnemyWeaknessActions(viewedMove, state.enemyStanceStyle, false);
+    weakness.isCorrect = isCorrect;
+    weakness.targetMove = viewedMove;
+    weakness.isInsight = (diff >= 8 && isCorrect);
+    weakness.isConfused = (diff <= -6 && !isCorrect);
+
+    // 正解（真実の心眼）の場合
+    if (isCorrect) {
+        // プレイヤーの気力が圧倒的に高い場合（diff >= 8）：完全看破
+        if (diff >= 8) {
+            let insightText = '';
+            if (primaryMove === '必殺') {
+                insightText = `⚠️👁️【心眼・完全看破】気迫で圧倒！${eShort}が全身全霊の「奥義（必殺技）」を放つ気配！（構えを合わせ「防御」で受け止めよ！）`;
+            } else if (primaryMove === '防御') {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は守勢に入り「防御」で受け流しを狙っている！（「崩し」でガードを割れ！）`;
+            } else if (primaryMove === '崩し') {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は間合いを詰めて体当たり「崩し」を狙っている！（打突で先手を打て！）`;
+            } else if (primaryMove === '面') {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は鋭い「面」を狙っている！（「胴」で面を抜くか、「防御」で応じ技を狙え！）`;
+            } else if (primaryMove === '小手') {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は手元への「小手」を狙っている！（「面」で上から乗り切れ！）`;
+            } else if (primaryMove === '胴') {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は腰を沈め鋭い「胴」を狙っている！（「小手」で胴を断て！）`;
+            } else if (primaryMove === '突き') {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}の剣先が正中線へ！「突き」が来るぞ！（「面」で叩き落とせ！）`;
+            } else {
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}の狙いは「${primaryMove}」と完全に看破した！`;
+            }
+            return { hint: insightText, type: 'insight', weakness };
+        }
+        return { hint: intent.hint, type: 'normal', weakness };
+    }
+
+    // 誤読（間違った内容・幻惑）の場合
+    // プレイヤーの気力が大幅に劣勢の場合（diff <= -6）：幻惑演出
+    if (diff <= -6) {
+        let fakeText = '';
+        if (fakeMove === '面') {
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の凄まじい気迫に呑まれる…頭上へ強烈な「面」が来る気配！（「防御」か「胴」で防げ…！？）`;
+        } else if (fakeMove === '小手') {
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に気圧され視界が惑う…手元への「小手」を狙っているように見える…！（「面」で迎え撃て…！？）`;
+        } else if (fakeMove === '胴') {
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に間合いを見失う…低く鋭い「胴」が来る気配！（「小手」で胴を断て…！？）`;
+        } else if (fakeMove === '突き') {
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に圧倒される…正中線への鋭い「突き」が来る気配！（「面」で制せ…！？）`;
+        } else if (fakeMove === '防御') {
+            fakeText = `🌫️【気圧され・幻惑】${eShort}は微動だにせず「防御」で守りを固めているように見える…！（「崩し」の好機か…！？）`;
+        } else {
+            fakeText = `🌫️【気圧され・幻惑】${eShort}が間合いを詰め体当たり「崩し」に来るように見える…！（打突で迎撃せよ…！？）`;
+        }
+        return { hint: fakeText, type: 'confused', weakness };
+    }
+
+    // 小差で外れた場合の誤読表示（一見自然だが嘘の狙い）
+    let normalFakeText = '';
+    if (fakeMove === '面') {
+        normalFakeText = `⚖️【中段の構え】${eShort}は間合いを測りながら鋭い「面」を狙っている気配…（「胴」が有効）`;
+    } else if (fakeMove === '小手') {
+        normalFakeText = `⚡【中段の構え】${eShort}は鋭い視線であなたの手元（「小手」）を狙っている！（「面」で乗り切る好機！）`;
+    } else if (fakeMove === '胴') {
+        normalFakeText = `🌊【下段の構え】${eShort}は身を沈め、意表を突く「胴」を狙っている気配…（「小手」が有効）`;
+    } else if (fakeMove === '突き') {
+        normalFakeText = `⚡【中段の構え】${eShort}の剣先が僅かに沈んだ！電光石火の「突き」が来るぞ！`;
+    } else if (fakeMove === '防御') {
+        normalFakeText = `🛡️【中段の構え】${eShort}は守りを意識し「防御」の体勢に入っている…（「崩し」の好機！）`;
+    } else {
+        normalFakeText = `💥【中段の構え】${eShort}は間合いを強引に詰め、「崩し」の体当たりを狙っている気配！（打突で迎撃せよ）`;
+    }
+    return { hint: normalFakeText, type: 'normal_fake', weakness };
+}
+
+// ───────────────────────────────────────────
+// プレイヤー操作ボタンへの心眼・弱点ハイライト更新
+// ───────────────────────────────────────────
+function updateActionWeaknessHighlights() {
+    const isSpectating = state.customMatch && state.customMatch.isSpectating;
+    const weakness = state.currentEnemyWeakness;
+
+    const btnMap = {
+        '面': btnMen,
+        '小手': btnKote,
+        '胴': btnDo,
+        '突き': btnTsuki,
+        '防御': btnDefend,
+        '崩し': btnBreak,
+        '必殺': btnSpecial,
+    };
+
+    // 全ボタンの弱点ハイライトをリセット
+    Object.values(btnMap).forEach((btn) => {
+        if (btn) {
+            btn.classList.remove('mind-eye-weakness', 'mind-eye-confused');
+            const oldBadge = btn.querySelector('.mind-eye-weakness-badge');
+            if (oldBadge) oldBadge.remove();
+        }
+    });
+
+    if (isSpectating || !weakness || state.gameOver || state.matchPhase !== 'fighting') {
+        return;
+    }
+
+    const isConfused = weakness.isConfused;
+    const highlightMoves = [...(weakness.attackMoves || []), ...(weakness.defenseMoves || [])];
+
+    highlightMoves.forEach((move) => {
+        const btn = btnMap[move];
+        if (btn) {
+            if (isConfused) {
+                btn.classList.add('mind-eye-confused');
+            } else {
+                btn.classList.add('mind-eye-weakness');
+                let badgeText = weakness.badge || '🎯 急所';
+                if (move === '防御') badgeText = '🛡️ 見切り';
+                else if (move === '崩し') badgeText = '💥 ガード粉砕';
+
+                const badge = document.createElement('span');
+                badge.className = 'mind-eye-weakness-badge';
+                badge.textContent = badgeText;
+                btn.appendChild(badge);
+            }
+        }
+    });
+}
+
 function decideEnemyIntent() {
     const enemyData = getCurrentEnemy();
     const eShort = (enemyData && (enemyData.shortName || enemyData.name)) || '相手';
@@ -6891,9 +7129,27 @@ function decideEnemyIntent() {
         }
     }
 
+    const mindEye = resolveMindEyeHint(intent, enemyData);
+    intent.displayHint = mindEye.hint;
+    intent.mindEyeType = mindEye.type;
+    state.currentEnemyWeakness = mindEye.weakness;
+
     state.enemyIntent = intent;
     intentBox.className = intent.isDanger ? 'intent-box danger' : 'intent-box';
-    intentText.textContent = intent.hint;
+    intentText.textContent = intent.displayHint || intent.hint;
+
+    const intentIcon = document.querySelector('.intent-icon');
+    if (intentIcon) {
+        if (intent.mindEyeType === 'insight') {
+            intentIcon.textContent = '✨';
+        } else if (intent.mindEyeType === 'confused') {
+            intentIcon.textContent = '🌫️';
+        } else {
+            intentIcon.textContent = '👁️';
+        }
+    }
+
+    updateActionWeaknessHighlights();
 }
 
 function chooseEnemyAction() {
@@ -6941,20 +7197,44 @@ function chooseFriendlyAIAction() {
 
     // 敏捷(agi)が高いほど相手の意図・狙いを見切って有利な技を選択しやすい
     const agiBonus = Math.max(0, (pStats.agi - 10) * 0.8);
+
+    // ───────────────────────────────────────────
+    // 仲間（部員）の心眼（気魄: SPI）による敵弱点看破＆知見反映
+    // ───────────────────────────────────────────
+    const eStats = getFighterStats('enemy');
+    const pSpi = (pStats && typeof pStats.spi === 'number') ? pStats.spi : 10;
+    const eSpi = (eStats && typeof eStats.spi === 'number') ? eStats.spi : 10;
+    const spiDiff = pSpi - eSpi;
+    const mindEyeAccuracy = Math.min(0.95, Math.max(0.05, 0.50 + spiDiff * 0.03));
+    const friendMindEyeSuccess = Math.random() < mindEyeAccuracy;
+
     if (state.enemyIntent && state.enemyIntent.weights) {
         const eWeights = state.enemyIntent.weights;
-        if (eWeights['防御'] > 30) {
-            wBreak += 14 + agiBonus * 1.2;
+        let truePrimary = '面';
+        let maxW = -1;
+        for (const [m, w] of Object.entries(eWeights)) {
+            if (w > maxW) { maxW = w; truePrimary = m; }
         }
-        if (eWeights['面'] > 30) {
-            wDo += 8 + agiBonus; // 面に対して抜き胴
-            if (!isBroken && !isJodan) wDefend += 6 + agiBonus;
+
+        const viewedMove = friendMindEyeSuccess ? truePrimary : ['面', '小手', '胴', '突き', '防御', '崩し'].filter(m => m !== truePrimary)[Math.floor(Math.random() * 5)];
+        const friendWeakness = getEnemyWeaknessActions(viewedMove, state.enemyStanceStyle, state.enemyStunned || state.enemyGuardBroken);
+
+        // 心眼による弱点ボーナス倍率（気力差8以上の完全看破なら特大加算）
+        const weaknessWeightBonus = friendMindEyeSuccess
+            ? (spiDiff >= 8 ? (55 + agiBonus * 1.5) : (28 + agiBonus))
+            : (spiDiff <= -6 ? 12 : 18);
+
+        if (friendWeakness.attackMoves && friendWeakness.attackMoves.length > 0) {
+            friendWeakness.attackMoves.forEach((atk) => {
+                if (atk === '面') wMen += weaknessWeightBonus;
+                else if (atk === '小手') wKote += weaknessWeightBonus;
+                else if (atk === '胴') wDo += weaknessWeightBonus;
+                else if (atk === '突き') wTsuki += weaknessWeightBonus;
+                else if (atk === '崩し') wBreak += weaknessWeightBonus * 1.2;
+            });
         }
-        if (eWeights['小手'] > 30) {
-            wMen += 8 + agiBonus; // 小手に対して面
-        }
-        if (eWeights['突き'] > 30) {
-            wDo += 8 + agiBonus; // 突きに対して抜き胴
+        if (friendWeakness.defenseMoves && friendWeakness.defenseMoves.includes('防御') && !isBroken && !isJodan) {
+            wDefend += weaknessWeightBonus * 0.9;
         }
     }
     if (state.enemyStanceStyle === 'jodan') {
@@ -7166,7 +7446,17 @@ function proceedOpeningCeremony() {
         setActionButtonsLocked(false);
         if (state.enemyIntent) {
             intentBox.className = state.enemyIntent.isDanger ? 'intent-box danger' : 'intent-box';
-            intentText.textContent = state.enemyIntent.hint;
+            intentText.textContent = state.enemyIntent.displayHint || state.enemyIntent.hint;
+            const intentIcon = document.querySelector('.intent-icon');
+            if (intentIcon) {
+                if (state.enemyIntent.mindEyeType === 'insight') {
+                    intentIcon.textContent = '✨';
+                } else if (state.enemyIntent.mindEyeType === 'confused') {
+                    intentIcon.textContent = '🌫️';
+                } else {
+                    intentIcon.textContent = '👁️';
+                }
+            }
         } else {
             decideEnemyIntent();
         }
@@ -7998,13 +8288,14 @@ function playRound(playerAction) {
     else if (playerAction === '崩し' && enemyAction === '防御') {
         const pStr = pStats.str || 10;
         const eStr = eStats.str || 10;
-        const breakBaseDmg = (pStr - eStr >= 4) ? 2 : 1;
+        const isMindEyeBreak = (state.currentEnemyWeakness && state.currentEnemyWeakness.isCorrect) || (pStats.spi >= eStats.spi);
+        const breakBaseDmg = (pStr - eStr >= 4 || isMindEyeBreak) ? 2 : 1;
         const canDealDmg = state.enemyHealth > 1;
         const actualBreakDmg = canDealDmg ? Math.min(breakBaseDmg, state.enemyHealth - 1) : 0;
         if (actualBreakDmg > 0) state.enemyHealth -= actualBreakDmg;
         gainKiai('player', 1);
 
-        const eDidResist = eBuff.unshakable || (eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.06);
+        const eDidResist = !isMindEyeBreak && (eBuff.unshakable || (eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.06));
         if (!eDidResist) {
             state.enemyGuardBroken = true;
             state.enemyStunned = true;
@@ -8019,14 +8310,15 @@ function playRound(playerAction) {
         zoomTargets.push(playerSpriteBox);
         shakeTargets.push({ el: enemySpriteBox, isHeavy: actualBreakDmg >= 2 });
         popups.push(
+            ...(isMindEyeBreak ? [{ who: 'player', text: '✨ 心眼ガード粉砕！', styleClass: 'popup-counter' }] : []),
             ...(actualBreakDmg > 0 ? [{ who: 'enemy', text: actualBreakDmg >= 2 ? '-2 剛腕崩し！' : '-1', styleClass: actualBreakDmg >= 2 ? 'popup-crit' : 'popup-dmg' }] : [{ who: 'enemy', text: 'HP1 耐え！', styleClass: 'popup-kiai' }]),
             ...(eDidResist ? [{ who: 'enemy', text: '⚡ 不動心耐え！', styleClass: 'popup-counter' }] : [{ who: 'enemy', text: '💫 体勢崩壊！', styleClass: 'popup-break' }]),
             { who: 'player', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         calloutData = {
             winner: 'player',
-            mainText: `${pMoveName}成功！`,
-            subText: eDidResist ? '⚡ 相手は不動心で体勢維持' : (actualBreakDmg >= 2 ? '💥 剛腕体当たり！相手は次ターン操作スキップ！' : '💥 相手は次ターン操作スキップ！')
+            mainText: isMindEyeBreak ? '✨ 心眼ガード粉砕！' : `${pMoveName}成功！`,
+            subText: isMindEyeBreak ? '💥 相手の守りを完全看破！次ターン相手操作不能！' : (eDidResist ? '⚡ 相手は不動心で体勢維持' : (actualBreakDmg >= 2 ? '💥 剛腕体当たり！相手は次ターン操作スキップ！' : '💥 相手は次ターン操作スキップ！'))
         };
     } else if (playerAction === '防御' && enemyAction === '崩し') {
         const pStr = pStats.str || 10;
@@ -8075,7 +8367,10 @@ function playRound(playerAction) {
             state.playerHealth = Math.min(pMaxHealth, state.playerHealth + 1);
             healed = 1;
         }
-        const newStacks = Math.min(3, pCounterStacks + 1);
+
+        const isMindEyeGuard = (state.currentEnemyWeakness && state.currentEnemyWeakness.isCorrect) || (pStats.spi >= eStats.spi);
+        const stackGain = isMindEyeGuard ? 2 : 1;
+        const newStacks = Math.min(3, pCounterStacks + stackGain);
         state.playerCounterStacks = newStacks;
         state.playerCounterReady = true;
 
@@ -8086,18 +8381,20 @@ function playRound(playerAction) {
         statusType = 'victory';
         impactSound = 'block';
         zoomTargets.push(playerSpriteBox);
-        const guardTitle = isStanceMatched ? (isChudan ? '🛡️ 正中線防御！' : '🌊 後の先防御！') : '🛡️ ガード成功！';
+        const guardTitle = isMindEyeGuard
+            ? '✨ 心眼見切り受け！'
+            : (isStanceMatched ? (isChudan ? '🛡️ 正中線防御！' : '🌊 後の先防御！') : '🛡️ ガード成功！');
         popups.push(
             { who: 'player', text: guardTitle, styleClass: 'popup-block' },
             ...(healed ? [{ who: 'player', text: '💚 HP+1回復！', styleClass: 'popup-heal' }] : []),
-            { who: 'player', text: newStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newStacks}！`, styleClass: 'popup-counter' },
+            { who: 'player', text: isMindEyeGuard ? '✨ 心眼見切り！(Lv+2)' : (newStacks >= 3 ? '⚡ 見切り極致！' : `⚡ 見切りLv${newStacks}！`), styleClass: 'popup-counter' },
             { who: 'enemy', text: '+1 気合', styleClass: 'popup-kiai' }
         );
         const stackLabel = newStacks >= 3 ? '⚡ 見切り極致 (2倍)' : `⚡ 見切りLv${newStacks} (2倍)`;
         calloutData = {
             winner: null,
-            mainText: isStanceMatched ? (isChudan ? '🛡️ 正中線防御！' : '🌊 後の先！') : '見事な受け！',
-            subText: healed ? `💚 HP+1 ＆ ${stackLabel}` : stackLabel,
+            mainText: isMindEyeGuard ? '✨ 心眼見切り成功！' : (isStanceMatched ? (isChudan ? '🛡️ 正中線防御！' : '🌊 後の先！') : '見事な受け！'),
+            subText: isMindEyeGuard ? `✨ 狙いを完全看破！見切り大幅蓄積 (Lv+2)` : (healed ? `💚 HP+1 ＆ ${stackLabel}` : stackLabel),
             isGuard: true,
         };
     } else if (isBasic(playerAction) && enemyAction === '防御') {
@@ -8369,8 +8666,18 @@ function playRound(playerAction) {
         const pCounterBonus = pCounter ? pBaseBonus : 0;
         const eCounterBonus = eCounter ? eBaseBonus : 0;
 
-        const pExtraBonus = pCounterBonus + pAgiBonus + pStrBonus + pSpiBonus + pStanceMod;
-        const eExtraBonus = eCounterBonus + eAgiBonus + eStrBonus + eSpiBonus + eStanceMod;
+        // ✨ 心眼・敵弱点看破急所ボーナス（相手の狙いや構えの隙を突いた攻撃なら +16 加算！）
+        const trueEWeakness = getEnemyWeaknessActions(enemyAction, state.enemyStanceStyle, false);
+        const truePWeakness = getEnemyWeaknessActions(playerAction, state.playerStanceStyle, false);
+        const pMindEyeActive = (state.currentEnemyWeakness && state.currentEnemyWeakness.isCorrect) || (pSpi >= eSpi);
+        const eMindEyeActive = (eSpi > pSpi);
+        const pDidHitWeakness = trueEWeakness.attackMoves && trueEWeakness.attackMoves.includes(playerAction);
+        const eDidHitWeakness = truePWeakness.attackMoves && truePWeakness.attackMoves.includes(enemyAction);
+        const pMindEyeBonus = (pDidHitWeakness && pMindEyeActive) ? 16 : 0;
+        const eMindEyeBonus = (eDidHitWeakness && eMindEyeActive) ? 16 : 0;
+
+        const pExtraBonus = pCounterBonus + pAgiBonus + pStrBonus + pSpiBonus + pStanceMod + pMindEyeBonus;
+        const eExtraBonus = eCounterBonus + eAgiBonus + eStrBonus + eSpiBonus + eStanceMod + eMindEyeBonus;
 
         const pTotal = pSkillVal + pAdv + pKiaiScoreBonus + pExtraBonus;
         const eTotal = eSkillVal + eAdv + eKiaiScoreBonus + eExtraBonus;
@@ -8404,6 +8711,8 @@ function playRound(playerAction) {
             eCounterStacks,
             pStanceMod,
             eStanceMod,
+            pMindEyeBonus,
+            eMindEyeBonus,
             pStanceStyle: state.playerStanceStyle || 'chudan',
             eStanceStyle: state.enemyStanceStyle || 'chudan',
             winner: winnerSide,
@@ -8507,7 +8816,8 @@ function playRound(playerAction) {
                 impactWeight = isBoosted ? 'heavy' : 'normal';
 
                 let pReasonBadge = '⚔️ 技量突破';
-                if (isNukiDo) pReasonBadge = '🌊 下段の構え・抜き胴 (2点)';
+                if (pMindEyeBonus > 0) pReasonBadge = '✨ 心眼急所突き (+16)';
+                else if (isNukiDo) pReasonBadge = '🌊 下段の構え・抜き胴 (2点)';
                 else if (isStrCrit) pReasonBadge = `💥 剛腕会心 (${pStr} vs ${eStr})`;
                 else if (pCounter) {
                     const lvText = pCounterStacks >= 2 ? `Lv${pCounterStacks}` : '応じ技';
@@ -8524,6 +8834,9 @@ function playRound(playerAction) {
                 if (dmg > 0) shakeTargets.push({ el: enemySpriteBox, isHeavy: isBoosted });
                 if (isBoosted) doArenaFlash = true;
 
+                if (pMindEyeBonus > 0) {
+                    popups.push({ who: 'player', text: '✨ 心眼急所！(+16)', styleClass: 'popup-counter' });
+                }
                 if (isStrCrit) {
                     popups.push({ who: 'player', text: '💥 剛腕会心！', styleClass: 'popup-crit' });
                 }
@@ -8540,13 +8853,15 @@ function playRound(playerAction) {
                 calloutData = (dmg > 0) ? {
                     winner: 'player',
                     mainText: `${pMoveName}あり！`,
-                    subText: isNukiDo
-                        ? `🌊 下段の構え・抜き胴 (${dmg}点)`
-                        : (isStrCrit
-                            ? `💥 剛腕の一閃 (${dmg}点)`
-                            : (isCrit
-                                ? `⚡ 会心の一閃 (${dmg}点)`
-                                : (pAdv > 0 ? `⚔️ 相性制覇 (${dmg}点)` : `🚩 技術制覇 (${dmg}点)`))),
+                    subText: (pMindEyeBonus > 0)
+                        ? `✨ 心眼で隙を捉えた一撃 (${dmg}点)`
+                        : (isNukiDo
+                            ? `🌊 下段の構え・抜き胴 (${dmg}点)`
+                            : (isStrCrit
+                                ? `💥 剛腕の一閃 (${dmg}点)`
+                                : (isCrit
+                                    ? `⚡ 会心の一閃 (${dmg}点)`
+                                    : (pAdv > 0 ? `⚔️ 相性制覇 (${dmg}点)` : `🚩 技術制覇 (${dmg}点)`)))),
                     reasonBadge: pReasonBadge,
                     isCritical: isBoosted,
                 } : {
