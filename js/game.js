@@ -7226,16 +7226,48 @@ function chooseFriendlyAIAction() {
     const isBroken = state.playerGuardBroken;
     const kiai = state.playerKiai;
 
-    // 気合3以上時は必殺技（または気合一閃）を発動
+    const enemyObj = (typeof getCurrentEnemy === 'function') ? getCurrentEnemy() : ((state.customMatch && state.customMatch.enemy) || {});
+    const eSkills = (enemyObj && enemyObj.skills) || { men: 10, kote: 10, do: 10, tsuki: 8 };
+    const eStats = getFighterStats('enemy');
+
+    // ───────────────────────────────────────────
+    // 1. 相手が無防備（スタン・ガードブレイク）時は最大技または必殺で確実にトドメ
+    // ───────────────────────────────────────────
+    const isEnemyHelpless = state.enemyStunned || state.enemyGuardBroken;
+    if (isEnemyHelpless) {
+        if (kiai >= 3) return '必殺';
+        let bestAct = '面';
+        let bestVal = -1;
+        [
+            { act: '面', val: skills.men || 10 },
+            { act: '小手', val: skills.kote || 10 },
+            { act: '胴', val: skills.do || 10 },
+            { act: '突き', val: skills.tsuki || 8 }
+        ].forEach(c => {
+            if (c.val > bestVal) {
+                bestVal = c.val;
+                bestAct = c.act;
+            }
+        });
+        return bestAct;
+    }
+
+    // ───────────────────────────────────────────
+    // 2. 気合3以上時は高確率で必殺技（または気合一閃）を発動
+    // ───────────────────────────────────────────
     const specialChance = 0.75 + (pStats.spi >= 14 ? 0.15 : 0);
     if (kiai >= 3 && Math.random() < specialChance) {
         return '必殺';
     }
 
-    let wMen = skills.men || 10;
-    let wKote = skills.kote || 10;
-    let wDo = skills.do || 10;
-    let wTsuki = skills.tsuki || 8;
+    // ───────────────────────────────────────────
+    // 3. 技の練度バイアス（3乗カーブによる得意技の強力優先）
+    // ───────────────────────────────────────────
+    const maxSkill = Math.max(skills.men || 10, skills.kote || 10, skills.do || 10, skills.tsuki || 8, 10);
+    let wMen = Math.pow((skills.men || 10) / maxSkill, 3) * 60;
+    let wKote = Math.pow((skills.kote || 10) / maxSkill, 3) * 60;
+    let wDo = Math.pow((skills.do || 10) / maxSkill, 3) * 60;
+    let wTsuki = Math.pow((skills.tsuki || 8) / maxSkill, 3) * 60;
     let wDefend = isBroken || isJodan ? 0 : 8;
     let wBreak = 6;
 
@@ -7243,9 +7275,40 @@ function chooseFriendlyAIAction() {
     const agiBonus = Math.max(0, (pStats.agi - 10) * 0.8);
 
     // ───────────────────────────────────────────
-    // 仲間（部員）の心眼（気魄: SPI）による敵弱点看破＆知見反映
+    // 4. 相手との技術対比（相対優位度マージン評価）
     // ───────────────────────────────────────────
-    const eStats = getFighterStats('enemy');
+    const diffs = {
+        men: (skills.men || 10) - (eSkills.men || 10),
+        kote: (skills.kote || 10) - (eSkills.kote || 10),
+        do: (skills.do || 10) - (eSkills.do || 10),
+        tsuki: (skills.tsuki || 8) - (eSkills.tsuki || 8)
+    };
+    [
+        { key: '面', sKey: 'men' },
+        { key: '小手', sKey: 'kote' },
+        { key: '胴', sKey: 'do' },
+        { key: '突き', sKey: 'tsuki' }
+    ].forEach(m => {
+        const diff = diffs[m.sKey];
+        if (diff > 0) {
+            // 相手より優位な技は差分に応じて特大ブースト
+            const boost = Math.min(45, diff * 1.5);
+            if (m.key === '面') wMen += boost;
+            else if (m.key === '小手') wKote += boost;
+            else if (m.key === '胴') wDo += boost;
+            else if (m.key === '突き') wTsuki += boost;
+        } else if (diff < -15) {
+            // 相手より明らかに劣る技を打つのは自殺行為なので重みを大幅カット
+            if (m.key === '面') wMen = Math.max(0, wMen - 45);
+            else if (m.key === '小手') wKote = Math.max(0, wKote - 45);
+            else if (m.key === '胴') wDo = Math.max(0, wDo - 45);
+            else if (m.key === '突き') wTsuki = Math.max(0, wTsuki - 45);
+        }
+    });
+
+    // ───────────────────────────────────────────
+    // 5. 仲間（部員）の心眼（気魄: SPI）による敵弱点看破＆安全な弱点攻撃
+    // ───────────────────────────────────────────
     const pSpi = (pStats && typeof pStats.spi === 'number') ? pStats.spi : 10;
     const eSpi = (eStats && typeof eStats.spi === 'number') ? eStats.spi : 10;
     const spiDiff = pSpi - eSpi;
@@ -7270,48 +7333,91 @@ function chooseFriendlyAIAction() {
 
         if (friendWeakness.attackMoves && friendWeakness.attackMoves.length > 0) {
             friendWeakness.attackMoves.forEach((atk) => {
-                if (atk === '面') wMen += weaknessWeightBonus;
-                else if (atk === '小手') wKote += weaknessWeightBonus;
-                else if (atk === '胴') wDo += weaknessWeightBonus;
-                else if (atk === '突き') wTsuki += weaknessWeightBonus;
-                else if (atk === '崩し') wBreak += weaknessWeightBonus * 1.2;
+                if (atk === '崩し') {
+                    wBreak += weaknessWeightBonus * 1.2;
+                    return;
+                }
+                const sKey = atk === '面' ? 'men' : (atk === '小手' ? 'kote' : (atk === '胴' ? 'do' : 'tsuki'));
+                const mySkill = skills[sKey] || 10;
+                const oppSkill = eSkills[sKey] || 10;
+                const isAdequate = (mySkill >= maxSkill * 0.70) || (mySkill >= oppSkill - 5);
+
+                if (isAdequate) {
+                    // 自信のある技、または相手と勝負できる技なら弱点攻撃
+                    if (atk === '面') wMen += weaknessWeightBonus;
+                    else if (atk === '小手') wKote += weaknessWeightBonus;
+                    else if (atk === '胴') wDo += weaknessWeightBonus;
+                    else if (atk === '突き') wTsuki += weaknessWeightBonus;
+                } else {
+                    // 弱点だが未熟な技（面90なのに胴20など）の場合、自殺的突進をやめ、堅実に防御で見切りを溜めるか得意技勝負！
+                    if (!isBroken && !isJodan) {
+                        wDefend += weaknessWeightBonus * 1.3;
+                    }
+                    if (maxSkill >= 50) {
+                        if (skills.men === maxSkill) wMen += weaknessWeightBonus * 0.5;
+                        else if (skills.kote === maxSkill) wKote += weaknessWeightBonus * 0.5;
+                        else if (skills.do === maxSkill) wDo += weaknessWeightBonus * 0.5;
+                        else if (skills.tsuki === maxSkill) wTsuki += weaknessWeightBonus * 0.5;
+                    }
+                }
             });
         }
         if (friendWeakness.defenseMoves && friendWeakness.defenseMoves.includes('防御') && !isBroken && !isJodan) {
             wDefend += weaknessWeightBonus * 0.9;
         }
     }
+
+    // ───────────────────────────────────────────
+    // 6. 見切りスタック保持時の得意技ブースト（決定打）
+    // ───────────────────────────────────────────
+    const pCounterStacks = state.playerCounterStacks || (state.playerCounterReady ? 1 : 0);
+    if (pCounterStacks > 0) {
+        // 見切りスタックで判定値が爆発的に上昇しているため、最高技で確実に一本を取りに行く
+        const counterBoost = 40 + pCounterStacks * 25; // Lv1: 65, Lv2: 90, Lv3: 115
+        if (skills.men === maxSkill) wMen += counterBoost;
+        else if (skills.kote === maxSkill) wKote += counterBoost;
+        else if (skills.do === maxSkill) wDo += counterBoost;
+        else if (skills.tsuki === maxSkill) wTsuki += counterBoost;
+    }
+
+    // ───────────────────────────────────────────
+    // 7. 構え・間合い（鍔迫り合い）の補正
+    // ───────────────────────────────────────────
     if (state.enemyStanceStyle === 'jodan') {
-        wKote += 14 + agiBonus;
-        wTsuki += 10 + agiBonus; // 上段への突き
-        wDo += 6;
+        if (skills.kote >= maxSkill * 0.6) wKote += 14 + agiBonus;
+        if (skills.tsuki >= maxSkill * 0.6) wTsuki += 10 + agiBonus; // 上段への突き
+        if (skills.do >= maxSkill * 0.6) wDo += 6;
     }
     if (isJodan) {
         wMen += 16;
     }
     if (state.playerStanceStyle === 'waki') {
         if (!isBroken) wDefend += 12;
-        wDo += 10;
+        if (skills.do >= maxSkill * 0.6) wDo += 10;
     }
     if (inTsuba) {
         wDefend = 0;
         wBreak = Math.max(0, wBreak - 4);
-        wMen += 14;
-        wKote += 10;
-        wDo += 10;
-        wTsuki += 8;
+        if (skills.men === maxSkill) wMen += 20;
+        else if (skills.kote === maxSkill) wKote += 20;
+        else if (skills.do === maxSkill) wDo += 20;
+        else if (skills.tsuki === maxSkill) wTsuki += 20;
     }
 
     const pool = [
-        { act: '面', w: wMen },
-        { act: '小手', w: wKote },
-        { act: '胴', w: wDo },
-        { act: '突き', w: wTsuki },
-        { act: '防御', w: wDefend },
-        { act: '崩し', w: wBreak },
+        { act: '面', w: Math.max(0, wMen) },
+        { act: '小手', w: Math.max(0, wKote) },
+        { act: '胴', w: Math.max(0, wDo) },
+        { act: '突き', w: Math.max(0, wTsuki) },
+        { act: '防御', w: Math.max(0, wDefend) },
+        { act: '崩し', w: Math.max(0, wBreak) },
     ].filter((item) => item.w > 0);
 
     const total = pool.reduce((s, item) => s + item.w, 0);
+    if (total <= 0) {
+        // 全滅時の安全フォールバック：最高技を振る
+        return skills.men === maxSkill ? '面' : (skills.kote === maxSkill ? '小手' : (skills.do === maxSkill ? '胴' : '突き'));
+    }
     let r = Math.random() * total;
     for (const item of pool) {
         if (r < item.w) return item.act;
