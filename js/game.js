@@ -568,6 +568,54 @@ function getCurrentEnemy() {
     return ENEMY_ROSTER[state.stageIndex] || ENEMY_ROSTER[0];
 }
 
+// ───────────────────────────────────────────
+// 試合中動的疲労度計算（ターン数・被ダメージ量連動）
+// ───────────────────────────────────────────
+function calculateCurrentBoutFatigue(initialFatigue, maxHp, currentHp, rounds) {
+    const initF = Math.max(0, Math.min(100, typeof initialFatigue === 'number' ? initialFatigue : 0));
+    const mHp = Math.max(1, typeof maxHp === 'number' ? maxHp : 6);
+    const cHp = Math.max(0, typeof currentHp === 'number' ? currentHp : mHp);
+    const lostHp = Math.max(0, mHp - cHp);
+    const r = Math.max(0, typeof rounds === 'number' ? rounds : 0);
+
+    const turnFatigue = r * 1.2;
+    const damageFatigue = lostHp * 4.5;
+    const total = Math.min(100, Math.max(0, initF + turnFatigue + damageFatigue));
+    return {
+        total,
+        roundTotal: Math.round(total),
+        initial: initF,
+        turnFatigue,
+        damageFatigue,
+        lostHp
+    };
+}
+
+function getFighterCurrentFatigue(who) {
+    const isPlayer = who === 'player';
+    const isCustomMatch = !!(state.customMatch && state.customMatch.active);
+    if (!isCustomMatch) {
+        return { total: 0, roundTotal: 0, initial: 0, turnFatigue: 0, damageFatigue: 0, lostHp: 0 };
+    }
+
+    if (isPlayer) {
+        const pData = state.customMatch.player || {};
+        const pInit = pData.initialFatigue !== undefined ? pData.initialFatigue : (pData.fatigue || 0);
+        const pMax = getPlayerMaxHealth();
+        const pHp = Math.max(0, state.playerHealth);
+        return calculateCurrentBoutFatigue(pInit, pMax, pHp, state.round);
+    } else {
+        const eData = state.customMatch.enemy || {};
+        const eInit = eData.initialFatigue !== undefined ? eData.initialFatigue : (eData.fatigue || 0);
+        const curE = getCurrentEnemy();
+        const eMax = state.enemyMaxHealth || (curE && curE.maxHealth) || 6;
+        const eHp = Math.max(0, state.enemyHealth);
+        return calculateCurrentBoutFatigue(eInit, eMax, eHp, state.round);
+    }
+}
+window.calculateCurrentBoutFatigue = calculateCurrentBoutFatigue;
+window.getFighterCurrentFatigue = getFighterCurrentFatigue;
+
 let audioCtx = null;
 
 // スプライトシート (2304x2400: 288x300 のコマが 8列×8行 = 全64コマ)
@@ -5118,9 +5166,19 @@ function showClashMeter(data) {
             pSpiBonus = 0, eSpiBonus = 0,
             pCounterBonus = 0, eCounterBonus = 0,
             pCounterStacks = 0, eCounterStacks = 0,
+            pMindEyeBonus = 0, eMindEyeBonus = 0,
+            pFatiguePenalty = 0, eFatiguePenalty = 0,
             pStanceMod = 0, eStanceMod = 0,
             pStanceStyle = 'chudan', eStanceStyle = 'chudan',
         } = data;
+
+        // 極度疲労（息切れペナルティ）
+        if (pFatiguePenalty > 0) {
+            pBadges.push(`<span class="clash-badge skill-enemy">🚨 息切れ -${pFatiguePenalty}</span>`);
+        }
+        if (eFatiguePenalty > 0) {
+            eBadges.push(`<span class="clash-badge skill-player">🚨 息切れ -${eFatiguePenalty}</span>`);
+        }
 
         // 構え補正バッジ
         if (pStanceMod > 0) {
@@ -5610,16 +5668,19 @@ function getKiaiBuff(who, kiaiLevel, skillVal = 0) {
 function gainKiai(who, amount) {
     let finalAmount = amount;
     const maxKiai = getFighterMaxKiai(who);
+    const fInfo = getFighterCurrentFatigue(who);
+    const isExhausted = fInfo.roundTotal >= 60;
+
     if (who === 'player') {
         const pStats = getFighterStats('player');
-        // 気魄(spi)が高いと追加気合ボーナス（spi >= 14で確率）
-        if (amount > 0 && pStats.spi >= 14 && Math.random() < (pStats.spi - 10) * 0.05) {
+        // 気魄(spi)が高いと追加気合ボーナス（spi >= 14で確率、極度疲労時は息切れでボーナス不発）
+        if (amount > 0 && !isExhausted && pStats.spi >= 14 && Math.random() < (pStats.spi - 10) * 0.05) {
             finalAmount += 1;
         }
         state.playerKiai = Math.min(maxKiai, state.playerKiai + finalAmount);
     } else {
         const eStats = getFighterStats('enemy');
-        if (amount > 0 && eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.05) {
+        if (amount > 0 && !isExhausted && eStats.spi >= 14 && Math.random() < (eStats.spi - 10) * 0.05) {
             finalAmount += 1;
         }
         state.enemyKiai = Math.min(maxKiai, state.enemyKiai + finalAmount);
@@ -6290,41 +6351,41 @@ function updateUI() {
     renderHealthPips(playerHealthPips, pHp, pMax);
     renderHealthPips(enemyHealthPips, eHp, eMax);
 
-    // 💓 選手カード内 体力数値 ＆ 疲労度バッジの更新
+    // 💓 選手カード内 体力数値 ＆ 疲労度バッジの動的更新（ターン数・減らされたHP量連動）
     if (playerHpText) playerHpText.textContent = `HP ${pHp} / ${pMax}`;
     if (enemyHpText) enemyHpText.textContent = `HP ${eHp} / ${eMax}`;
 
-    const pFatigue = (isCustomMatch && state.customMatch && state.customMatch.player) ? (state.customMatch.player.fatigue || 0) : 0;
+    const pFatigueInfo = getFighterCurrentFatigue('player');
+    const pRound = pFatigueInfo.roundTotal;
     const pBaseHp = (isCustomMatch && state.customMatch && state.customMatch.player) ? (state.customMatch.player.baseMaxHealth || state.customMatch.player.maxHealth || pMax) : pMax;
     if (playerFatigueBadge) {
         if (isCustomMatch) {
             playerFatigueBadge.style.display = 'inline-block';
-            const pRound = Math.round(pFatigue);
             const pText = pRound > 0
                 ? `${pRound >= 60 ? '🚨' : '⚠️'} 疲労 ${pRound}%${pBaseHp > pMax ? ` (${pBaseHp})` : ''}`
                 : '疲労 0%';
             playerFatigueBadge.textContent = pText;
             playerFatigueBadge.classList.toggle('zero', pRound === 0);
             playerFatigueBadge.classList.toggle('high', pRound >= 60);
-            playerFatigueBadge.title = `疲労度: ${pRound}% ｜ 基礎体力:${pBaseHp} ➔ 実効最大HP:${pMax}`;
+            playerFatigueBadge.title = `疲労度: ${pRound}% (開始:${Math.round(pFatigueInfo.initial)}% + 経過合:${pFatigueInfo.turnFatigue.toFixed(1)}% + 被弾:${pFatigueInfo.damageFatigue.toFixed(1)}%) ｜ 基礎体力:${pBaseHp} ➔ 実効最大HP:${pMax}`;
         } else {
             playerFatigueBadge.style.display = 'none';
         }
     }
 
-    const eFatigue = (isCustomMatch && state.customMatch && state.customMatch.enemy) ? (state.customMatch.enemy.fatigue || 0) : 0;
+    const eFatigueInfo = getFighterCurrentFatigue('enemy');
+    const eRound = eFatigueInfo.roundTotal;
     const eBaseHp = (isCustomMatch && state.customMatch && state.customMatch.enemy) ? (state.customMatch.enemy.baseMaxHealth || state.customMatch.enemy.maxHealth || eMax) : eMax;
     if (enemyFatigueBadge) {
         if (isCustomMatch) {
             enemyFatigueBadge.style.display = 'inline-block';
-            const eRound = Math.round(eFatigue);
             const eText = eRound > 0
                 ? `${eRound >= 60 ? '🚨' : '⚠️'} 疲労 ${eRound}%${eBaseHp > eMax ? ` (${eBaseHp})` : ''}`
                 : '疲労 0%';
             enemyFatigueBadge.textContent = eText;
             enemyFatigueBadge.classList.toggle('zero', eRound === 0);
             enemyFatigueBadge.classList.toggle('high', eRound >= 60);
-            enemyFatigueBadge.title = `疲労度: ${eRound}% ｜ 基礎体力:${eBaseHp} ➔ 実効最大HP:${eMax}`;
+            enemyFatigueBadge.title = `疲労度: ${eRound}% (開始:${Math.round(eFatigueInfo.initial)}% + 経過合:${eFatigueInfo.turnFatigue.toFixed(1)}% + 被弾:${eFatigueInfo.damageFatigue.toFixed(1)}%) ｜ 基礎体力:${eBaseHp} ➔ 実効最大HP:${eMax}`;
         } else {
             enemyFatigueBadge.style.display = 'none';
         }
@@ -7689,6 +7750,17 @@ function startClosingCeremony() {
                 : (state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面'))));
             const winningMove = (winner === 'draw') ? '相打ち' : getBaseMoveName(rawWinningMove, winningKana);
 
+            const pFatigueInfo = getFighterCurrentFatigue('player');
+            const eFatigueInfo = getFighterCurrentFatigue('enemy');
+            const fatigueStats = {
+                playerHpLost: pFatigueInfo.lostHp,
+                enemyHpLost: eFatigueInfo.lostHp,
+                playerFatigueAdded: Math.max(0, pFatigueInfo.roundTotal - Math.round(pFatigueInfo.initial)),
+                enemyFatigueAdded: Math.max(0, eFatigueInfo.roundTotal - Math.round(eFatigueInfo.initial)),
+                finalPlayerFatigue: pFatigueInfo.roundTotal,
+                finalEnemyFatigue: eFatigueInfo.roundTotal,
+            };
+
             const resultData = {
                 winner: winner,
                 playerHp: state.playerHealth,
@@ -7698,7 +7770,8 @@ function startClosingCeremony() {
                 enemyScore: winner === 'enemy' ? [winningKana] : [],
                 winningMove: winningMove,
                 winningKana: winningKana,
-                boutStats: state.boutStats ? { ...state.boutStats, winningMove: (winner === 'draw' ? null : winningMove) } : {
+                ...fatigueStats,
+                boutStats: state.boutStats ? { ...state.boutStats, ...fatigueStats, winningMove: (winner === 'draw' ? null : winningMove) } : {
                     playerHits: winner === 'player' ? 1 : 0,
                     playerBlocks: 0,
                     enemyHits: winner === 'enemy' ? 1 : 0,
@@ -7706,6 +7779,7 @@ function startClosingCeremony() {
                     rounds: state.round,
                     pushWins: 0,
                     winningMove: (winner === 'draw' ? null : winningMove),
+                    ...fatigueStats,
                 },
             };
             if (typeof state.customMatch.onComplete === 'function') {
@@ -8826,8 +8900,14 @@ function playRound(playerAction) {
         const pMindEyeBonus = (pDidHitWeakness && pMindEyeActive) ? 16 : 0;
         const eMindEyeBonus = (eDidHitWeakness && eMindEyeActive) ? 16 : 0;
 
-        const pExtraBonus = pCounterBonus + pAgiBonus + pStrBonus + pSpiBonus + pStanceMod + pMindEyeBonus;
-        const eExtraBonus = eCounterBonus + eAgiBonus + eStrBonus + eSpiBonus + eStanceMod + eMindEyeBonus;
+        // 疲労度ペナルティ（試合中の動的疲労度が60%以上の極度疲労時、スタミナ切れで打突が鈍る）
+        const pFatigueInfo = getFighterCurrentFatigue('player');
+        const eFatigueInfo = getFighterCurrentFatigue('enemy');
+        const pFatiguePenalty = (pFatigueInfo.roundTotal >= 60) ? 4 : 0;
+        const eFatiguePenalty = (eFatigueInfo.roundTotal >= 60) ? 4 : 0;
+
+        const pExtraBonus = pCounterBonus + pAgiBonus + pStrBonus + pSpiBonus + pStanceMod + pMindEyeBonus - pFatiguePenalty;
+        const eExtraBonus = eCounterBonus + eAgiBonus + eStrBonus + eSpiBonus + eStanceMod + eMindEyeBonus - eFatiguePenalty;
 
         const pTotal = pSkillVal + pAdv + pKiaiScoreBonus + pExtraBonus;
         const eTotal = eSkillVal + eAdv + eKiaiScoreBonus + eExtraBonus;
@@ -8863,6 +8943,8 @@ function playRound(playerAction) {
             eStanceMod,
             pMindEyeBonus,
             eMindEyeBonus,
+            pFatiguePenalty,
+            eFatiguePenalty,
             pStanceStyle: state.playerStanceStyle || 'chudan',
             eStanceStyle: state.enemyStanceStyle || 'chudan',
             winner: winnerSide,
@@ -9574,6 +9656,12 @@ window.KendoGameEngine = {
         if (options && options.enemyData && options.enemyData.role) {
             options.enemyData.role = options.enemyData.role.replace(/[（\(][^）\)]*の試合[）\)]/g, '').trim();
         }
+        if (options && options.playerData && options.playerData.initialFatigue === undefined) {
+            options.playerData.initialFatigue = (typeof options.playerData.fatigue === 'number') ? options.playerData.fatigue : 0;
+        }
+        if (options && options.enemyData && options.enemyData.initialFatigue === undefined) {
+            options.enemyData.initialFatigue = (typeof options.enemyData.fatigue === 'number') ? options.enemyData.fatigue : 0;
+        }
         state.customMatch = {
             active: true,
             isIndividual: !!options.isIndividual,
@@ -9638,6 +9726,17 @@ window.KendoGameEngine = {
         const rawWinningMove = state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面')));
         const winningMove = getBaseMoveName(rawWinningMove, winningKana);
 
+        const pFatigueInfo = getFighterCurrentFatigue('player');
+        const eFatigueInfo = getFighterCurrentFatigue('enemy');
+        const fatigueStats = {
+            playerHpLost: pFatigueInfo.lostHp,
+            enemyHpLost: eFatigueInfo.lostHp,
+            playerFatigueAdded: Math.max(0, pFatigueInfo.roundTotal - Math.round(pFatigueInfo.initial)),
+            enemyFatigueAdded: Math.max(0, eFatigueInfo.roundTotal - Math.round(eFatigueInfo.initial)),
+            finalPlayerFatigue: pFatigueInfo.roundTotal,
+            finalEnemyFatigue: eFatigueInfo.roundTotal,
+        };
+
         const res = {
             winner: isPlayerWin ? 'player' : 'enemy',
             playerHp: isPlayerWin ? 1 : 0,
@@ -9648,7 +9747,8 @@ window.KendoGameEngine = {
             enemyScore: isPlayerWin ? [] : [winningKana],
             winningMove: winningMove,
             winningKana: winningKana,
-            boutStats: state.boutStats ? { ...state.boutStats, winningMove } : {
+            ...fatigueStats,
+            boutStats: state.boutStats ? { ...state.boutStats, ...fatigueStats, winningMove } : {
                 playerHits: isPlayerWin ? 1 : 0,
                 playerBlocks: 0,
                 enemyHits: isPlayerWin ? 0 : 1,
@@ -9656,6 +9756,7 @@ window.KendoGameEngine = {
                 rounds: state.round + 1,
                 pushWins: 0,
                 winningMove: winningMove,
+                ...fatigueStats,
             },
         };
         state.customMatch.active = false;
@@ -9709,6 +9810,17 @@ window.KendoGameEngine = {
                 : (state.finalWinningMove || state.lastWinningMove || (winningKana === 'コ' ? '小手' : (winningKana === 'ド' ? '胴' : (winningKana === 'ツ' ? '突き' : '面'))));
             const winningMove = (winner === 'draw') ? '相打ち' : getBaseMoveName(rawWinningMove, winningKana);
 
+            const pFatigueInfo = getFighterCurrentFatigue('player');
+            const eFatigueInfo = getFighterCurrentFatigue('enemy');
+            const fatigueStats = {
+                playerHpLost: pFatigueInfo.lostHp,
+                enemyHpLost: eFatigueInfo.lostHp,
+                playerFatigueAdded: Math.max(0, pFatigueInfo.roundTotal - Math.round(pFatigueInfo.initial)),
+                enemyFatigueAdded: Math.max(0, eFatigueInfo.roundTotal - Math.round(eFatigueInfo.initial)),
+                finalPlayerFatigue: pFatigueInfo.roundTotal,
+                finalEnemyFatigue: eFatigueInfo.roundTotal,
+            };
+
             const res = {
                 winner: winner,
                 playerHp: state.playerHealth,
@@ -9718,7 +9830,8 @@ window.KendoGameEngine = {
                 enemyScore: winner === 'enemy' ? [winningKana] : [],
                 winningMove: winningMove,
                 winningKana: winningKana,
-                boutStats: state.boutStats ? { ...state.boutStats, winningMove: (winner === 'draw' ? null : winningMove) } : {
+                ...fatigueStats,
+                boutStats: state.boutStats ? { ...state.boutStats, ...fatigueStats, winningMove: (winner === 'draw' ? null : winningMove) } : {
                     playerHits: winner === 'player' ? 1 : 0,
                     playerBlocks: 0,
                     enemyHits: winner === 'enemy' ? 1 : 0,
@@ -9726,6 +9839,7 @@ window.KendoGameEngine = {
                     rounds: state.round,
                     pushWins: 0,
                     winningMove: (winner === 'draw' ? null : winningMove),
+                    ...fatigueStats,
                 },
             };
             state.customMatch.active = false;

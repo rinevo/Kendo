@@ -254,11 +254,14 @@
             else if (actual < 0) gains.push(`腕力${actual}`);
         }
 
-        // 5. 勝負の決着までにかかったターン数に応じて疲労度UP
+        // 5. 勝負の決着までにかかったターン数 ＆ 減らされたHP量（被ダメージ）に応じて疲労度UP
         const rounds = Math.max(1, stats.rounds || 3);
-        const baseFatigue = 8;
-        const turnFatigue = Math.min(15, Math.floor(rounds * 1.5));
-        const totalFatigue = baseFatigue + turnFatigue;
+        const lostHp = Math.max(0, stats.playerHpLost !== undefined ? stats.playerHpLost : (stats.lostHp || 0));
+        // 試合中動的疲労度計算式（ターン × 1.2% + 被ダメ × 4.5%）と完全に統合
+        const turnFatigue = rounds * 1.2;
+        const damageFatigue = lostHp * 4.5;
+        const calcFatigue = Math.round(turnFatigue + damageFatigue);
+        const totalFatigue = Math.min(45, Math.max(5, stats.playerFatigueAdded !== undefined ? stats.playerFatigueAdded : calcFatigue));
         member.fatigue = Math.min(100, Math.max(0, (member.fatigue || 0) + totalFatigue));
 
         return {
@@ -8249,6 +8252,8 @@
                         rounds: result.rounds || (result.boutStats && result.boutStats.rounds) || 3,
                         winningMove: isPlayerWin ? (result.winningMove || '面') : null,
                         pushWins: (result.boutStats && result.boutStats.pushWins) || 0,
+                        playerHpLost: (result.boutStats && result.boutStats.playerHpLost) || 0,
+                        playerFatigueAdded: (result.boutStats && result.boutStats.playerFatigueAdded),
                     };
 
                     const eStats = {
@@ -8257,6 +8262,8 @@
                         rounds: result.rounds || (result.boutStats && result.boutStats.rounds) || 3,
                         winningMove: isEnemyWin ? (result.winningMove || '面') : null,
                         pushWins: 0,
+                        playerHpLost: (result.boutStats && result.boutStats.enemyHpLost) || 0,
+                        playerFatigueAdded: (result.boutStats && result.boutStats.enemyFatigueAdded),
                     };
 
                     const realPlayer = getRealClubMember(playerMember) || playerMember;
@@ -9323,6 +9330,8 @@
                             rounds: result.rounds || 3,
                             winningMove: result.winner === 'player' ? (result.winningMove || '面') : null,
                             pushWins: 0,
+                            playerHpLost: result.playerHpLost || 0,
+                            playerFatigueAdded: result.playerFatigueAdded,
                         };
                         if (result.winner === 'player' && !stats.winningMove && result.winningMove) {
                             stats.winningMove = result.winningMove;
@@ -9330,6 +9339,18 @@
                         const growth = applyBoutGrowth(realPlayerMember, stats);
                         if (growth) {
                             curBout.log.push(growth.summary);
+                        }
+
+                        // 対戦相手（敵選手）にも試合による疲労度を蓄積
+                        if (curBout.enemyMember) {
+                            const eHpLost = (result.boutStats && result.boutStats.enemyHpLost !== undefined)
+                                ? result.boutStats.enemyHpLost
+                                : (result.enemyHpLost || 0);
+                            const eRounds = result.rounds || (result.boutStats && result.boutStats.rounds) || 3;
+                            const eFatigueInc = (result.boutStats && result.boutStats.enemyFatigueAdded !== undefined)
+                                ? result.boutStats.enemyFatigueAdded
+                                : Math.round(eRounds * 1.2 + eHpLost * 4.5);
+                            curBout.enemyMember.fatigue = Math.min(100, (curBout.enemyMember.fatigue || 0) + Math.max(5, eFatigueInc));
                         }
 
                         // 同門対決の場合、敵側（仲間部員）にもパラメータ成長を適用！
@@ -9343,6 +9364,8 @@
                                     rounds: result.rounds || 3,
                                     winningMove: isEnemyWin ? (result.winningMove || '面') : null,
                                     pushWins: 0,
+                                    playerHpLost: (result.boutStats && result.boutStats.enemyHpLost !== undefined) ? result.boutStats.enemyHpLost : 0,
+                                    playerFatigueAdded: (result.boutStats && result.boutStats.enemyFatigueAdded),
                                 };
                                 const enemyGrowth = applyBoutGrowth(realEnemyMember, enemyStats);
                                 if (enemyGrowth) {
