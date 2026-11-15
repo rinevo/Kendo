@@ -847,6 +847,97 @@ body.bg-dojo {
     font-weight: 800;
 }
 
+/* 💓 選手カード内 体力数値 ＆ 疲労度行 */
+.fighter-hp-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 3px;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    box-sizing: border-box;
+}
+
+.fighter-hp-text {
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.02em;
+}
+
+.fighter-fatigue-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.22);
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    color: #fbbf24;
+    white-space: nowrap;
+}
+
+.fighter-fatigue-badge.high {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.65);
+    color: #fca5a5;
+    animation: pulseFatigue 2s infinite ease-in-out;
+}
+
+.fighter-fatigue-badge.zero {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+
+@keyframes pulseFatigue {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6)); }
+}
+
+/* 個人戦対戦カード用 疲労度・HPメタ表示 */
+.fighter-fatigue-meta {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.65);
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.fighter-stat-hp {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.02em;
+}
+
+.fighter-fatigue-pill {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.22);
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    color: #fbbf24;
+    white-space: nowrap;
+}
+
+.fighter-fatigue-pill.high {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.65);
+    color: #fca5a5;
+    animation: pulseFatigue 2s infinite ease-in-out;
+}
+
+.fighter-fatigue-pill.zero {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+
 /* 💚 体力ゲージ（1ずつ目盛りで区切られたセグメントゲージ） */
 .health-pips {
     display: flex;
@@ -4359,6 +4450,48 @@ button.reset-btn:hover:not(:disabled) {
 
 .col-fighter.red { justify-content: flex-start; }
 .col-fighter.white { justify-content: flex-end; }
+
+.col-fighter-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.col-fighter-info.align-right {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.col-fighter-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.col-fighter-hp-fatigue {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.fatigue-inline {
+    color: #fbbf24;
+    font-weight: 700;
+}
+
+.fatigue-inline.high {
+    color: #fca5a5;
+    animation: pulseFatigue 2s infinite ease-in-out;
+}
+
+.fatigue-inline.zero {
+    color: #34d399;
+    font-weight: 600;
+}
 
 .col-pts {
     width: 60px;

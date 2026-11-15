@@ -2235,6 +2235,10 @@ const enemyCtx = setupSmoothCanvas(enemyCanvas);
 const battleArena = document.getElementById('battleArena');
 const playerHealthPips = document.getElementById('playerHealthPips');
 const enemyHealthPips = document.getElementById('enemyHealthPips');
+const playerHpText = document.getElementById('playerHpText');
+const enemyHpText = document.getElementById('enemyHpText');
+const playerFatigueBadge = document.getElementById('playerFatigueBadge');
+const enemyFatigueBadge = document.getElementById('enemyFatigueBadge');
 
 const playerRadarBox = document.getElementById('playerRadarBox');
 const enemyRadarBox = document.getElementById('enemyRadarBox');
@@ -6285,6 +6289,46 @@ function updateUI() {
 
     renderHealthPips(playerHealthPips, pHp, pMax);
     renderHealthPips(enemyHealthPips, eHp, eMax);
+
+    // 💓 選手カード内 体力数値 ＆ 疲労度バッジの更新
+    if (playerHpText) playerHpText.textContent = `HP ${pHp} / ${pMax}`;
+    if (enemyHpText) enemyHpText.textContent = `HP ${eHp} / ${eMax}`;
+
+    const pFatigue = (isCustomMatch && state.customMatch && state.customMatch.player) ? (state.customMatch.player.fatigue || 0) : 0;
+    const pBaseHp = (isCustomMatch && state.customMatch && state.customMatch.player) ? (state.customMatch.player.baseMaxHealth || state.customMatch.player.maxHealth || pMax) : pMax;
+    if (playerFatigueBadge) {
+        if (isCustomMatch) {
+            playerFatigueBadge.style.display = 'inline-block';
+            const pRound = Math.round(pFatigue);
+            const pText = pRound > 0
+                ? `${pRound >= 60 ? '🚨' : '⚠️'} 疲労 ${pRound}%${pBaseHp > pMax ? ` (${pBaseHp})` : ''}`
+                : '疲労 0%';
+            playerFatigueBadge.textContent = pText;
+            playerFatigueBadge.classList.toggle('zero', pRound === 0);
+            playerFatigueBadge.classList.toggle('high', pRound >= 60);
+            playerFatigueBadge.title = `疲労度: ${pRound}% ｜ 基礎体力:${pBaseHp} ➔ 実効最大HP:${pMax}`;
+        } else {
+            playerFatigueBadge.style.display = 'none';
+        }
+    }
+
+    const eFatigue = (isCustomMatch && state.customMatch && state.customMatch.enemy) ? (state.customMatch.enemy.fatigue || 0) : 0;
+    const eBaseHp = (isCustomMatch && state.customMatch && state.customMatch.enemy) ? (state.customMatch.enemy.baseMaxHealth || state.customMatch.enemy.maxHealth || eMax) : eMax;
+    if (enemyFatigueBadge) {
+        if (isCustomMatch) {
+            enemyFatigueBadge.style.display = 'inline-block';
+            const eRound = Math.round(eFatigue);
+            const eText = eRound > 0
+                ? `${eRound >= 60 ? '🚨' : '⚠️'} 疲労 ${eRound}%${eBaseHp > eMax ? ` (${eBaseHp})` : ''}`
+                : '疲労 0%';
+            enemyFatigueBadge.textContent = eText;
+            enemyFatigueBadge.classList.toggle('zero', eRound === 0);
+            enemyFatigueBadge.classList.toggle('high', eRound >= 60);
+            enemyFatigueBadge.title = `疲労度: ${eRound}% ｜ 基礎体力:${eBaseHp} ➔ 実効最大HP:${eMax}`;
+        } else {
+            enemyFatigueBadge.style.display = 'none';
+        }
+    }
 
     // 選手カード内ミニレーダーチャートの描画
     if (playerRadarBox) playerRadarBox.innerHTML = generateFighterRadarSvg('player');

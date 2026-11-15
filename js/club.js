@@ -3584,6 +3584,8 @@
                     title: fighter.title,
                     shortDesc: fighter.shortDesc,
                     hp: fighter.hp,
+                    maxHealth: fighter.hp,
+                    fatigue: 0,
                     str: fighter.str,
                     agi: fighter.agi,
                     spi: fighter.spi,
@@ -3614,6 +3616,8 @@
                     title: fighter.title,
                     shortDesc: fighter.shortDesc,
                     hp: fighter.hp,
+                    maxHealth: fighter.hp,
+                    fatigue: 0,
                     str: fighter.str,
                     agi: fighter.agi,
                     spi: fighter.spi,
@@ -3734,11 +3738,13 @@
                 m.played = true;
             }
 
-            // 勝者を次のラウンドへ進出
+            // 勝者を次のラウンドへ進出（勝ち上がりによる疲労蓄積）
             if (nextRound) {
                 const nextMatchIdx = Math.floor(m.matchIdx / 2);
                 const isSlotA = (m.matchIdx % 2 === 0);
                 const winnerFighter = (m.winner === 'playerA') ? pA : pB;
+                const boutFatigue = 12 + Math.floor(Math.random() * 5); // 12〜16%
+                winnerFighter.fatigue = Math.min(100, (winnerFighter.fatigue || 0) + boutFatigue);
                 if (isSlotA) {
                     nextRound.matches[nextMatchIdx].playerA = winnerFighter;
                 } else {
@@ -3928,11 +3934,16 @@
             const memberName = getRandomItem(SURNAMES);
             const memberRole = `${gradeLabel}・${POS_NAMES[i]} (${arch.typeName})`;
 
+            // トーナメント勝ち上がり進行（roundStep）に応じた疲労度の初期付与（1勝につき約12〜15%）
+            const memberFatigue = Math.min(65, Math.max(0, roundStep * 14 + (Math.floor(Math.random() * 5) - 2)));
+
             members.push({
                 name: memberName,
                 grade: grade,
                 role: memberRole,
                 hp: Math.min(8, Math.max(3, baseHp)),
+                maxHealth: Math.min(8, Math.max(3, baseHp)),
+                fatigue: memberFatigue,
                 str: str,
                 agi: agi,
                 spi: spi,
@@ -6432,6 +6443,14 @@
                 const isMyWin = curBout.winner === 'my';
                 const isEnemyWin = curBout.winner === 'enemy';
 
+                const myEffHp = getEffectiveMaxHealth(curBout.myMember);
+                const myBaseHp = curBout.myMember.maxHealth || 6;
+                const myFatigue = curBout.myMember.fatigue || 0;
+
+                const enemyEffHp = getEffectiveMaxHealth(curBout.enemyMember);
+                const enemyBaseHp = curBout.enemyMember.maxHealth || curBout.enemyMember.hp || 6;
+                const enemyFatigue = curBout.enemyMember.fatigue || 0;
+
                 let statusBadge = '<span class="status-fighting pulse">⚔️ 立ち合い前</span>';
                 if (curBout.played) {
                     if (isMyWin) statusBadge = '<span class="badge-win">○ 勝者: ' + curBout.myMember.name + '</span>';
@@ -6456,6 +6475,10 @@
                                 </div>
                                 <span class="fighter-role-tag">${curBout.isPlayerBout ? '主将・あなた' : '自校代表'}</span>
                                 <div class="fighter-score-display">${myPts}</div>
+                                <div class="fighter-fatigue-meta">
+                                    <span class="fighter-stat-hp">体力 ${myEffHp}/${myBaseHp}</span>
+                                    <span class="fighter-fatigue-pill ${myFatigue >= 60 ? 'high' : (Math.round(myFatigue) === 0 ? 'zero' : '')}">疲労 ${Math.round(myFatigue)}%</span>
+                                </div>
                             </div>
                             <div class="indiv-vs-center">
                                 <span class="indiv-vs-badge">VS</span>
@@ -6472,6 +6495,10 @@
                                 </div>
                                 <span class="fighter-role-tag">${escapeHtml(curBout.enemyMember.title || '個人代表')}</span>
                                 <div class="fighter-score-display">${oppPts}</div>
+                                <div class="fighter-fatigue-meta">
+                                    <span class="fighter-stat-hp">体力 ${enemyEffHp}/${enemyBaseHp}</span>
+                                    <span class="fighter-fatigue-pill ${enemyFatigue >= 60 ? 'high' : (Math.round(enemyFatigue) === 0 ? 'zero' : '')}">疲労 ${Math.round(enemyFatigue)}%</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -6483,6 +6510,14 @@
                 const isCurrent = idx === boutsData.currentBoutIndex && !boutsData.isFinished;
                 const isMyWin = bout.winner === 'my';
                 const isEnemyWin = bout.winner === 'enemy';
+
+                const myEffHp = getEffectiveMaxHealth(bout.myMember);
+                const myBaseHp = bout.myMember.maxHealth || 6;
+                const myFatigue = bout.myMember.fatigue || 0;
+
+                const enemyEffHp = getEffectiveMaxHealth(bout.enemyMember);
+                const enemyBaseHp = bout.enemyMember.maxHealth || bout.enemyMember.hp || 6;
+                const enemyFatigue = bout.enemyMember.fatigue || 0;
 
                 let statusBadge = '<span class="status-pending">対戦前</span>';
                 if (bout.played) {
@@ -6506,14 +6541,19 @@
                                     ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(bout.myMember, 28, 37, { withFrame: false }) : ''}
                                 </span>
                             </span>
-                            <strong>${bout.myMember.name}</strong>
-                            ${bout.isPlayerBout ? '<span class="tag-you">主将・あなた</span>' : ''}
+                            <div class="col-fighter-info">
+                                <span class="col-fighter-name"><strong>${bout.myMember.name}</strong>${bout.isPlayerBout ? ' <span class="tag-you">主将・あなた</span>' : ''}</span>
+                                <span class="col-fighter-hp-fatigue">体力 ${myEffHp}/${myBaseHp} <span class="fatigue-inline ${myFatigue >= 60 ? 'high' : (Math.round(myFatigue) === 0 ? 'zero' : '')}">(疲労${Math.round(myFatigue)}%)</span></span>
+                            </div>
                         </div>
                         <div class="col-pts red-pts">${myPts}</div>
                         <div class="col-vs">${statusBadge}</div>
                         <div class="col-pts white-pts">${oppPts}</div>
                         <div class="col-fighter white">
-                            <strong>${bout.enemyMember.name}</strong>
+                            <div class="col-fighter-info align-right">
+                                <span class="col-fighter-name"><strong>${bout.enemyMember.name}</strong></span>
+                                <span class="col-fighter-hp-fatigue">体力 ${enemyEffHp}/${enemyBaseHp} <span class="fatigue-inline ${enemyFatigue >= 60 ? 'high' : (Math.round(enemyFatigue) === 0 ? 'zero' : '')}">(疲労${Math.round(enemyFatigue)}%)</span></span>
+                            </div>
                             <span class="match-row-photo">
                                 <span class="student-photo-frame">
                                     ${window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(bout.enemyMember, 28, 37, { withFrame: false }) : ''}
@@ -8121,7 +8161,9 @@
                     schoolName: ClubState.schoolName,
                     prefecture: ClubState.prefecture,
                     roleTitle: '主将',
+                    baseMaxHealth: playerMember.maxHealth || 6,
                     maxHealth: getEffectiveMaxHealth(playerMember),
+                    fatigue: playerMember.fatigue || 0,
                     initialKiai: 0,
                     favStance: playerMember.favStance || 'chudan',
                     skills: playerMember.skills,
@@ -8143,7 +8185,9 @@
                     role: targetMember.grade ? `${targetMember.grade}年` : '部員',
                     rank: '',
                     styleTag: `${stance === 'jodan' ? '上段' : stance === 'waki' ? '下段の構え' : '中段'}の気迫`,
+                    baseMaxHealth: targetMember.maxHealth || 6,
                     maxHealth: getEffectiveMaxHealth(targetMember),
+                    fatigue: targetMember.fatigue || 0,
                     initialKiai: 0,
                     str: targetMember.str,
                     agi: targetMember.agi,
@@ -9081,6 +9125,8 @@
                             ? (playerMember.isPlayer ? '主将' : (playerMember.grade ? `${playerMember.grade}年` : ''))
                             : (playerMember.isPlayer && curBout.posName === '大将' ? '大将（主将）' : curBout.posName),
                         maxHealth: getEffectiveMaxHealth(playerMember),
+                        baseMaxHealth: playerMember.maxHealth || 6,
+                        fatigue: playerMember.fatigue || 0,
                         initialKiai: 0,
                         favStance: playerMember.favStance || 'chudan',
                         skills: playerMember.skills,
@@ -9107,6 +9153,8 @@
                             : '',
                         styleTag: `${(enemyMember.stance || enemyMember.favStance) === 'jodan' ? '上段' : (enemyMember.stance || enemyMember.favStance) === 'waki' ? '下段の構え' : '中段'}の気迫`,
                         maxHealth: getEffectiveMaxHealth(enemyMember),
+                        baseMaxHealth: enemyMember.maxHealth || enemyMember.hp || 6,
+                        fatigue: enemyMember.fatigue || 0,
                         initialKiai: 0,
                         str: enemyMember.str,
                         agi: enemyMember.agi,
