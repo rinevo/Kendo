@@ -3367,11 +3367,29 @@
             baseStatVal = 34 + tierBonus * 6 + schoolTier.statOffset + Math.floor(Math.random() * 4);
             baseSkillVal = 32 + tierBonus * 6 + schoolTier.statOffset + Math.floor(Math.random() * 4);
         } else {
-            // ── インターハイ全国総体（全国各県のトップ3年生） ──
-            const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
-            baseHp = 5 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
-            baseStatVal = 46 + tierBonus * 7 + schoolTier.statOffset + Math.floor(Math.random() * 4);
-            baseSkillVal = 42 + tierBonus * 7 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            // ── インターハイ全国総体（全国各県のトップ3年生・準決勝以上はプレイヤー限界超え） ──
+            const natTier = Math.min(3, Math.max(0, Number(seedTier) || 0));
+            if (natTier === 3) {
+                // 👑 決勝本命（全国最強第1シード・高校最強絶対王者）
+                baseHp = 8 + arch.hpBonus + schoolTier.hpOffset;
+                baseStatVal = 82 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkillVal = 78 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            } else if (natTier === 2) {
+                // ⚔️ 準決勝本命（全国第2シード・ベスト4・プレイヤー限界と同等〜少し上）
+                baseHp = 7 + arch.hpBonus + schoolTier.hpOffset;
+                baseStatVal = 70 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkillVal = 66 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            } else if (natTier === 1) {
+                // 🛡️ 各ブロックシード強豪（ベスト8級）
+                baseHp = 6 + arch.hpBonus + schoolTier.hpOffset;
+                baseStatVal = 56 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkillVal = 52 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            } else {
+                // 🥋 1回戦代表
+                baseHp = 5 + arch.hpBonus + schoolTier.hpOffset;
+                baseStatVal = 46 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkillVal = 42 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            }
         }
 
         // アーキタイプによる明確なパラメータの凹凸（得意+12〜16、苦手-8〜12）
@@ -3387,8 +3405,10 @@
             tsuki: Math.min(99, Math.max(10, baseSkillVal + b.tsuki + Math.floor(Math.random() * 3))),
         };
 
-        // 得意技には奥義解放基準を満たすようボーナスを付与
-        const favBonus = 8 + Math.floor(Math.random() * 6);
+        // 得意技には奥義解放基準を満たすようボーナスを付与（全国準決勝以上は92〜99の神域）
+        const favBonus = (isNational && (Number(seedTier) || 0) >= 2)
+            ? (12 + Math.floor(Math.random() * 5))
+            : (8 + Math.floor(Math.random() * 6));
         skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
 
         const surname = getRandomItem(SURNAMES);
@@ -3406,7 +3426,7 @@
             shortDesc: isNational
                 ? `${pref}・${schoolName}${gradeLabel}代表。「${title}」の異名をとる全国屈指の猛者。`
                 : `${pref}・${schoolName}${gradeLabel}。「${title}」の異名をとる、高校3年間鍛え上げた強豪剣士。`,
-            hp: Math.min(8, Math.max(3, baseHp)),
+            hp: Math.min(9, Math.max(3, baseHp)),
             str: str,
             agi: agi,
             spi: spi,
@@ -3554,10 +3574,12 @@
             let defaultSeedTier = 0;
             if (isNational) {
                 // 32名（16試合）
-                if (m === firstRoundMatches - 1 || m === Math.floor(firstRoundMatches / 2) - 1) {
-                    defaultSeedTier = 2; // 第1・第2シード枠（全国頂点候補）
+                if (m === firstRoundMatches - 1) {
+                    defaultSeedTier = 3; // 第1シード枠（反対山最奥・全国最強絶対王者・決勝本命）
+                } else if (m === Math.floor(firstRoundMatches / 2) - 1) {
+                    defaultSeedTier = 2; // 第2シード枠（自校側山最奥・準決勝本命・プレイヤー限界超え）
                 } else if (m % 4 === 3) {
-                    defaultSeedTier = 1; // 各ブロックのシード強豪
+                    defaultSeedTier = 1; // 各ブロックのシード強豪（ベスト8級）
                 }
             } else {
                 // 16名（8試合）
@@ -3903,10 +3925,24 @@
                 baseStat = 28 + stepBonus * 5 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
                 baseSkill = 26 + stepBonus * 5 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
             } else {
-                // ── 全国選抜大会（3月・全国の強豪2年生チーム） ──
-                const stepBonus = Math.min(4, roundStep);
-                baseStat = 38 + stepBonus * 4 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
-                baseSkill = 36 + stepBonus * 4 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                // ── 全国選抜大会（3月・全国の強豪2年生チーム・準決勝以上はプレイヤー限界超え） ──
+                if (roundStep === 4) {
+                    // 👑 全国選抜 決勝戦（全国頂点・絶対王者名門校）
+                    baseHp = pConf.hpBase + 3 + arch.hpBonus + schoolTier.hpOffset;
+                    baseStat = 72 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                    baseSkill = 68 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                } else if (roundStep === 3) {
+                    // ⚔️ 全国選抜 準決勝（全国ベスト4・優勝候補）
+                    baseHp = pConf.hpBase + 2 + arch.hpBonus + schoolTier.hpOffset;
+                    baseStat = 62 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                    baseSkill = 58 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                } else {
+                    // 1回戦〜準々決勝
+                    const stepBonus = Math.min(2, roundStep);
+                    baseHp = pConf.hpBase + (roundStep >= 2 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
+                    baseStat = 42 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                    baseSkill = 40 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                }
             }
 
             // 学年補正（1年の場合は少し控えめ）
@@ -3925,11 +3961,16 @@
                 tsuki: Math.min(99, Math.max(10, baseSkill + b.tsuki + gradeMod + Math.floor(Math.random() * 3))),
             };
 
-            // 中堅・副将・大将、あるいは上位ラウンドでは得意技にボーナスを付与して必殺技を解放
-            if (i >= 2 || roundStep >= 1 || isNational) {
-                const favBonus = 7 + Math.floor(Math.random() * 5);
-                skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
+            // 中堅・副将・大将、あるいは上位ラウンドでは得意技にボーナスを付与して必殺技を解放（全国決勝大将は96〜99神域）
+            let favBonus = 7 + Math.floor(Math.random() * 5);
+            if (isNational && roundStep >= 4 && i >= 3) {
+                favBonus = 14 + Math.floor(Math.random() * 5);
+            } else if (isNational && roundStep >= 3 && i >= 4) {
+                favBonus = 11 + Math.floor(Math.random() * 4);
+            } else if (i >= 2 || roundStep >= 1 || isNational) {
+                favBonus = 7 + Math.floor(Math.random() * 5);
             }
+            skills[favTechStat] = Math.min(99, skills[favTechStat] + favBonus);
 
             const memberName = getRandomItem(SURNAMES);
             const memberRole = `${gradeLabel}・${POS_NAMES[i]} (${arch.typeName})`;
@@ -3941,8 +3982,8 @@
                 name: memberName,
                 grade: grade,
                 role: memberRole,
-                hp: Math.min(8, Math.max(3, baseHp)),
-                maxHealth: Math.min(8, Math.max(3, baseHp)),
+                hp: Math.min(9, Math.max(3, baseHp)),
+                maxHealth: Math.min(9, Math.max(3, baseHp)),
                 fatigue: memberFatigue,
                 str: str,
                 agi: agi,
@@ -9059,6 +9100,60 @@
             const enemyMember = curBout.enemyMember;
             const isIndividual = !!match.isIndividual;
             const isIntraClub = !!curBout.isIntraClub;
+
+            // ── インターハイ全国総体：準決勝・決勝の対戦相手パラメータ保証（プレイヤー限界超えの頂点） ──
+            if (isIndividual && match.type === 'interhigh_national' && !isIntraClub && enemyMember) {
+                const rIdx = match.currentRoundIdx;
+                const rName = boutsData.roundName || '';
+                const isFinal = (rIdx === 4 || rName.includes('決勝'));
+                const isSemi = (rIdx === 3 || rName.includes('準決勝'));
+
+                const techReqMap = {
+                    hien_men: 'men', gouriki_men: 'men', tenkou_men: 'men',
+                    dengeki_kote: 'kote', kasumi_kote: 'kote',
+                    hayate_do: 'do', gen_do: 'do',
+                    shiden_tsuki: 'tsuki', tensho_tsuki: 'tsuki'
+                };
+                const favTech = enemyMember.specialTechnique ? (techReqMap[enemyMember.specialTechnique] || 'men') : 'men';
+
+                if (isFinal) {
+                    // 👑 全国決勝相手：プレイヤー限界を超える絶対王者
+                    enemyMember.hp = Math.max(enemyMember.hp || 6, 8);
+                    enemyMember.maxHealth = Math.max(enemyMember.maxHealth || 6, 8);
+                    enemyMember.str = Math.min(99, Math.max(enemyMember.str || 50, 80));
+                    enemyMember.agi = Math.min(99, Math.max(enemyMember.agi || 50, 76));
+                    enemyMember.spi = Math.min(99, Math.max(enemyMember.spi || 50, 82));
+                    const maxStat = Math.max(enemyMember.str, enemyMember.agi, enemyMember.spi);
+                    if (enemyMember.str === maxStat) enemyMember.str = Math.min(99, Math.max(enemyMember.str, 96));
+                    else if (enemyMember.agi === maxStat) enemyMember.agi = Math.min(99, Math.max(enemyMember.agi, 96));
+                    else enemyMember.spi = Math.min(99, Math.max(enemyMember.spi, 96));
+
+                    if (enemyMember.skills) {
+                        for (const k of ['men', 'kote', 'do', 'tsuki']) {
+                            enemyMember.skills[k] = Math.min(99, Math.max(enemyMember.skills[k] || 40, 70));
+                        }
+                        enemyMember.skills[favTech] = Math.min(99, Math.max(enemyMember.skills[favTech], 96));
+                    }
+                } else if (isSemi) {
+                    // ⚔️ 全国準決勝相手：プレイヤー限界と同等〜少し上
+                    enemyMember.hp = Math.max(enemyMember.hp || 6, 7);
+                    enemyMember.maxHealth = Math.max(enemyMember.maxHealth || 6, 7);
+                    enemyMember.str = Math.min(99, Math.max(enemyMember.str || 40, 70));
+                    enemyMember.agi = Math.min(99, Math.max(enemyMember.agi || 40, 66));
+                    enemyMember.spi = Math.min(99, Math.max(enemyMember.spi || 40, 72));
+                    const maxStat = Math.max(enemyMember.str, enemyMember.agi, enemyMember.spi);
+                    if (enemyMember.str === maxStat) enemyMember.str = Math.min(99, Math.max(enemyMember.str, 88));
+                    else if (enemyMember.agi === maxStat) enemyMember.agi = Math.min(99, Math.max(enemyMember.agi, 88));
+                    else enemyMember.spi = Math.min(99, Math.max(enemyMember.spi, 88));
+
+                    if (enemyMember.skills) {
+                        for (const k of ['men', 'kote', 'do', 'tsuki']) {
+                            enemyMember.skills[k] = Math.min(99, Math.max(enemyMember.skills[k] || 35, 60));
+                        }
+                        enemyMember.skills[favTech] = Math.min(99, Math.max(enemyMember.skills[favTech], 90));
+                    }
+                }
+            }
 
             let enemyPatterns = [];
             if (enemyMember.stance === 'jodan' || enemyMember.favStance === 'jodan') {
