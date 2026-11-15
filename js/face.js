@@ -937,7 +937,17 @@
                             <div class="hb-base-stats-grid">
                                 <div class="hb-base-stat-item">
                                     <span class="hb-stat-k">体力</span>
-                                    <span class="hb-stat-v">${member.maxHealth || member.hp || 5}</span>
+                                    <span class="hb-stat-v">${(() => {
+                                        const baseHp = member.maxHealth || member.hp || 5;
+                                        const effHp = (window.KendoClub && typeof window.KendoClub.getEffectiveMaxHealth === 'function')
+                                            ? window.KendoClub.getEffectiveMaxHealth(member)
+                                            : ((window.ClubSystem && typeof window.ClubSystem.getEffectiveMaxHealth === 'function')
+                                                ? window.ClubSystem.getEffectiveMaxHealth(member)
+                                                : Math.max(1, Math.round(baseHp * (1 - Math.min(100, Math.max(0, member.fatigue || 0)) / 100))));
+                                        return effHp < baseHp
+                                            ? `<span style="color:#f59e0b;font-weight:bold;" title="疲労${member.fatigue}%により試合中最大HPが${effHp}に低下中（基礎:${baseHp}）">${effHp} <small style="font-size:0.7em;color:#94a3b8;">(${baseHp})</small></span>`
+                                            : `${baseHp}`;
+                                    })()}</span>
                                 </div>
                                 <div class="hb-base-stat-item">
                                     <span class="hb-stat-k">腕力</span>

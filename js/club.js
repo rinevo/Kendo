@@ -2906,6 +2906,15 @@
         return (m.str || 0) + (m.agi || 0) + (m.spi || 0) + skillSum * 0.4;
     }
 
+    // 疲労度を考慮した試合中実効最大HP（四捨五入、最低1保証）
+    // 例: 体力8で疲労度13%の場合 -> 8 * (1 - 0.13) = 6.96 -> 四捨五入で 7
+    function getEffectiveMaxHealth(m) {
+        if (!m) return 6;
+        const baseHp = m.maxHealth || m.hp || 6;
+        const fatigue = Math.min(100, Math.max(0, m.fatigue || 0));
+        return Math.max(1, Math.round(baseHp * (1 - fatigue / 100)));
+    }
+
     // インターハイ個人戦出場権を持つ部員か判定
     function isInterhighQualified(memberId) {
         if (!ClubState.qualifiedForInterhigh) return false;
@@ -5452,7 +5461,14 @@
                             ${getMemberSpecialTechBadgeHtml(m)}
                         </div>
                         <div class="member-fatigue-row">
-                            <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
+                            ${(() => {
+                                const effHp = getEffectiveMaxHealth(m);
+                                const hpNotice = (effHp < m.maxHealth) ? ` (HP ${effHp}/${m.maxHealth})` : '';
+                                const fatigueTitle = (effHp < m.maxHealth)
+                                    ? `疲労度: ${m.fatigue}% ｜ 疲労により試合中最大HPが${effHp}に低下中（基礎:${m.maxHealth}）`
+                                    : `疲労度: ${m.fatigue}%（試合中最大HP:${effHp}）`;
+                                return `<span class="fatigue-label" title="${fatigueTitle}">疲労度: ${m.fatigue}%${hpNotice}</span>`;
+                            })()}
                             <div class="fatigue-bar-wrap">
                                 <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
                             </div>
@@ -5512,7 +5528,14 @@
                             ${getMemberSpecialTechBadgeHtml(m)}
                         </div>
                         <div class="member-fatigue-row">
-                            <span class="fatigue-label">疲労度: ${m.fatigue}%</span>
+                            ${(() => {
+                                const effHp = getEffectiveMaxHealth(m);
+                                const hpNotice = (effHp < m.maxHealth) ? ` (HP ${effHp}/${m.maxHealth})` : '';
+                                const fatigueTitle = (effHp < m.maxHealth)
+                                    ? `疲労度: ${m.fatigue}% ｜ 疲労により試合中最大HPが${effHp}に低下中（基礎:${m.maxHealth}）`
+                                    : `疲労度: ${m.fatigue}%（試合中最大HP:${effHp}）`;
+                                return `<span class="fatigue-label" title="${fatigueTitle}">疲労度: ${m.fatigue}%${hpNotice}</span>`;
+                            })()}
                             <div class="fatigue-bar-wrap">
                                 <div class="fatigue-bar-fill ${m.fatigue > 60 ? 'high' : ''}" style="width: ${m.fatigue}%;"></div>
                             </div>
@@ -5823,6 +5846,8 @@
                                     const dualStr = m.isClubDual ? ` [${m.originalClub}]` : '';
                                     const curMode = ClubState.quickSpecialMode || 'manual';
                                     const btnLabel = curMode === 'spectate' ? '観戦 👀' : curMode === 'instant' ? '即時 ⚡' : '出陣 ⚔️';
+                                    const effHp = getEffectiveMaxHealth(m);
+                                    const hpNotice = (effHp < m.maxHealth) ? `HP:${effHp}/${m.maxHealth}` : `HP:${m.maxHealth}`;
                                     return `
                                         <button type="button" class="btn-q-member-select" onclick="window.KendoClub.launchQuickSpecialPractice('${m.id}')">
                                             <div class="q-member-btn-photo">
@@ -5832,7 +5857,7 @@
                                             </div>
                                             <div class="q-mem-info">
                                                 <strong class="q-mem-name">${escapeHtml(m.name)}</strong>
-                                                <span class="q-mem-meta">${m.grade}年${dualStr} / 構え:${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'} / 戦力:${Math.round(getMemberCombatPower(m))}</span>
+                                                <span class="q-mem-meta">${m.grade}年${dualStr} / 構え:${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'} / 戦力:${Math.round(getMemberCombatPower(m))} / ${hpNotice}</span>
                                             </div>
                                             <span class="q-mem-btn-label">${btnLabel}</span>
                                         </button>
@@ -5994,6 +6019,11 @@
                                 <span>${m.grade}年生</span>
                                 ${m.isClubDual ? `<span class="member-dual-badge">${escapeHtml(m.originalClub)}（助っ人）</span>` : `<span>【${m.archetypeName || '一般剣士'}】</span>`}
                                 <span>構え: ${m.favStance === 'jodan' ? '上段' : m.favStance === 'waki' ? '下段' : '中段'}</span>
+                                ${(() => {
+                                    const effHp = getEffectiveMaxHealth(m);
+                                    const isFatigued = effHp < m.maxHealth;
+                                    return `<span class="order-hp-pill ${isFatigued ? 'fatigued' : ''}" style="${isFatigued ? 'color: #f59e0b; font-weight: bold;' : ''}" title="${isFatigued ? `基礎体力:${m.maxHealth} 疲労:${m.fatigue}% により試合中HPが${effHp}に低下` : `基礎体力:${m.maxHealth}`}">❤️ 体力: ${effHp}${isFatigued ? `/${m.maxHealth}` : ''}</span>`;
+                                })()}
                             </div>
                         </div>
                         <div class="slot-select-wrap">
@@ -6037,6 +6067,11 @@
                                 <span>${b.grade}年生</span>
                                 ${b.isClubDual ? `<span class="member-dual-badge">${escapeHtml(b.originalClub)}（助っ人）</span>` : `<span>【${b.archetypeName || '一般剣士'}】</span>`}
                                 <span>構え: ${b.favStance === 'jodan' ? '上段' : b.favStance === 'waki' ? '下段' : '中段'}</span>
+                                ${(() => {
+                                    const effHp = getEffectiveMaxHealth(b);
+                                    const isFatigued = effHp < b.maxHealth;
+                                    return `<span class="order-hp-pill ${isFatigued ? 'fatigued' : ''}" style="${isFatigued ? 'color: #f59e0b; font-weight: bold;' : ''}" title="${isFatigued ? `基礎体力:${b.maxHealth} 疲労:${b.fatigue}% により試合中HPが${effHp}に低下` : `基礎体力:${b.maxHealth}`}">❤️ 体力: ${effHp}${isFatigued ? `/${b.maxHealth}` : ''}</span>`;
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -8086,7 +8121,7 @@
                     schoolName: ClubState.schoolName,
                     prefecture: ClubState.prefecture,
                     roleTitle: '主将',
-                    maxHealth: playerMember.maxHealth || 6,
+                    maxHealth: getEffectiveMaxHealth(playerMember),
                     initialKiai: 0,
                     favStance: playerMember.favStance || 'chudan',
                     skills: playerMember.skills,
@@ -8108,7 +8143,7 @@
                     role: targetMember.grade ? `${targetMember.grade}年` : '部員',
                     rank: '',
                     styleTag: `${stance === 'jodan' ? '上段' : stance === 'waki' ? '下段の構え' : '中段'}の気迫`,
-                    maxHealth: targetMember.maxHealth || 6,
+                    maxHealth: getEffectiveMaxHealth(targetMember),
                     initialKiai: 0,
                     str: targetMember.str,
                     agi: targetMember.agi,
@@ -8380,6 +8415,7 @@
         },
 
         getMemberCombatPower: getMemberCombatPower,
+        getEffectiveMaxHealth: getEffectiveMaxHealth,
 
         init: function () {
             const hasData = loadClubData();
@@ -9044,7 +9080,7 @@
                         roleTitle: isIndividual
                             ? (playerMember.isPlayer ? '主将' : (playerMember.grade ? `${playerMember.grade}年` : ''))
                             : (playerMember.isPlayer && curBout.posName === '大将' ? '大将（主将）' : curBout.posName),
-                        maxHealth: playerMember.maxHealth,
+                        maxHealth: getEffectiveMaxHealth(playerMember),
                         initialKiai: 0,
                         favStance: playerMember.favStance || 'chudan',
                         skills: playerMember.skills,
@@ -9070,7 +9106,7 @@
                             ? (enemyMember.title && !['代表剣士', '高校剣士', '代表選手'].includes(enemyMember.title) ? enemyMember.title : '')
                             : '',
                         styleTag: `${(enemyMember.stance || enemyMember.favStance) === 'jodan' ? '上段' : (enemyMember.stance || enemyMember.favStance) === 'waki' ? '下段の構え' : '中段'}の気迫`,
-                        maxHealth: enemyMember.hp || enemyMember.maxHealth || 6,
+                        maxHealth: getEffectiveMaxHealth(enemyMember),
                         initialKiai: 0,
                         str: enemyMember.str,
                         agi: enemyMember.agi,
@@ -9381,98 +9417,6 @@
             });
 
             // 表彰式・閉会式セレモニーデータを準備して画面遷移
-            const ceremonyData = prepareCeremonyResultData(match, rankLabel, growthResults);
-            ClubState.ceremonyResultData = ceremonyData;
-            ClubState.viewPhase = 'tournament_ceremony';
-            saveClubData();
-            renderClubUI();
-        },
-
-        proceedFromCeremonyToDashboard: function () {
-            // 🏆 表彰状画面のBGMを確実に停止
-            if (window.KendoBGM && window.KendoBGM.stop) {
-                window.KendoBGM.stop();
-            }
-
-            ClubState.ceremonyResultData = null;
-            ClubState.currentMatchData = null;
-            ClubState.viewPhase = 'dashboard';
-
-            // 大会終了後はまず必ず練習メニューの画面に戻すため、イベントの即時遷移は保留(deferEvent: true)
-            advanceCalendarWeek(true);
-            saveClubData();
-            renderClubUI();
-        },
-
-        proceedFromFreshmanWelcomeToDashboard: function () {
-            proceedFromFreshmanWelcomeToDashboard();
-        },
-
-        proceedFromRetireCeremonyToCaptainSelect: function () {
-            proceedFromRetireCeremonyToCaptainSelect();
-        },
-
-        proceedFromRetireCeremonyToDashboard: function () {
-            proceedFromRetireCeremonyToDashboard();
-        },
-
-        proceedFromNewTeamCeremonyToDashboard: function () {
-            proceedFromNewTeamCeremonyToDashboard();
-        },
-
-        proceedFromPrologueToDashboard: function () {
-            proceedFromPrologueToDashboard();
-        },
-
-        skipPrologueVideo: function () {
-            skipPrologueVideo();
-        },
-
-        proceedFromPrologueVideoToStory: function () {
-            proceedFromPrologueVideoToStory();
-        },
-
-        replayPrologueVideo: function () {
-            replayPrologueVideo();
-        },
-
-        syncPrologueVideoAudio: function () {
-            syncPrologueVideoAudio();
-        },
-
-        showClubEnding: function () {
-            showClubEnding();
-        },
-
-        previewOpening: function (type = 'interhigh_district') {
-            ClubState.openingTournamentType = type;
-            ClubState.viewPhase = 'tournament_opening';
-            renderClubUI();
-        },
-
-        previewCeremony: function (type = 'interhigh_district', rank = '優勝') {
-            const mockMatch = {
-                type: type,
-                isIndividual: type.startsWith('interhigh'),
-            };
-            const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
-            const capName = captain ? captain.name : '主将';
-            const mockGrowth = [
-                {
-                    name: capName,
-                    rankLabel: rank,
-                    gains: ['気魄+3', '腕力+2', '敏捷+2', '面+3', '体力+1'],
-                }
-            ];
-            ClubState.ceremonyResultData = prepareCeremonyResultData(mockMatch, rank, mockGrowth);
-            ClubState.viewPhase = 'tournament_ceremony';
-            renderClubUI();
-        },
-
-        confirmReset: function () {
-            if (confirm('剣道部のデータを初期化し、高校名・主将の入力からやり直しますか？')) {
-                resetClubData();
-                renderClubUI();
                 updateModeCardUI();
             }
         },
@@ -9560,6 +9504,10 @@
 
         clearMobilePortal: function () {
             clearMobilePortal();
+        },
+
+        getEffectiveMaxHealth: function (m) {
+            return getEffectiveMaxHealth(m);
         },
     };
 
