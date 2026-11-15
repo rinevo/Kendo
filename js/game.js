@@ -110,9 +110,9 @@ const ENEMY_ROSTER = [
         styleTag: '素直な面打ち',
         maxHealth: 4,
         initialKiai: 0,
-        str: 12,
-        agi: 12,
-        spi: 12,
+        str: 36,
+        agi: 38,
+        spi: 36,
         skills: { men: 42, kote: 28, do: 25, tsuki: 20 },
         specialTechnique: 'hien_men',
         kiaiShoutText: 'やぁぁぁ！',
@@ -183,9 +183,9 @@ const ENEMY_ROSTER = [
         styleTag: '出ばな小手と下段の構えの受け',
         maxHealth: 5,
         initialKiai: 0,
-        str: 14,
-        agi: 18,
-        spi: 15,
+        str: 40,
+        agi: 54,
+        spi: 44,
         skills: { men: 32, kote: 52, do: 32, tsuki: 30 },
         specialTechnique: 'dengeki_kote',
         kiaiShoutText: 'やぁぁぁ！',
@@ -256,9 +256,9 @@ const ENEMY_ROSTER = [
         styleTag: '剛剣上段と豪快な崩し',
         maxHealth: 6,
         initialKiai: 1,
-        str: 22,
-        agi: 14,
-        spi: 18,
+        str: 58,
+        agi: 38,
+        spi: 46,
         skills: { men: 58, kote: 30, do: 40, tsuki: 25 },
         specialTechnique: 'gouriki_men',
         kiaiShoutText: 'やぁぁぁ！',
@@ -329,9 +329,9 @@ const ENEMY_ROSTER = [
         styleTag: '三構え変化と応じ技',
         maxHealth: 5,
         initialKiai: 0,
-        str: 16,
-        agi: 22,
-        spi: 20,
+        str: 44,
+        agi: 56,
+        spi: 55,
         skills: { men: 40, kote: 45, do: 60, tsuki: 35 },
         specialTechnique: 'gen_do',
         kiaiShoutText: 'やぁぁぁ！',
@@ -402,9 +402,9 @@ const ENEMY_ROSTER = [
         styleTag: '三位一体の構え・諸手突き',
         maxHealth: 7,
         initialKiai: 1,
-        str: 24,
-        agi: 24,
-        spi: 25,
+        str: 65,
+        agi: 64,
+        spi: 68,
         skills: { men: 72, kote: 70, do: 68, tsuki: 75 },
         specialTechnique: 'tensho_tsuki',
         kiaiShoutText: 'やぁぁぁ！',
@@ -5342,7 +5342,7 @@ function getFighterStats(who) {
                 skills: p.skills || { men: 8, kote: 8, do: 8, tsuki: 6 },
             };
         }
-        return { str: 14, agi: 14, spi: 14, skills: { men: 42, kote: 38, do: 36, tsuki: 32 } };
+        return { str: 46, agi: 48, spi: 50, skills: { men: 46, kote: 42, do: 40, tsuki: 35 } };
     } else {
         if (state.customMatch && state.customMatch.enemy) {
             const e = state.customMatch.enemy;
@@ -5373,7 +5373,7 @@ function getFighterSpecialTech(who) {
             skills = state.customMatch.player.skills || skills;
         } else {
             techId = 'hien_men';
-            skills = { men: 42, kote: 38, do: 36, tsuki: 32 };
+            skills = { men: 46, kote: 42, do: 40, tsuki: 35 };
         }
     } else {
         if (state.customMatch && state.customMatch.enemy) {
