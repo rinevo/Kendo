@@ -3363,15 +3363,15 @@
         if (!isNational) {
             // ── 都道府県個人予選（高校3年間鍛え上げた3年生） ──
             const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
-            baseHp = 5 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
-            baseStatVal = 48 + tierBonus * 10 + schoolTier.statOffset + Math.floor(Math.random() * 5);
-            baseSkillVal = 44 + tierBonus * 10 + schoolTier.statOffset + Math.floor(Math.random() * 5);
+            baseHp = 4 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
+            baseStatVal = 34 + tierBonus * 6 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            baseSkillVal = 32 + tierBonus * 6 + schoolTier.statOffset + Math.floor(Math.random() * 4);
         } else {
             // ── インターハイ全国総体（全国各県のトップ3年生） ──
             const tierBonus = Math.min(2, Math.max(0, Number(seedTier) || 0));
-            baseHp = 6 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
-            baseStatVal = 72 + tierBonus * 8 + schoolTier.statOffset + Math.floor(Math.random() * 5);
-            baseSkillVal = 68 + tierBonus * 8 + schoolTier.statOffset + Math.floor(Math.random() * 5);
+            baseHp = 5 + (tierBonus >= 1 ? 1 : 0) + arch.hpBonus + schoolTier.hpOffset;
+            baseStatVal = 46 + tierBonus * 7 + schoolTier.statOffset + Math.floor(Math.random() * 4);
+            baseSkillVal = 42 + tierBonus * 7 + schoolTier.statOffset + Math.floor(Math.random() * 4);
         }
 
         // アーキタイプによる明確なパラメータの凹凸（得意+12〜16、苦手-8〜12）
@@ -3894,13 +3894,13 @@
             if (!isNational) {
                 // ── 地区大会（12月新人戦・選抜地区予選） ──
                 const stepBonus = Math.min(2, roundStep);
-                baseStat = 38 + stepBonus * 7 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
-                baseSkill = 35 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseStat = 28 + stepBonus * 5 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkill = 26 + stepBonus * 5 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
             } else {
                 // ── 全国選抜大会（3月・全国の強豪2年生チーム） ──
                 const stepBonus = Math.min(4, roundStep);
-                baseStat = 52 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
-                baseSkill = 48 + stepBonus * 6 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseStat = 38 + stepBonus * 4 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
+                baseSkill = 36 + stepBonus * 4 + pConf.statOffset + schoolTier.statOffset + Math.floor(Math.random() * 4);
             }
 
             // 学年補正（1年の場合は少し控えめ）
