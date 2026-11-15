@@ -9417,4 +9417,196 @@
             });
 
             // 表彰式・閉会式セレモニーデータを準備して画面遷移
-... [truncated for diff preview]
+            const ceremonyData = prepareCeremonyResultData(match, rankLabel, growthResults);
+            ClubState.ceremonyResultData = ceremonyData;
+            ClubState.viewPhase = 'tournament_ceremony';
+            saveClubData();
+            renderClubUI();
+        },
+
+        proceedFromCeremonyToDashboard: function () {
+            // 🏆 表彰状画面のBGMを確実に停止
+            if (window.KendoBGM && window.KendoBGM.stop) {
+                window.KendoBGM.stop();
+            }
+
+            ClubState.ceremonyResultData = null;
+            ClubState.currentMatchData = null;
+            ClubState.viewPhase = 'dashboard';
+
+            // 大会終了後はまず必ず練習メニューの画面に戻すため、イベントの即時遷移は保留(deferEvent: true)
+            advanceCalendarWeek(true);
+            saveClubData();
+            renderClubUI();
+        },
+
+        proceedFromFreshmanWelcomeToDashboard: function () {
+            proceedFromFreshmanWelcomeToDashboard();
+        },
+
+        proceedFromRetireCeremonyToCaptainSelect: function () {
+            proceedFromRetireCeremonyToCaptainSelect();
+        },
+
+        proceedFromRetireCeremonyToDashboard: function () {
+            proceedFromRetireCeremonyToDashboard();
+        },
+
+        proceedFromNewTeamCeremonyToDashboard: function () {
+            proceedFromNewTeamCeremonyToDashboard();
+        },
+
+        proceedFromPrologueToDashboard: function () {
+            proceedFromPrologueToDashboard();
+        },
+
+        skipPrologueVideo: function () {
+            skipPrologueVideo();
+        },
+
+        proceedFromPrologueVideoToStory: function () {
+            proceedFromPrologueVideoToStory();
+        },
+
+        replayPrologueVideo: function () {
+            replayPrologueVideo();
+        },
+
+        syncPrologueVideoAudio: function () {
+            syncPrologueVideoAudio();
+        },
+
+        showClubEnding: function () {
+            showClubEnding();
+        },
+
+        previewOpening: function (type = 'interhigh_district') {
+            ClubState.openingTournamentType = type;
+            ClubState.viewPhase = 'tournament_opening';
+            renderClubUI();
+        },
+
+        previewCeremony: function (type = 'interhigh_district', rank = '優勝') {
+            const mockMatch = {
+                type: type,
+                isIndividual: type.startsWith('interhigh'),
+            };
+            const captain = ClubState.members.find((m) => m.isPlayer) || ClubState.members[0];
+            const capName = captain ? captain.name : '主将';
+            const mockGrowth = [
+                {
+                    name: capName,
+                    rankLabel: rank,
+                    gains: ['気魄+3', '腕力+2', '敏捷+2', '面+3', '体力+1'],
+                }
+            ];
+            ClubState.ceremonyResultData = prepareCeremonyResultData(mockMatch, rank, mockGrowth);
+            ClubState.viewPhase = 'tournament_ceremony';
+            renderClubUI();
+        },
+
+        confirmReset: function () {
+            if (confirm('剣道部のデータを初期化し、高校名・主将の入力からやり直しますか？')) {
+                resetClubData();
+                renderClubUI();
+                updateModeCardUI();
+            }
+        },
+
+        getClubState: function () {
+            return ClubState;
+        },
+
+        isCaptainAutoUnlocked: function () {
+            return isCaptainAutoUnlocked();
+        },
+
+        reconcileBracketData: function (bracket) {
+            reconcileBracketData(bracket);
+        },
+
+        simulateAIBout: function (bout) {
+            return simulateAIBout(bout);
+        },
+
+        applyBoutGrowth: function (member, stats) {
+            return applyBoutGrowth(member, stats);
+        },
+
+        getFatigueGrowthMultiplier: function (fatigue) {
+            return getFatigueGrowthMultiplier(fatigue);
+        },
+
+        applyTournamentRankBonus: function (member, rankLabel, isNational, isIndividual) {
+            return applyTournamentRankBonus(member, rankLabel, isNational, isIndividual);
+        },
+
+        prepareCeremonyResultData: function (match, rankLabel, growthResults = []) {
+            return prepareCeremonyResultData(match, rankLabel, growthResults);
+        },
+
+        getIndividualRankLabel: function (roundIdx, totalRounds) {
+            return getIndividualRankLabel(roundIdx, totalRounds);
+        },
+
+        getRealClubMember: function (target) {
+            return getRealClubMember(target);
+        },
+
+        growStat: function (m, category, key, baseGain) {
+            return growStat(m, category, key, baseGain);
+        },
+
+        completeEvent: function () {
+            completeClubEvent();
+        },
+
+        launchPendingEvent: function () {
+            if (!ClubState.pendingEventData) return;
+            ClubState.currentEventData = ClubState.pendingEventData;
+            ClubState.pendingEventData = null;
+            ClubState.viewPhase = 'event_scene';
+            saveClubData();
+            renderClubUI();
+        },
+
+        launchNewSchoolYear: function () {
+            if (!ClubState.pendingNewSchoolYear) return;
+            ClubState.pendingNewSchoolYear = false;
+            executeNewSchoolYear();
+        },
+
+        triggerEventById: function (eventId) {
+            const ev = CLUB_EVENTS.find(e => e.id === eventId);
+            if (ev) {
+                if (ev.category === 'seasonal') {
+                    markEventTriggeredThisYear(ev.id);
+                }
+                triggerClubEvent(ev);
+                saveClubData();
+                renderClubUI();
+                return true;
+            }
+            return false;
+        },
+
+        getEvents: function () {
+            return CLUB_EVENTS;
+        },
+
+        clearMobilePortal: function () {
+            clearMobilePortal();
+        },
+
+        getEffectiveMaxHealth: function (m) {
+            return getEffectiveMaxHealth(m);
+        },
+    };
+
+    // DOMロード時にモードカードUIを最新セーブデータ状態に合わせて描画
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateModeCardUI);
+    } else {
+        updateModeCardUI();
+    }
+})();
