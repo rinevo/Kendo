@@ -8005,7 +8005,7 @@
 
             let avatarHtml = '';
             if (member && window.FaceGenerator) {
-                const faceSvg = window.FaceGenerator.getMemberFaceSvg(member, 44, 58, {
+                const faceSvg = window.FaceGenerator.getMemberFaceSvg(member, 30, 40, {
                     withFrame: true,
                     schoolName: ClubState.schoolName || '青雲高校',
                     stampText: isSenior ? '卒業生' : (member.isPlayer ? '主将証' : '手帳')
@@ -8043,6 +8043,49 @@
             `;
         }).join('');
 
+        const retiredSeniorsHtml = (data.retiredSeniors && data.retiredSeniors.length > 0) ? `
+            <div class="graduating-seniors-box">
+                <div class="seniors-box-header">
+                    <span class="seniors-header-icon">🎓</span>
+                    <span class="seniors-header-title">卒業を迎える先輩たち</span>
+                    <span class="seniors-header-sub">（前年9月に引退した3年生元部員）</span>
+                </div>
+                <div class="graduating-seniors-grid">
+                    ${data.retiredSeniors.map((senior) => {
+                        const faceSvg = window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(senior, 50, 66, {
+                            withFrame: true,
+                            schoolName: ClubState.schoolName || '青雲高校',
+                            stampText: '卒業生'
+                        }) : '<span style="font-size:28px;">🎓</span>';
+                        const stanceLabel = senior.favStance === 'jodan' ? '上段' : (senior.favStance === 'waki' ? '下段' : '中段');
+                        const roleBadge = senior.wasPlayer ? '👑 元主将' : '⚔️ 先輩';
+                        const combatPower = (typeof getMemberCombatPower === 'function')
+                            ? getMemberCombatPower(senior)
+                            : Math.round(((senior.str || 10) + (senior.agi || 10) + (senior.spi || 10)) * 3);
+                        return `
+                            <div class="graduating-senior-card" onclick="event.stopPropagation(); if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${senior.id}');" title="${escapeHtml(senior.name)}の生徒手帳を開く">
+                                <div class="senior-card-avatar">
+                                    ${faceSvg}
+                                </div>
+                                <div class="senior-card-info">
+                                    <div class="senior-card-role-row">
+                                        <span class="senior-badge ${senior.wasPlayer ? 'is-captain' : ''}">${roleBadge}</span>
+                                        <span class="senior-stance-badge">構え: ${stanceLabel}</span>
+                                    </div>
+                                    <div class="senior-card-name">${escapeHtml(senior.name)}</div>
+                                    <div class="senior-card-stats">
+                                        <span class="senior-stat-item">戦力: <strong>${combatPower}</strong></span>
+                                        ${senior.favSpecialTech ? `<span class="senior-tech-item">秘技: ${escapeHtml(senior.favSpecialTech)}</span>` : ''}
+                                    </div>
+                                </div>
+                                <div class="senior-card-graduate-seal">🎓 卒業</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
+
         container.innerHTML = `
             <div class="ceremony-container event-scene-container">
                 <div class="ceremony-opening-banner event-scene-banner">
@@ -8051,8 +8094,10 @@
                     <div class="ceremony-venue-tag">📍 ${escapeHtml(ClubState.schoolName)} 剣道部 ｜ ${ClubState.year}年目 ${ClubState.month}月 ${ClubState.week}週</div>
                 </div>
 
-                <div class="ceremony-card event-scene-card">
-                    <div class="ceremony-art-wrap event-art-wrap">
+                <div class="ceremony-card event-scene-card event-cinematic-card">
+                    <!-- 【上部】画面幅いっぱいの超ワイドイラスト -->
+                    <div class="ceremony-art-wrap event-art-wrap event-art-fullwidth" title="クリックしてイラストを拡大表示" onclick="window.KendoClub.showEventArtModal('${escapeHtml(data.image)}', '${escapeHtml(data.fallbackTitle || data.title)}');">
+                        <div class="event-art-zoom-badge">🔍 拡大</div>
                         <img class="ceremony-art-img" src="${escapeHtml(data.image)}" alt="${escapeHtml(data.fallbackTitle || data.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="ceremony-art-fallback event-art-fallback" style="display:none;">
                             <span class="art-fallback-icon">${data.fallbackIcon || '🥋'}</span>
@@ -8061,67 +8106,35 @@
                         <div class="ceremony-tagline-overlay">${escapeHtml(data.tagline || '')}</div>
                     </div>
 
-                    <div class="ceremony-scroll-body event-scroll-body">
-                        <div class="event-narration-box">
-                            <div class="narration-header">📖 【情景】</div>
-                            <p class="narration-content">${data.narration || ''}</p>
-                        </div>
+                    <!-- 【下部】イラストの真下に配置される情景・部員たちの声・効果・ボタン -->
+                    <div class="event-bottom-area">
+                        <div class="event-bottom-grid">
+                            <!-- 下部・左: 情景ナレーション ＆ イベント効果 ＆ (3月のみ)卒業生一覧 -->
+                            <div class="event-bottom-left">
+                                <div class="event-narration-box">
+                                    <div class="narration-header">📖 【情景】</div>
+                                    <p class="narration-content">${data.narration || ''}</p>
+                                </div>
 
-                        ${(data.retiredSeniors && data.retiredSeniors.length > 0) ? `
-                            <div class="graduating-seniors-box">
-                                <div class="seniors-box-header">
-                                    <span class="seniors-header-icon">🎓</span>
-                                    <span class="seniors-header-title">卒業を迎える先輩たち</span>
-                                    <span class="seniors-header-sub">（前年9月に引退した3年生元部員）</span>
+                                <div class="event-bonus-card">
+                                    <div class="event-bonus-header">✨ 【イベント効果】</div>
+                                    <div class="event-bonus-desc">${escapeHtml(data.effectsDesc || '')}</div>
                                 </div>
-                                <div class="graduating-seniors-grid">
-                                    ${data.retiredSeniors.map((senior) => {
-                                        const faceSvg = window.FaceGenerator ? window.FaceGenerator.getMemberFaceSvg(senior, 50, 66, {
-                                            withFrame: true,
-                                            schoolName: ClubState.schoolName || '青雲高校',
-                                            stampText: '卒業生'
-                                        }) : '<span style="font-size:28px;">🎓</span>';
-                                        const stanceLabel = senior.favStance === 'jodan' ? '上段' : (senior.favStance === 'waki' ? '下段' : '中段');
-                                        const roleBadge = senior.wasPlayer ? '👑 元主将' : '⚔️ 先輩';
-                                        const combatPower = (typeof getMemberCombatPower === 'function')
-                                            ? getMemberCombatPower(senior)
-                                            : Math.round(((senior.str || 10) + (senior.agi || 10) + (senior.spi || 10)) * 3);
-                                        return `
-                                            <div class="graduating-senior-card" onclick="event.stopPropagation(); if (window.KendoClub && window.KendoClub.showMemberHandbook) window.KendoClub.showMemberHandbook('${senior.id}');" title="${escapeHtml(senior.name)}の生徒手帳を開く">
-                                                <div class="senior-card-avatar">
-                                                    ${faceSvg}
-                                                </div>
-                                                <div class="senior-card-info">
-                                                    <div class="senior-card-role-row">
-                                                        <span class="senior-badge ${senior.wasPlayer ? 'is-captain' : ''}">${roleBadge}</span>
-                                                        <span class="senior-stance-badge">構え: ${stanceLabel}</span>
-                                                    </div>
-                                                    <div class="senior-card-name">${escapeHtml(senior.name)}</div>
-                                                    <div class="senior-card-stats">
-                                                        <span class="senior-stat-item">戦力: <strong>${combatPower}</strong></span>
-                                                        ${senior.favSpecialTech ? `<span class="senior-tech-item">秘技: ${escapeHtml(senior.favSpecialTech)}</span>` : ''}
-                                                    </div>
-                                                </div>
-                                                <div class="senior-card-graduate-seal">🎓 卒業</div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
+
+                                ${retiredSeniorsHtml}
                             </div>
-                        ` : ''}
 
-                        ${dialoguesHtml ? `
-                            <div class="event-dialogues-box">
-                                <div class="dialogues-header">💬 【部員たちの声】</div>
-                                <div class="event-dialogues-list">
-                                    ${dialoguesHtml}
-                                </div>
+                            <!-- 下部・右: 部員たちの声（枠内スクロール） -->
+                            <div class="event-bottom-right">
+                                ${dialoguesHtml ? `
+                                    <div class="event-dialogues-box">
+                                        <div class="dialogues-header">💬 【部員たちの声】</div>
+                                        <div class="event-dialogues-list">
+                                            ${dialoguesHtml}
+                                        </div>
+                                    </div>
+                                ` : ''}
                             </div>
-                        ` : ''}
-
-                        <div class="event-bonus-card">
-                            <div class="event-bonus-header">✨ 【イベント効果】</div>
-                            <div class="event-bonus-desc">${escapeHtml(data.effectsDesc || '')}</div>
                         </div>
 
                         <div class="ceremony-actions event-actions">
@@ -8164,18 +8177,18 @@
         let enemyPatterns = [];
         if (stance === 'jodan') {
             enemyPatterns = [
-                { stance: 'jodan', hint: `🔥【上段の構え】${targetMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
-                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は中段に戻りつつ「面」か「小手」を狙っている…（「防御」や「胴」が有効）`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
+                { stance: 'jodan', hint: `🔥【上段の構え】${targetMember.name}は頭上に構え「上段面」を狙っている！`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
+                { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は中段に戻りつつ「面」か「小手」を狙っている…`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
             ];
         } else if (stance === 'waki') {
             enemyPatterns = [
-                { stance: 'waki', hint: `🌊【下段の構え】${targetMember.name}は竹刀を低く構え「後の先防御」か「抜き胴」を狙う！（崩しが有効！）`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
+                { stance: 'waki', hint: `🌊【下段の構え】${targetMember.name}は竹刀を低く構え「後の先防御」か「抜き胴」を狙っている！`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
                 { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は間合いを測りながら鋭い「小手」を狙う！`, isDanger: false, weights: { 小手: 50, 防御: 25, 面: 15, 胴: 10, 崩し: 0, 突き: 0 } },
             ];
         } else {
             enemyPatterns = [
                 { stance: 'chudan', hint: `⚖️【中段の構え】${targetMember.name}は真っ直ぐ「面」か「小手」を狙っている！`, isDanger: false, weights: { 面: 45, 小手: 30, 胴: 15, 防御: 10, 崩し: 0, 突き: 0 } },
-                { stance: 'chudan', hint: `🛡️【中段の構え】${targetMember.name}は守りを固めつつ隙を伺っている…（崩しの好機！）`, isDanger: false, weights: { 防御: 40, 面: 30, 小手: 20, 胴: 10, 崩し: 0, 突き: 0 } },
+                { stance: 'chudan', hint: `🛡️【中段の構え】${targetMember.name}は守りを固めつつ隙を伺っている…`, isDanger: false, weights: { 防御: 40, 面: 30, 小手: 20, 胴: 10, 崩し: 0, 突き: 0 } },
             ];
         }
 
@@ -9165,18 +9178,18 @@
             let enemyPatterns = [];
             if (enemyMember.stance === 'jodan' || enemyMember.favStance === 'jodan') {
                 enemyPatterns = [
-                    { stance: 'jodan', hint: `🔥【上段の構え】${enemyMember.name}は頭上に構え「上段面(2ダメ)」を狙う！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
-                    { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は中段に戻りつつ「面」か「小手」を狙っている…（「防御」や「胴」が有効）`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
+                    { stance: 'jodan', hint: `🔥【上段の構え】${enemyMember.name}は頭上に構え「上段面」を狙っている！`, isDanger: true, weights: { 面: 60, 小手: 25, 胴: 15, 防御: 0, 崩し: 0, 突き: 0 } },
+                    { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は中段に戻りつつ「面」か「小手」を狙っている…`, isDanger: false, weights: { 面: 45, 小手: 35, 胴: 15, 防御: 5, 崩し: 0, 突き: 0 } },
                 ];
             } else if (enemyMember.stance === 'waki' || enemyMember.favStance === 'waki') {
                 enemyPatterns = [
-                    { stance: 'waki', hint: `🌊【下段の構え】${enemyMember.name}は竹刀を低く構え「後の先防御」か「抜き胴」を狙う！（崩しが有効！）`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
+                    { stance: 'waki', hint: `🌊【下段の構え】${enemyMember.name}は竹刀を低く構え「後の先防御」か「抜き胴」を狙っている！`, isDanger: false, weights: { 防御: 50, 胴: 30, 小手: 15, 面: 5, 崩し: 0, 突き: 0 } },
                     { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は間合いを測りながら鋭い「小手」を狙う！`, isDanger: false, weights: { 小手: 50, 防御: 25, 面: 15, 胴: 10, 崩し: 0, 突き: 0 } },
                 ];
             } else {
                 enemyPatterns = [
                     { stance: 'chudan', hint: `⚖️【中段の構え】${enemyMember.name}は真っ直ぐ「面」か「小手」を狙っている！`, isDanger: false, weights: { 面: 45, 小手: 30, 胴: 15, 防御: 10, 崩し: 0, 突き: 0 } },
-                    { stance: 'chudan', hint: `🛡️【中段の構え】${enemyMember.name}は守りを固めつつ隙を伺っている…（崩しの好機！）`, isDanger: false, weights: { 防御: 40, 面: 30, 小手: 20, 胴: 10, 崩し: 0, 突き: 0 } },
+                    { stance: 'chudan', hint: `🛡️【中段の構え】${enemyMember.name}は守りを固めつつ隙を伺っている…`, isDanger: false, weights: { 防御: 40, 面: 30, 小手: 20, 胴: 10, 崩し: 0, 突き: 0 } },
                 ];
             }
 
@@ -9361,9 +9374,6 @@
                                 const enemyStats = {
                                     hits: isEnemyWin ? 1 : 0,
                                     blocks: 1,
-                                    rounds: result.rounds || 3,
-                                    winningMove: isEnemyWin ? (result.winningMove || '面') : null,
-                                    pushWins: 0,
                                     playerHpLost: (result.boutStats && result.boutStats.enemyHpLost !== undefined) ? result.boutStats.enemyHpLost : 0,
                                     playerFatigueAdded: (result.boutStats && result.boutStats.enemyFatigueAdded),
                                 };
@@ -9725,6 +9735,38 @@
 
         completeEvent: function () {
             completeClubEvent();
+        },
+
+        showEventArtModal: function (imgSrc, title) {
+            const existing = document.getElementById('event-art-modal-overlay');
+            if (existing) existing.remove();
+
+            if (!imgSrc) return;
+
+            const overlay = document.createElement('div');
+            overlay.id = 'event-art-modal-overlay';
+            overlay.className = 'event-art-modal-overlay';
+            overlay.innerHTML = `
+                <div class="event-art-modal-dialog" onclick="event.stopPropagation();">
+                    <button type="button" class="event-art-modal-close" title="閉じる" onclick="document.getElementById('event-art-modal-overlay')?.remove();">✕</button>
+                    <img class="event-art-modal-img" src="${imgSrc}" alt="${escapeHtml(title || 'イベントイラスト')}">
+                    ${title ? `<div class="event-art-modal-caption">${escapeHtml(title)}</div>` : ''}
+                </div>
+            `;
+
+            overlay.addEventListener('click', () => {
+                overlay.remove();
+            });
+
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', onKeyDown);
+                }
+            };
+            document.addEventListener('keydown', onKeyDown);
+
+            document.body.appendChild(overlay);
         },
 
         launchPendingEvent: function () {

@@ -153,19 +153,19 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】健太は竹刀を頭上に振りかぶり、渾身の「上段面」を狙っている！（「胴」で躱すか、「防御」で防いで応じ技を狙え！）',
+                hint: '🔥【上段の構え】健太は竹刀を頭上に振りかぶり、渾身の「上段面」を狙っている！',
                 isDanger: true,
                 weights: { 面: 68, 小手: 16, 胴: 10, 突き: 6, 防御: 0, 崩し: 0 },
             },
             {
                 stance: 'chudan',
-                hint: '⚖️【中段の構え】健太は元気よく「面」か「小手」に飛び込もうとしている！（「防御」や「胴」が有効）',
+                hint: '⚖️【中段の構え】健太は元気よく「面」か「小手」に飛び込もうとしている！',
                 isDanger: false,
                 weights: { 面: 40, 小手: 26, 胴: 10, 突き: 6, 防御: 18, 崩し: 0 },
             },
             {
                 stance: 'chudan',
-                hint: '🛡️【中段の構え】健太は少し緊張して守りを意識しつつ「面」を狙っている…（「崩し」や「胴」の好機！）',
+                hint: '🛡️【中段の構え】健太は少し緊張して守りを意識しつつ「面」を狙っている…',
                 isDanger: false,
                 weights: { 防御: 40, 面: 36, 小手: 14, 胴: 5, 突き: 5, 崩し: 0 },
             },
@@ -226,13 +226,13 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'chudan',
-                hint: '⚡【中段の構え】佐々木は鋭い視線であなたの手元（「小手」）を狙っている！（「面」で上から乗り切る好機！）',
+                hint: '⚡【中段の構え】佐々木は鋭い視線であなたの手元の「小手」を狙っている！',
                 isDanger: false,
                 weights: { 小手: 50, 防御: 26, 面: 10, 胴: 8, 突き: 6, 崩し: 0 },
             },
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】佐々木は竹刀を低く構え、「後の先防御(HP+1)」か「抜き胴」を狙っている！（「崩し」で防御を割るか、「小手」が有効！）',
+                hint: '🌊【下段の構え】佐々木は竹刀を低く構え、「後の先防御」か「抜き胴」を狙っている！',
                 isDanger: false,
                 weights: { 防御: 52, 小手: 24, 胴: 14, 面: 5, 突き: 5, 崩し: 0 },
             },
@@ -299,19 +299,19 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'chudan',
-                hint: '💥【中段の構え】鬼塚は強引に間合いを詰め、「崩し」の体当たりか豪快な「胴」を狙っている！（基本打突で迎撃せよ）',
+                hint: '💥【中段の構え】鬼塚は強引に間合いを詰め、「崩し」の体当たりか豪快な「胴」を狙っている！',
                 isDanger: true,
                 weights: { 崩し: 48, 胴: 26, 面: 12, 小手: 10, 突き: 4, 防御: 0 },
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】鬼塚が竹刀を頭上に掲げた！強烈な「上段面」か「胴」が来るぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
+                hint: '🔥【上段の構え】鬼塚が竹刀を頭上に掲げた！強烈な「上段面」か「胴」が来るぞ！',
                 isDanger: true,
                 weights: { 面: 46, 胴: 30, 崩し: 14, 小手: 6, 突き: 4, 防御: 0 },
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】鬼塚は上段から「上段面」と「崩し」で粉砕する気配！（「胴」で面を抜くか、「小手」で崩しを迎撃せよ！）',
+                hint: '🔥【上段の構え】鬼塚は上段から「上段面」と「崩し」で粉砕する気配！',
                 isDanger: true,
                 weights: { 面: 42, 崩し: 34, 胴: 14, 小手: 6, 突き: 4, 防御: 0 },
             },
@@ -372,7 +372,7 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】霞は静かに竹刀を低く構え、「後の先防御(HP+1)」か意表を突く「抜き胴」を狙っている…',
+                hint: '🌊【下段の構え】霞は静かに竹刀を低く構え、「後の先防御」か意表を突く「抜き胴」を狙っている…',
                 isDanger: false,
                 weights: { 防御: 48, 胴: 24, 小手: 14, 面: 8, 突き: 6, 崩し: 0 },
             },
@@ -384,7 +384,7 @@ const ENEMY_ROSTER = [
             },
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】霞がすっと諸手上段に構えた！「上段面」と「胴」の二段変化を狙っているぞ！（「胴」で面を抜くか、「小手」で胴を断て！）',
+                hint: '🔥【上段の構え】霞がすっと諸手上段に構えた！「上段面」と「胴」の二段変化を狙っているぞ！',
                 isDanger: true,
                 weights: { 面: 42, 胴: 36, 小手: 14, 突き: 8, 防御: 0, 崩し: 0 },
             },
@@ -445,13 +445,13 @@ const ENEMY_ROSTER = [
         patterns: [
             {
                 stance: 'jodan',
-                hint: '🔥【上段の構え】龍禅が火の構え（諸手上段）をとった！圧倒的な「上段面」か「小手」が来るぞ！（「胴」か「小手」で応戦せよ）',
+                hint: '🔥【上段の構え】龍禅が火の構えをとった！圧倒的な「上段面」か「小手」が来るぞ！',
                 isDanger: true,
                 weights: { 面: 46, 小手: 30, 突き: 14, 胴: 10, 防御: 0, 崩し: 0 },
             },
             {
                 stance: 'waki',
-                hint: '🌊【下段の構え】龍禅は泰然自若の下段の構え。「後の先防御(HP+1)」で受け流すか、守りを読む「崩し」を狙っている！',
+                hint: '🌊【下段の構え】龍禅は泰然自若の下段の構え。「後の先防御」で受け流すか、守りを読む「崩し」を狙っている！',
                 isDanger: true,
                 weights: { 防御: 42, 崩し: 24, 突き: 14, 小手: 10, 面: 10, 胴: 0 },
             },
@@ -6713,7 +6713,7 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'defend_spam',
                 counterMove: '崩し',
                 stance: 'chudan',
-                hint: `💥【崩し警戒】${enemyShort}はあなたの守り癖を見抜き、体当たり（崩し）でこじ開けようとしている！（打突で迎撃せよ！）`,
+                hint: `💥【崩し警戒】${enemyShort}はあなたの守り癖を見抜き、体当たり「崩し」でこじ開けようとしている！`,
                 isDanger: true,
                 weights: { 崩し: 65, 小手: 20, 面: 15, 防御: 0, 突き: 0, 胴: 0 },
             };
@@ -6729,7 +6729,7 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'men_spam',
                 counterMove: '胴',
                 stance: 'waki',
-                hint: `🌊【抜き胴警戒】${enemyShort}はあなたの面の連打を見切り、下段から「抜き胴」を狙っている！（「小手」で胴を断て！）`,
+                hint: `🌊【抜き胴警戒】${enemyShort}はあなたの面の連打を見切り、下段から「抜き胴」を狙っている！`,
                 isDanger: true,
                 weights: { 胴: 65, 防御: 25, 小手: 10, 面: 0, 崩し: 0, 突き: 0 },
             };
@@ -6745,7 +6745,7 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'kote_spam',
                 counterMove: '面',
                 stance: 'chudan',
-                hint: `🔥【相面警戒】${enemyShort}はあなたの小手狙いを見切り、上から乗り切る鋭い「面」を狙っている！（「胴」で面を抜け！）`,
+                hint: `🔥【相面警戒】${enemyShort}はあなたの小手狙いを見切り、上から乗り切る鋭い「面」を狙っている！`,
                 isDanger: true,
                 weights: { 面: 72, 胴: 15, 防御: 13, 小手: 0, 崩し: 0, 突き: 0 },
             };
@@ -6761,7 +6761,7 @@ function analyzePlayerPattern(history, enemyData) {
                 type: 'do_spam',
                 counterMove: '小手',
                 stance: 'chudan',
-                hint: `⚡【出ばな小手警戒】${enemyShort}はあなたの胴の連打を察知し、電光石火の「小手」で手元を断つ気配！（「面」で上から叩け！）`,
+                hint: `⚡【出ばな小手警戒】${enemyShort}はあなたの胴の連打を察知し、電光石火の「小手」で手元を断つ気配！`,
                 isDanger: true,
                 weights: { 小手: 70, 面: 20, 防御: 10, 胴: 0, 崩し: 0, 突き: 0 },
             };
@@ -6837,6 +6837,19 @@ function getEnemyWeaknessActions(targetMove, eStance, isStunned) {
 }
 
 // ───────────────────────────────────────────
+// 心眼メッセージ整形（丸括弧による注釈・指南文を除去）
+// ───────────────────────────────────────────
+function cleanMindEyeParentheses(text) {
+    if (!text || typeof text !== 'string') return text;
+    // 全角括弧（...）および半角括弧 (...) を中身ごと除去
+    let cleaned = text.replace(/（[^）]*）/g, '').replace(/\([^\)]*\)/g, '');
+    // 連続する空白や末尾の不要な空白を整形
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned;
+}
+window.cleanMindEyeParentheses = cleanMindEyeParentheses;
+
+// ───────────────────────────────────────────
 // 気力（気魄）の高低差に応じた心眼（敵行動予兆）の真偽判定・看破システム
 // ───────────────────────────────────────────
 function resolveMindEyeHint(intent, enemyData) {
@@ -6898,25 +6911,25 @@ function resolveMindEyeHint(intent, enemyData) {
         if (diff >= 8) {
             let insightText = '';
             if (primaryMove === '必殺') {
-                insightText = `⚠️👁️【心眼・完全看破】気迫で圧倒！${eShort}が全身全霊の「奥義（必殺技）」を放つ気配！（構えを合わせ「防御」で受け止めよ！）`;
+                insightText = `⚠️👁️【心眼・完全看破】気迫で圧倒！${eShort}が全身全霊の「奥義」を放つ気配！`;
             } else if (primaryMove === '防御') {
-                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は守勢に入り「防御」で受け流しを狙っている！（「崩し」でガードを割れ！）`;
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は守勢に入り「防御」で受け流しを狙っている！`;
             } else if (primaryMove === '崩し') {
-                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は間合いを詰めて体当たり「崩し」を狙っている！（打突で先手を打て！）`;
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は間合いを詰めて体当たり「崩し」を狙っている！`;
             } else if (primaryMove === '面') {
-                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は鋭い「面」を狙っている！（「胴」で面を抜くか、「防御」で応じ技を狙え！）`;
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は鋭い「面」を狙っている！`;
             } else if (primaryMove === '小手') {
-                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は手元への「小手」を狙っている！（「面」で上から乗り切れ！）`;
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は手元への「小手」を狙っている！`;
             } else if (primaryMove === '胴') {
-                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は腰を沈め鋭い「胴」を狙っている！（「小手」で胴を断て！）`;
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}は腰を沈め鋭い「胴」を狙っている！`;
             } else if (primaryMove === '突き') {
-                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}の剣先が正中線へ！「突き」が来るぞ！（「面」で叩き落とせ！）`;
+                insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}の剣先が正中線へ！「突き」が来るぞ！`;
             } else {
                 insightText = `✨👁️【心眼・完全看破】気迫で圧倒！${eShort}の狙いは「${primaryMove}」と完全に看破した！`;
             }
             return { hint: insightText, type: 'insight', weakness };
         }
-        return { hint: intent.hint, type: 'normal', weakness };
+        return { hint: cleanMindEyeParentheses(intent.hint), type: 'normal', weakness };
     }
 
     // 誤読（間違った内容・幻惑）の場合
@@ -6924,17 +6937,17 @@ function resolveMindEyeHint(intent, enemyData) {
     if (diff <= -6) {
         let fakeText = '';
         if (fakeMove === '面') {
-            fakeText = `🌫️【気圧され・幻惑】${eShort}の凄まじい気迫に呑まれる…頭上へ強烈な「面」が来る気配！（「防御」か「胴」で防げ…！？）`;
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の凄まじい気迫に呑まれる…頭上へ強烈な「面」が来る気配！`;
         } else if (fakeMove === '小手') {
-            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に気圧され視界が惑う…手元への「小手」を狙っているように見える…！（「面」で迎え撃て…！？）`;
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に気圧され視界が惑う…手元への「小手」を狙っているように見える…！`;
         } else if (fakeMove === '胴') {
-            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に間合いを見失う…低く鋭い「胴」が来る気配！（「小手」で胴を断て…！？）`;
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に間合いを見失う…低く鋭い「胴」が来る気配！`;
         } else if (fakeMove === '突き') {
-            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に圧倒される…正中線への鋭い「突き」が来る気配！（「面」で制せ…！？）`;
+            fakeText = `🌫️【気圧され・幻惑】${eShort}の気迫に圧倒される…正中線への鋭い「突き」が来る気配！`;
         } else if (fakeMove === '防御') {
-            fakeText = `🌫️【気圧され・幻惑】${eShort}は微動だにせず「防御」で守りを固めているように見える…！（「崩し」の好機か…！？）`;
+            fakeText = `🌫️【気圧され・幻惑】${eShort}は微動だにせず「防御」で守りを固めているように見える…！`;
         } else {
-            fakeText = `🌫️【気圧され・幻惑】${eShort}が間合いを詰め体当たり「崩し」に来るように見える…！（打突で迎撃せよ…！？）`;
+            fakeText = `🌫️【気圧され・幻惑】${eShort}が間合いを詰め体当たり「崩し」に来るように見える…！`;
         }
         return { hint: fakeText, type: 'confused', weakness };
     }
@@ -6942,17 +6955,17 @@ function resolveMindEyeHint(intent, enemyData) {
     // 小差で外れた場合の誤読表示（一見自然だが嘘の狙い）
     let normalFakeText = '';
     if (fakeMove === '面') {
-        normalFakeText = `⚖️【中段の構え】${eShort}は間合いを測りながら鋭い「面」を狙っている気配…（「胴」が有効）`;
+        normalFakeText = `⚖️【中段の構え】${eShort}は間合いを測りながら鋭い「面」を狙っている気配…`;
     } else if (fakeMove === '小手') {
-        normalFakeText = `⚡【中段の構え】${eShort}は鋭い視線であなたの手元（「小手」）を狙っている！（「面」で乗り切る好機！）`;
+        normalFakeText = `⚡【中段の構え】${eShort}は鋭い視線であなたの手元の「小手」を狙っている！`;
     } else if (fakeMove === '胴') {
-        normalFakeText = `🌊【下段の構え】${eShort}は身を沈め、意表を突く「胴」を狙っている気配…（「小手」が有効）`;
+        normalFakeText = `🌊【下段の構え】${eShort}は身を沈め、意表を突く「胴」を狙っている気配…`;
     } else if (fakeMove === '突き') {
         normalFakeText = `⚡【中段の構え】${eShort}の剣先が僅かに沈んだ！電光石火の「突き」が来るぞ！`;
     } else if (fakeMove === '防御') {
-        normalFakeText = `🛡️【中段の構え】${eShort}は守りを意識し「防御」の体勢に入っている…（「崩し」の好機！）`;
+        normalFakeText = `🛡️【中段の構え】${eShort}は守りを意識し「防御」の体勢に入っている…`;
     } else {
-        normalFakeText = `💥【中段の構え】${eShort}は間合いを強引に詰め、「崩し」の体当たりを狙っている気配！（打突で迎撃せよ）`;
+        normalFakeText = `💥【中段の構え】${eShort}は間合いを強引に詰め、「崩し」の体当たりを狙っている気配！`;
     }
     return { hint: normalFakeText, type: 'normal_fake', weakness };
 }
@@ -7034,21 +7047,21 @@ function decideEnemyIntent() {
         if (state.enemyKiai >= 3 && state.playerKiai >= 3) {
             intent = {
                 stance: 'chudan',
-                hint: `💥【鍔迫り合い・気迫激突】⚠️ 互いの気合が最高潮！離れ際の奥義激突か、「密着ガード」での受け止めか…！（離れ技は3ダメ！）`,
+                hint: `💥【鍔迫り合い・気迫激突】⚠️ 互いの気合が最高潮！離れ際の奥義激突か、「密着ガード」での受け止めか…！`,
                 isDanger: true,
                 weights: { 突き: 45, 防御: 35, 面: 12, 胴: 8, 小手: 0, 崩し: 0 },
             };
         } else if (state.enemyKiai >= 3) {
             intent = {
                 stance: 'chudan',
-                hint: `💥【鍔迫り合い】⚠️ ${enemyData.shortName}の気合が充実！離れ際の「離れ突き(3ダメ)」か「引き面」が来るぞ！`,
+                hint: `💥【鍔迫り合い】⚠️ ${enemyData.shortName}の気合が充実！離れ際の「離れ突き」か「引き面」が来るぞ！`,
                 isDanger: true,
                 weights: { 突き: 52, 面: 22, 小手: 14, 崩し: 12, 胴: 0, 防御: 0 },
             };
         } else if (state.playerKiai >= 3) {
             intent = {
                 stance: 'chudan',
-                hint: `💥【鍔迫り合い・秘技警戒】⚠️ ${enemyData.shortName}はあなたの気合充実に気圧され、「密着ガード」で離れ際の奥義を防ごうとしている…！（「突き放し」でガードを崩せ！）`,
+                hint: `💥【鍔迫り合い・秘技警戒】⚠️ ${enemyData.shortName}はあなたの気合充実に気圧され、「密着ガード」で離れ際の奥義を防ごうとしている…！`,
                 isDanger: false,
                 weights: { 防御: 55, 胴: 25, 小手: 15, 面: 5, 崩し: 0, 突き: 0 },
             };
@@ -7057,7 +7070,7 @@ function decideEnemyIntent() {
             if (r < 0.38) {
                 intent = {
                     stance: 'chudan',
-                    hint: `💥【鍔迫り合い】${enemyData.shortName}は鍔元を押し込み、離れ際の「引き面」か「引き胴」を狙っている！（引き技は2ダメージ！）`,
+                    hint: `💥【鍔迫り合い】${enemyData.shortName}は鍔元を押し込み、離れ際の「引き面」か「引き胴」を狙っている！`,
                     isDanger: true,
                     weights: { 面: 45, 胴: 35, 小手: 10, 崩し: 10, 防御: 0, 突き: 0 },
                 };
@@ -7071,7 +7084,7 @@ function decideEnemyIntent() {
             } else {
                 intent = {
                     stance: 'chudan',
-                    hint: `💥【鍔迫り合い】${enemyData.shortName}は「密着ガード」で引き技を封じようとしている…（「💥突き放し」か「引き胴」の好機！）`,
+                    hint: `💥【鍔迫り合い】${enemyData.shortName}は「密着ガード」で引き技を封じようとしている…`,
                     isDanger: false,
                     weights: { 防御: 48, 胴: 26, 小手: 16, 面: 10, 崩し: 0, 突き: 0 },
                 };
@@ -7089,7 +7102,7 @@ function decideEnemyIntent() {
             const mutualStance = isOnizuka ? 'jodan' : (useWaki ? 'waki' : 'chudan');
             intent = {
                 stance: mutualStance,
-                hint: `⚡【気迫激突】互いの気合が最高潮！${enemyData.shortName}は${eUnlocked ? `奥義「${eTech.name}」` : '気合一閃'}の構えを取りつつ、あなたの秘技をも油断なく警戒している…！（奥義激突か、紙一重の受け止めか！）`,
+                hint: `⚡【気迫激突】互いの気合が最高潮！${enemyData.shortName}は${eUnlocked ? `奥義「${eTech.name}」` : '気合一閃'}の構えを取りつつ、あなたの秘技をも油断なく警戒している…！`,
                 isDanger: true,
                 weights: isOnizuka
                     ? { 必殺: 70, 面: 30, 胴: 0, 突き: 0, 小手: 0, 防御: 0, 崩し: 0 }
@@ -7098,7 +7111,7 @@ function decideEnemyIntent() {
         } else {
             intent = {
                 stance: 'chudan',
-                hint: `⚠️ ${enemyData.shortName}の気合が最高潮！${eUnlocked ? `奥義「${eTech.name}」` : '「気合一閃」'}か強烈な「崩し」が来るぞ！（打突で先手を取るか、見極めよ！）`,
+                hint: `⚠️ ${enemyData.shortName}の気合が最高潮！${eUnlocked ? `奥義「${eTech.name}」` : '「気合一閃」'}か強烈な「崩し」が来るぞ！`,
                 isDanger: true,
                 weights: { 必殺: 65, 崩し: 15, 面: 8, 小手: 6, 胴: 4, 突き: 2, 防御: 0 },
             };
@@ -7109,7 +7122,7 @@ function decideEnemyIntent() {
         intent = {
             stance: keepStance,
             hint: keepStance === 'jodan'
-                ? `🔥【上段・応じ構え】${enemyData.shortName}は上段から威力3倍の「応じ上段面」を狙っているぞ！（「胴」で面を抜け！）`
+                ? `🔥【上段・応じ構え】${enemyData.shortName}は上段から威力3倍の「応じ上段面」を狙っているぞ！`
                 : `🔥 ${enemyData.shortName}は「応じ技」の構え！強烈な打突（威力2倍）で一気に打ち込んでくる気配！`,
             isDanger: true,
             weights: isRyuzen
@@ -7160,13 +7173,13 @@ function decideEnemyIntent() {
                 let alertHint = '';
 
                 if (id === 'sasaki') {
-                    alertHint = `🌊【下段・秘技警戒】${eShort}は下段に構えてあなたの秘技を厳重警戒！「後の先防御」で渾身の受け止めを狙っている…！（打突で崩すか、意表を突け！）`;
+                    alertHint = `🌊【下段・秘技警戒】${eShort}は下段に構えてあなたの秘技を厳重警戒！「後の先防御」で渾身の受け止めを狙っている…！`;
                 } else if (id === 'onizuka') {
-                    alertHint = `🔥【上段・剛剣勝負】${eShort}はあなたの秘技に臆さず、上段から渾身の「面」で力押し勝負を挑んできた！（「胴」で面を抜くか、奥義で押し切るか！）`;
+                    alertHint = `🔥【上段・剛剣勝負】${eShort}はあなたの秘技に臆さず、上段から渾身の「面」で力押し勝負を挑んできた！`;
                 } else if (id === 'kasumi') {
                     alertHint = `🌊【下段・幻影警戒】${eShort}は低く構えてあなたの秘技を冷静に見据えている…。「後の先防御」か、躱しての「抜き胴」を狙っているぞ！`;
                 } else if (id === 'ryuzen') {
-                    alertHint = `🌊【下段・奥義受け止め警戒】${eShort}は泰然自若の構え。あなたの奥義を「渾身の防御」で受け止めんと全身全霊を研ぎ澄ましている…！（不用意な奥義は受け止められるぞ！）`;
+                    alertHint = `🌊【下段・奥義受け止め警戒】${eShort}は泰然自若の構え。あなたの奥義を「渾身の防御」で受け止めんと全身全霊を研ぎ澄ましている…！`;
                 } else if (id === 'kenta') {
                     alertHint = `🛡️【中段・気迫に圧迫】${eShort}はあなたの凄まじい気迫に圧倒され、必死に「防御」を固めつつ、出端の「面」を狙っている…！`;
                 } else {
@@ -7235,13 +7248,13 @@ function decideEnemyIntent() {
     }
 
     const mindEye = resolveMindEyeHint(intent, enemyData);
-    intent.displayHint = mindEye.hint;
+    intent.displayHint = cleanMindEyeParentheses(mindEye.hint);
     intent.mindEyeType = mindEye.type;
     state.currentEnemyWeakness = mindEye.weakness;
 
     state.enemyIntent = intent;
     intentBox.className = intent.isDanger ? 'intent-box danger' : 'intent-box';
-    intentText.textContent = intent.displayHint || intent.hint;
+    intentText.textContent = intent.displayHint || cleanMindEyeParentheses(intent.hint);
 
     const intentIcon = document.querySelector('.intent-icon');
     if (intentIcon) {
@@ -7657,7 +7670,7 @@ function proceedOpeningCeremony() {
         setActionButtonsLocked(false);
         if (state.enemyIntent) {
             intentBox.className = state.enemyIntent.isDanger ? 'intent-box danger' : 'intent-box';
-            intentText.textContent = state.enemyIntent.displayHint || state.enemyIntent.hint;
+            intentText.textContent = state.enemyIntent.displayHint || cleanMindEyeParentheses(state.enemyIntent.hint);
             const intentIcon = document.querySelector('.intent-icon');
             if (intentIcon) {
                 if (state.enemyIntent.mindEyeType === 'insight') {

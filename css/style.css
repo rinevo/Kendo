@@ -7186,20 +7186,55 @@ button.reset-btn:hover:not(:disabled) {
    高校生らしい部活ライフイベント 専用スタイル
    ─────────────────────────────────────────── */
 .event-scene-container {
-    max-width: 960px;
+    max-width: 1360px;
+    width: 96vw;
     margin: 0 auto;
-    padding: 24px 16px 48px;
-    animation: fadeInCeremony 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    height: calc(100vh - 16px);
+    max-height: 960px;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInCeremony 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .event-scene-banner {
+    flex-shrink: 0;
     background: linear-gradient(135deg, rgba(30, 58, 138, 0.55) 0%, rgba(15, 23, 42, 0.85) 60%, rgba(180, 83, 9, 0.3) 100%);
     border: 1px solid rgba(234, 179, 8, 0.4);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 24px 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 8px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.event-scene-banner .ceremony-season-pill {
+    margin-bottom: 0;
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    flex-shrink: 0;
+}
+
+.event-scene-banner .ceremony-main-title {
+    font-size: 1.25rem;
+    margin: 0;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
     text-align: center;
-    margin-bottom: 22px;
+}
+
+.event-scene-banner .ceremony-venue-tag {
+    margin-top: 0;
+    font-size: 0.78rem;
+    color: #94a3b8;
+    flex-shrink: 0;
 }
 
 .event-scene-card {
@@ -7207,22 +7242,109 @@ button.reset-btn:hover:not(:disabled) {
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 16px;
-    padding: 22px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    border-radius: 14px;
+    padding: 10px 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
 
-.event-art-wrap {
-    position: relative;
+.event-cinematic-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* 上部: 画面の余白を最大限取り込んだ大画面イラスト（天井から畳までワイド表示） */
+.event-art-fullwidth, .event-art-wrap {
+    flex: 1 1 auto;
     width: 100%;
     aspect-ratio: 16 / 9;
-    max-height: 490px;
-    border-radius: 14px;
+    min-height: 320px;
+    max-height: min(520px, 58vh);
+    border-radius: 12px;
     overflow: hidden;
-    margin-bottom: 22px;
+    margin-bottom: 0;
     border: 2px solid rgba(234, 179, 8, 0.45);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
     background: #020617;
+    cursor: zoom-in;
+}
+
+/* 下部: 無駄な引き延ばしをなくし、コンテンツにジャストフィット */
+.event-bottom-area {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.event-bottom-grid {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 46% 54%;
+    gap: 12px;
+    max-height: 190px;
+    overflow: hidden;
+}
+
+.event-bottom-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    max-height: 190px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.event-bottom-left::-webkit-scrollbar {
+    width: 4px;
+}
+
+.event-bottom-left::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 2px;
+}
+
+.event-bottom-right {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 190px;
+    height: 100%;
+    overflow: hidden;
+}
+
+.event-art-zoom-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 20px;
+    padding: 3px 9px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    pointer-events: none;
+    opacity: 0.85;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+}
+
+.event-art-wrap:hover .event-art-zoom-badge {
+    opacity: 1;
+    transform: scale(1.05);
 }
 
 .event-art-wrap .ceremony-art-img {
@@ -7246,11 +7368,11 @@ button.reset-btn:hover:not(:disabled) {
     align-items: center;
     justify-content: center;
     background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
-    gap: 12px;
+    gap: 8px;
 }
 
 .event-art-fallback .art-fallback-icon {
-    font-size: 4rem;
+    font-size: 3rem;
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
     animation: floatIcon 3s ease-in-out infinite alternate;
 }
@@ -7261,7 +7383,7 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .event-art-fallback .art-fallback-title {
-    font-size: 1.3rem;
+    font-size: 1.15rem;
     font-weight: 800;
     color: #f8fafc;
     letter-spacing: 0.08em;
@@ -7276,73 +7398,93 @@ button.reset-btn:hover:not(:disabled) {
 
 /* 情景ナレーションボックス */
 .event-narration-box {
-    background: rgba(30, 41, 59, 0.7);
-    border-left: 4px solid #38bdf8;
-    border-radius: 8px;
-    padding: 16px 20px;
+    background: rgba(30, 41, 59, 0.75);
+    border-left: 3px solid #38bdf8;
+    border-radius: 6px;
+    padding: 8px 10px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
 }
 
 .narration-header {
-    font-size: 0.88rem;
+    font-size: 0.78rem;
     font-weight: 800;
     color: #38bdf8;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
 .narration-content {
-    font-size: 0.98rem;
-    line-height: 1.75;
+    font-size: 0.82rem;
+    line-height: 1.45;
     color: #e2e8f0;
     margin: 0;
 }
 
-/* 会話セクション */
+/* 会話セクション（部員たちの声・コンパクト版） */
 .event-dialogues-box {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     background: rgba(30, 41, 59, 0.5);
-    border-radius: 12px;
-    padding: 16px 18px;
+    border-radius: 8px;
+    padding: 8px 10px;
     border: 1px solid rgba(148, 163, 184, 0.15);
+    overflow: hidden;
 }
 
 .dialogues-header {
-    font-size: 0.88rem;
+    font-size: 0.78rem;
     font-weight: 800;
     color: #fbbf24;
-    letter-spacing: 0.08em;
-    margin-bottom: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .event-dialogues-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 6px;
+    padding-right: 4px;
+}
+
+.event-dialogues-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.event-dialogues-list::-webkit-scrollbar-thumb {
+    background: rgba(234, 179, 8, 0.35);
+    border-radius: 2px;
 }
 
 .event-dialogue-item {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 12px;
+    gap: 6px;
 }
 
 .event-dialogue-avatar-col {
-    flex: 0 0 46px;
+    flex: 0 0 32px;
     display: flex;
     justify-content: center;
-    padding-top: 2px;
+    padding-top: 1px;
 }
 
 .event-dialogue-avatar-col .student-photo-frame {
-    padding: 1.5px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    padding: 1px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     background: #ffffff;
 }
 
@@ -7355,16 +7497,16 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .event-fallback-avatar {
-    width: 44px;
-    height: 58px;
-    border-radius: 4px;
+    width: 30px;
+    height: 40px;
+    border-radius: 3px;
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border: 1.5px solid rgba(148, 163, 184, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    font-size: 1.05rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .event-dialogue-content-col {
@@ -7372,23 +7514,23 @@ button.reset-btn:hover:not(:disabled) {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 2px;
 }
 
 .event-speaker-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.88rem;
+    gap: 4px;
+    font-size: 0.74rem;
     font-weight: 800;
     color: #cbd5e1;
 }
 
 .speaker-role-tag {
-    font-size: 0.78rem;
-    font-weight: 900;
-    padding: 1px 6px;
-    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 0 4px;
+    border-radius: 3px;
     background: rgba(56, 189, 248, 0.18);
     border: 1px solid rgba(56, 189, 248, 0.4);
     color: #38bdf8;
@@ -7420,23 +7562,23 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .event-speaker-badge .speaker-icon {
-    font-size: 1rem;
+    font-size: 0.82rem;
 }
 
 .speaker-grade {
-    font-size: 0.80rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: #94a3b8;
-    margin-left: 2px;
+    margin-left: 1px;
 }
 
 .event-dialogue-bubble {
     background: rgba(15, 23, 42, 0.9);
     border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 0.95rem;
-    line-height: 1.6;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    line-height: 1.38;
     color: #f1f5f9;
     position: relative;
 }
@@ -7445,25 +7587,25 @@ button.reset-btn:hover:not(:disabled) {
 .event-dialogue-bubble::before {
     content: '';
     position: absolute;
-    top: 12px;
-    left: -7px;
+    top: 8px;
+    left: -5px;
     width: 0;
     height: 0;
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-right: 7px solid rgba(148, 163, 184, 0.35);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-right: 5px solid rgba(148, 163, 184, 0.35);
 }
 
 .event-dialogue-bubble::after {
     content: '';
     position: absolute;
-    top: 13px;
-    left: -5px;
+    top: 9px;
+    left: -3px;
     width: 0;
     height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-right: 6px solid rgba(15, 23, 42, 0.95);
+    border-top: 3px solid transparent;
+    border-bottom: 3px solid transparent;
+    border-right: 4px solid rgba(15, 23, 42, 0.95);
 }
 
 .event-dialogue-item.is-captain .event-dialogue-bubble {
@@ -7495,50 +7637,51 @@ button.reset-btn:hover:not(:disabled) {
 /* 卒業生一覧紹介セクション */
 .graduating-seniors-box {
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(88, 28, 135, 0.2) 100%);
-    border-radius: 12px;
-    padding: 16px 18px;
+    border-radius: 10px;
+    padding: 10px 12px;
     border: 1px solid rgba(244, 114, 182, 0.35);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
 }
 
 .seniors-box-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 6px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
 }
 
 .seniors-header-icon {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
 }
 
 .seniors-header-title {
-    font-size: 0.98rem;
+    font-size: 0.88rem;
     font-weight: 800;
     color: #fbcfe8;
     letter-spacing: 0.05em;
 }
 
 .seniors-header-sub {
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     color: #cbd5e1;
 }
 
 .graduating-seniors-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
 }
 
 .graduating-senior-card {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(244, 114, 182, 0.3);
-    border-radius: 10px;
-    padding: 10px 12px;
+    border-radius: 8px;
+    padding: 6px 10px;
     position: relative;
     cursor: pointer;
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -7547,21 +7690,21 @@ button.reset-btn:hover:not(:disabled) {
 .graduating-senior-card:hover {
     transform: translateY(-2px);
     border-color: rgba(244, 114, 182, 0.7);
-    box-shadow: 0 6px 18px rgba(244, 114, 182, 0.25);
+    box-shadow: 0 4px 14px rgba(244, 114, 182, 0.25);
 }
 
 .senior-card-avatar {
-    flex: 0 0 52px;
+    flex: 0 0 44px;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .senior-card-avatar .student-photo-frame {
-    padding: 1.5px;
+    padding: 1px;
     background: #ffffff;
     border-color: rgba(244, 114, 182, 0.9);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .senior-card-info {
@@ -7569,20 +7712,20 @@ button.reset-btn:hover:not(:disabled) {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .senior-card-role-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
 }
 
 .senior-badge {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 800;
-    padding: 1px 6px;
+    padding: 1px 5px;
     border-radius: 4px;
     background: rgba(244, 114, 182, 0.2);
     border: 1px solid rgba(244, 114, 182, 0.5);
@@ -7596,12 +7739,12 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .senior-stance-badge {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     color: #94a3b8;
 }
 
 .senior-card-name {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 800;
     color: #f8fafc;
     letter-spacing: 0.04em;
@@ -7611,11 +7754,11 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .senior-card-stats {
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     color: #cbd5e1;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
@@ -7624,121 +7767,246 @@ button.reset-btn:hover:not(:disabled) {
 }
 
 .senior-tech-item {
-    font-size: 0.74rem;
+    font-size: 0.70rem;
     color: #a78bfa;
     background: rgba(167, 139, 250, 0.15);
-    padding: 1px 5px;
+    padding: 1px 4px;
     border-radius: 4px;
 }
 
 .senior-card-graduate-seal {
     position: absolute;
-    top: 6px;
-    right: 8px;
-    font-size: 0.70rem;
+    top: 4px;
+    right: 6px;
+    font-size: 0.65rem;
     font-weight: 800;
     color: #fb7185;
     background: rgba(251, 113, 133, 0.15);
     border: 1px solid rgba(251, 113, 133, 0.4);
-    padding: 1px 5px;
-    border-radius: 10px;
+    padding: 1px 4px;
+    border-radius: 8px;
     transform: rotate(3deg);
 }
 
 /* イベントボーナスカード */
 .event-bonus-card {
+    flex-shrink: 0;
     background: linear-gradient(135deg, rgba(234, 179, 8, 0.14) 0%, rgba(16, 185, 129, 0.14) 100%);
     border: 1.5px solid rgba(234, 179, 8, 0.5);
-    border-radius: 12px;
-    padding: 16px 20px;
+    border-radius: 10px;
+    padding: 8px 14px;
     text-align: center;
-    box-shadow: 0 4px 16px rgba(234, 179, 8, 0.15);
+    box-shadow: 0 3px 12px rgba(234, 179, 8, 0.15);
 }
 
 .event-bonus-header {
-    font-size: 0.88rem;
+    font-size: 0.80rem;
     font-weight: 800;
     color: #fde047;
     letter-spacing: 0.08em;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
 }
 
 .event-bonus-desc {
-    font-size: 1.05rem;
+    font-size: 0.94rem;
     font-weight: 800;
     color: #ffffff;
     letter-spacing: 0.04em;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 /* アクションボタン */
 .event-actions {
+    flex-shrink: 0;
     display: flex;
     justify-content: center;
-    margin-top: 8px;
+    margin-top: 2px;
 }
 
 .btn-event-complete {
-    font-size: 1.15rem;
-    padding: 14px 44px;
+    font-size: 1.05rem;
+    padding: 10px 36px;
     font-weight: 800;
     letter-spacing: 0.06em;
-    border-radius: 30px;
+    border-radius: 24px;
     background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
     color: #0f172a;
     border: none;
-    box-shadow: 0 8px 24px rgba(234, 179, 8, 0.4);
+    box-shadow: 0 6px 20px rgba(234, 179, 8, 0.4);
     cursor: pointer;
     transition: all 0.25s ease;
 }
 
 .btn-event-complete:hover {
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 12px 30px rgba(234, 179, 8, 0.6);
+    box-shadow: 0 10px 26px rgba(234, 179, 8, 0.6);
 }
 
-/* モバイル・レスポンシブ最適化 */
-@media (max-width: 768px) {
+/* モバイル・レスポンシブ最適化（幅960px以下で縦スタック・重なり完全防止） */
+@media (max-width: 960px) {
     .event-scene-container {
-        padding: 12px 8px 32px;
-    }
-    .event-art-wrap {
         height: auto;
-        aspect-ratio: 16 / 9;
+        max-height: none;
+        padding: 8px 6px 24px;
+        overflow-y: visible;
     }
     .event-scene-banner {
-        padding: 16px 12px;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 12px;
     }
-    .narration-content {
-        font-size: 0.9rem;
+    .event-cinematic-card, .event-grid-card {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        height: auto;
+        max-height: none;
+        gap: 12px;
     }
-    .event-dialogue-item {
+    .event-art-wrap, .event-art-fullwidth {
+        height: auto;
+        aspect-ratio: 16 / 9;
+        max-height: min(300px, 36vh);
+        min-height: 0;
+        flex: 0 0 auto;
+    }
+    .event-bottom-area {
+        overflow: visible;
+        height: auto;
+        max-height: none;
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
         gap: 10px;
     }
+    .event-bottom-grid {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        height: auto;
+        max-height: none;
+        gap: 10px;
+    }
+    .event-bottom-left, .event-bottom-right, .event-col-visual, .event-col-content {
+        overflow: visible;
+        height: auto;
+        max-height: none;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .event-dialogues-box {
+        overflow: visible;
+        height: auto;
+        max-height: none;
+    }
+    .event-dialogues-list {
+        overflow: visible;
+        max-height: 280px;
+    }
+    .narration-content {
+        font-size: 0.88rem;
+    }
+    .event-dialogue-item {
+        gap: 8px;
+    }
     .event-dialogue-avatar-col {
-        flex: 0 0 40px;
+        flex: 0 0 38px;
     }
     .event-dialogue-avatar-col .student-photo-frame svg {
-        width: 38px;
+        width: 36px;
         height: auto;
     }
     .event-fallback-avatar {
-        width: 38px;
-        height: 50px;
-        font-size: 1.3rem;
+        width: 36px;
+        height: 48px;
+        font-size: 1.2rem;
     }
     .event-dialogue-bubble {
-        font-size: 0.88rem;
-        padding: 8px 12px;
+        font-size: 0.84rem;
+        padding: 8px 10px;
     }
     .event-bonus-desc {
-        font-size: 0.95rem;
+        font-size: 0.90rem;
     }
     .btn-event-complete {
         width: 100%;
-        padding: 14px 20px;
-        font-size: 1.05rem;
+        padding: 12px 18px;
+        font-size: 1.0rem;
     }
+}
+
+/* ───────────────────────────────────────────
+   イラスト拡大プレビューモーダル
+   ─────────────────────────────────────────── */
+.event-art-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: fadeInCeremony 0.25s ease-out forwards;
+    cursor: zoom-out;
+}
+
+.event-art-modal-dialog {
+    position: relative;
+    max-width: 95vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: default;
+}
+
+.event-art-modal-img {
+    max-width: 100%;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 12px;
+    border: 2px solid rgba(234, 179, 8, 0.55);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85);
+}
+
+.event-art-modal-caption {
+    margin-top: 12px;
+    color: #f8fafc;
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.event-art-modal-close {
+    position: absolute;
+    top: -16px;
+    right: -16px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.9);
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.event-art-modal-close:hover {
+    transform: scale(1.1);
+    background: rgba(220, 38, 38, 1);
 }
 
 /* ───────────────────────────────────────────
